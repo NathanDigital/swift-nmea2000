@@ -11,7 +11,7 @@ Each PGN is one struct conforming to `ParameterGroup`, in its own file under `So
 5. Add one stored property per upstream parameter.
    - Use `Double?` for scaled values, where `nil` means not available.
    - Keep upstream's units (SI, except where upstream uses degrees, as it does for latitude and longitude), and state the unit in each property's doc comment.
-   - Enums port `tN2k…` types and must preserve unknown raw values (see CLAUDE.md).
+   - For `tN2k…` enum parameters, use the Swift type listed in [types.md](types.md). Unknown raw values are preserved automatically.
 6. Translate the `Set` body into `encode(to:)` line by line, using the mapping in [field-codec.md](field-codec.md). Write reserved bits and bytes exactly as upstream does.
 7. Translate the `Parse` body into `init(from:)` the same way. Leave out the PGN check, because `ParameterGroup.init(_:)` does it. Only throw where upstream's `Parse` returns `false` for a reason other than a PGN mismatch.
 8. Add `Tests/NMEA2000Tests/PGNs/PGN<number><Name>Tests.swift` with these tests:
