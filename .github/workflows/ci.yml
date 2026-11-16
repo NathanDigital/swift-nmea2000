@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Ubuntu 26.04 / Swift (pinned)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        run: scripts/linux-swift build
+
+      - name: Test
+        if: hashFiles('Tests/**/*.swift') != ''
+        run: scripts/linux-swift test
+
+      - name: Lint
+        run: scripts/linux-swift format lint --strict --recursive Sources Package.swift

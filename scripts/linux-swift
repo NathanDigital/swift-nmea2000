@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Run a `swift` command inside the pinned Ubuntu 26.04 build container.
+#
+#   scripts/linux-swift build
+#   scripts/linux-swift test --filter PositionRapidUpdate
+#   scripts/linux-swift format lint -s -r Sources Tests
+#
+# The image is (re)built from docker/ when its inputs change (Docker layer cache).
+# Linux build products live in a named volume so they never clash with the
+# host's macOS .build directory.
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+image="nmea2000-swift-linux"
+
+docker build --quiet --tag "$image" "$repo/docker" >/dev/null
+
+tty_flags=()
+[[ -t 0 && -t 1 ]] && tty_flags=(-it)
+
+exec docker run --rm "${tty_flags[@]}" \
+  --volume "$repo:/src" \
+  --volume "$image-build:/src/.build" \
+  --workdir /src \
+  "$image" swift "$@"
