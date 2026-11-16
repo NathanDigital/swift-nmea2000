@@ -19,8 +19,7 @@ jobs:
         run: scripts/linux-swift build
 
       - name: Test
-        if: hashFiles('Tests/**/*.swift') != ''
         run: scripts/linux-swift test
 
       - name: Lint
-        run: scripts/linux-swift format lint --strict --recursive Sources Package.swift
+        run: scripts/linux-swift format lint --strict --recursive Sources Tests Package.swift
