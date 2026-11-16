@@ -8,6 +8,7 @@ let package = Package(
     .library(name: "NMEA2000", targets: ["NMEA2000"])
   ],
   targets: [
-    .target(name: "NMEA2000")
+    .target(name: "NMEA2000"),
+    .testTarget(name: "NMEA2000Tests", dependencies: ["NMEA2000"]),
   ]
 )

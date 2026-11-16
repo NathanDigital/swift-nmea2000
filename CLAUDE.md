@@ -8,7 +8,7 @@ A pure-Swift port of [ttlappalainen/NMEA2000](https://github.com/ttlappalainen/N
 
 **Names:** the repo is `NathanDigital/swift-nmea2000`. The package name is `swift-nmea2000`, and the library product/module is `NMEA2000` (`import NMEA2000`).
 
-**Status:** only the package skeleton exists so far. The layout and mapping below are the intended design. Update this file whenever the real structure differs from it.
+**Status:** the message container and field codec (`Sources/NMEA2000/Message/`: `Message`, `MessageWriter`, `MessageReader`) are ported, with the helper mapping in `docs/field-codec.md`. No PGNs are ported yet. The rest of the layout and mapping below is the intended design. Update this file whenever the real structure differs from it.
 
 ## Licensing and attribution
 
