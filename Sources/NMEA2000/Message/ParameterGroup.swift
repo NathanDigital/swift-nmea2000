@@ -1,0 +1,93 @@
+// swift-nmea2000: a Swift port of Timo Lappalainen's NMEA2000 library.
+// https://github.com/ttlappalainen/NMEA2000
+//
+// Copyright (c) 2026 NathanDigital. Original work Copyright (c) 2015-2026
+// Timo Lappalainen, Kave Oy. Licensed under the MIT License; see LICENSE.
+
+/// The decoded contents of a message with a particular PGN.
+///
+/// Each conforming type ports one upstream `SetN2kPGN…` / `ParseN2kPGN…` pair.
+/// ``encode(to:)`` is a line-by-line translation of the `Set` body and
+/// ``init(from:)`` of the `Parse` body, in the same field order, using the
+/// ``MessageWriter`` and ``MessageReader`` equivalents of upstream's helpers.
+///
+/// Create a message to send with ``makeMessage(priority:destination:)``, and
+/// decode a received one with ``init(_:)``:
+///
+/// ```swift
+/// let message = PositionRapidUpdate(latitude: 60.15, longitude: 24.95).makeMessage()
+/// let position = try PositionRapidUpdate(message)
+/// ```
+public protocol ParameterGroup: Sendable {
+  /// The parameter group number this type encodes and decodes.
+  static var pgn: UInt32 { get }
+
+  /// The priority upstream assigns when it sends this parameter group.
+  static var defaultPriority: UInt8 { get }
+
+  /// Decodes the fields from a payload.
+  ///
+  /// Implementations read fields in wire order and don't check the PGN;
+  /// ``init(_:)`` does that. Like upstream, they accept a payload shorter
+  /// than the full field list, and the missing fields decode as not available.
+  /// They ignore any bytes after the fields they know.
+  ///
+  /// - Parameter reader: A reader positioned at the start of the fields.
+  /// - Throws: ``MessageDecodingError`` if the payload is invalid in a way
+  ///   upstream also rejects.
+  init(from reader: inout MessageReader) throws(MessageDecodingError)
+
+  /// Encodes the fields into a payload.
+  ///
+  /// - Parameter writer: The writer to append the fields to.
+  func encode(to writer: inout MessageWriter)
+}
+
+extension ParameterGroup {
+  /// Decodes a received message.
+  ///
+  /// - Parameter message: The message to decode.
+  /// - Throws: ``MessageDecodingError/unexpectedPGN(expected:actual:)`` if the
+  ///   message has a different PGN, or any error from ``init(from:)``.
+  public init(_ message: Message) throws(MessageDecodingError) {
+    guard message.pgn == Self.pgn else {
+      throw .unexpectedPGN(expected: Self.pgn, actual: message.pgn)
+    }
+    var reader = MessageReader(message)
+    try self.init(from: &reader)
+  }
+
+  /// Encodes the parameter group as a message ready to send.
+  ///
+  /// The source address is left at its default; the node sets it when it
+  /// sends the message.
+  ///
+  /// - Parameters:
+  ///   - priority: The priority, or `nil` for ``defaultPriority``.
+  ///   - destination: The destination address. Most parameter groups are
+  ///     broadcast.
+  /// - Returns: The message.
+  public func makeMessage(
+    priority: UInt8? = nil,
+    destination: UInt8 = Message.broadcastAddress
+  ) -> Message {
+    var writer = MessageWriter()
+    encode(to: &writer)
+    return Message(
+      pgn: Self.pgn,
+      priority: priority ?? Self.defaultPriority,
+      destination: destination,
+      data: writer.data)
+  }
+}
+
+/// An error that occurs when a message can't be decoded.
+public enum MessageDecodingError: Error, Hashable, Sendable {
+  /// The message's PGN isn't the one the decoding type handles.
+  case unexpectedPGN(expected: UInt32, actual: UInt32)
+
+  /// The payload has the right PGN, but its contents are invalid.
+  ///
+  /// The reason is a short human-readable description for diagnostics.
+  case invalidPayload(pgn: UInt32, reason: String)
+}
