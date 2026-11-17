@@ -158,12 +158,22 @@ public actor Node {
   /// up to eight bytes is sent in one frame unless its PGN is a fast-packet
   /// PGN; anything longer is sent as a fast packet.
   ///
+  /// A message marked ``Message/isTransportProtocol`` that doesn't fit in
+  /// one frame is sent by ISO transport protocol instead, which only a full
+  /// node can do, one message at a time. This method returns once the
+  /// session is announced; the node sends the data packets afterwards, every
+  /// 50 ms for a broadcast or as the receiver asks for them. Messages sent to
+  /// one device by transport protocol must be shorter than 223 bytes for
+  /// upstream's receivers to accept them.
+  ///
   /// - Parameter message: The message to send.
   /// - Throws: ``NodeError`` if the node can't send the message now, or an
   ///   error from the transport.
   public func send(_ message: Message) async throws {
     let now = clock.now()
     transmit(engine.poll(at: now))
+    // A transport protocol send sets a deadline for its next packet.
+    defer { scheduleTimer() }
     let frames = try engine.send(message, at: now)
     try await enqueue(frames).value
   }
@@ -284,6 +294,11 @@ public enum NodeError: Error, Sendable, Hashable {
   case claimingAddress
   /// Every address was taken, so the node has none.
   case noAddress
+  /// A message is already being sent by transport protocol, which sends one
+  /// message at a time.
+  case transferInProgress
+  /// Only a node in ``Node/Mode/node`` mode can send by transport protocol.
+  case notAFullNode
   /// The message can't be framed.
   case invalidMessage(FramingError)
 }

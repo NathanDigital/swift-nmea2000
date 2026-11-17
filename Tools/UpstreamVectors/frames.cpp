@@ -116,13 +116,48 @@ void receive(TestNode &node, unsigned long id, std::vector<unsigned char> data) 
 }
 
 void send(TestNode &node, unsigned long pgn, int count, uint8_t priority = 6,
-          uint8_t destination = 0xff, uint8_t first = 0) {
+          uint8_t destination = 0xff, uint8_t first = 0, bool tp = false) {
   tN2kMsg m;
   m.SetPGN(pgn);
   m.Priority = priority;
   m.Destination = destination;
   for (int i = 0; i < count; i++) m.AddByte(uint8_t(first + i));
-  node.SendMsg(m);
+  m.SetIsTPMessage(tp);
+  if (!node.SendMsg(m) && timed) record("send refused");
+}
+
+// Sends a message with the ISO transport protocol.
+void sendTP(TestNode &node, unsigned long pgn, int count, uint8_t destination = 0xff) {
+  send(node, pgn, count, 6, destination, 0, true);
+}
+
+// Transport protocol frames, from source 0x42 to a destination. A connection
+// management frame carries a control byte, four bytes and the PGN.
+const unsigned long TPCM = 0x18ec0042, TPDT = 0x18eb0042;
+unsigned long tp(unsigned long base, uint8_t destination) { return base | destination << 8; }
+std::vector<unsigned char> cm(uint8_t control, uint8_t a, uint8_t b, uint8_t c, uint8_t d,
+                              unsigned long pgn) {
+  return {control, a, b, c, d, uint8_t(pgn), uint8_t(pgn >> 8), uint8_t(pgn >> 16)};
+}
+std::vector<unsigned char> rts(int count, unsigned long pgn, uint8_t packets = 0) {
+  if (packets == 0) packets = uint8_t((count + 6) / 7);
+  return cm(16, uint8_t(count), uint8_t(count >> 8), packets, 0xff, pgn);
+}
+std::vector<unsigned char> bam(int count, unsigned long pgn) {
+  return cm(32, uint8_t(count), uint8_t(count >> 8), uint8_t((count + 6) / 7), 0xff, pgn);
+}
+std::vector<unsigned char> cts(uint8_t packets, uint8_t next, unsigned long pgn) {
+  return cm(17, packets, next, 0xff, 0xff, pgn);
+}
+// Data packet `sequence` of a payload of `count` bytes counting up from 0.
+std::vector<unsigned char> dt(uint8_t sequence, int count) {
+  std::vector<unsigned char> data = {sequence};
+  for (int i = (sequence - 1) * 7; i < sequence * 7; i++) data.push_back(i < count ? uint8_t(i) : 0xff);
+  return data;
+}
+// Receives data packets first to last of a payload of `count` bytes.
+void dts(TestNode &node, uint8_t destination, int first, int last, int count) {
+  for (int i = first; i <= last; i++) receive(node, tp(TPDT, destination), dt(i, count));
 }
 
 // A fast-packet frame: the sequence/frame byte followed by up to seven bytes.
@@ -394,6 +429,199 @@ const std::vector<Case> cases = {
       start(n, tNMEA2000::N2km_NodeOnly, 251);
       until(n, 450);
       send(n, 129025, 8, 2);
+    }),
+    // Receiving with the ISO transport protocol. The node is at 23 (0x17).
+    NODE("TP receives a broadcast", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0xff), bam(20, 126464));
+      until(n, 550);
+      dts(n, 0xff, 1, 1, 20);
+      until(n, 600);
+      dts(n, 0xff, 2, 3, 20);
+    }),
+    NODE("TP receives from a sender to this node", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0x17), rts(50, 126464));
+      dts(n, 0x17, 1, 5, 50);
+      dts(n, 0x17, 6, 8, 50);
+    }),
+    NODE("TP asks for as many packets as the message has, up to 5", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0x17), rts(20, 126464, 2));
+      dts(n, 0x17, 1, 2, 20);
+      receive(n, tp(TPCM, 0x17), rts(20, 126464, 0));
+    }),
+    NODE("TP listens in on a transfer to another node", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0x30), rts(20, 126464));
+      dts(n, 0x30, 1, 3, 20);
+    }),
+    NODE("TP aborts a transfer with a packet out of sequence", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0x17), rts(20, 126464));
+      dts(n, 0x17, 1, 1, 20);
+      dts(n, 0x17, 3, 3, 20);
+      dts(n, 0x17, 2, 2, 20);
+    }),
+    NODE("TP drops a broadcast with a packet out of sequence", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0xff), bam(20, 126464));
+      dts(n, 0xff, 2, 3, 20);
+    }),
+    NODE("TP refuses a message too long for its buffer", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0x17), rts(223, 126464));
+      receive(n, tp(TPCM, 0x17), rts(222, 126464));
+      receive(n, tp(TPCM, 0xff), bam(223, 126996));
+    }),
+    NODE("TP refuses a transfer when every buffer is busy", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      for (unsigned long source = 1; source <= 5; source++)
+        receive(n, 0x0df80500 | source, fp(0x00, {9, 1, 2, 3, 4, 5, 6}));
+      receive(n, tp(TPCM, 0x17), rts(20, 126464));
+      until(n, 600);
+      receive(n, tp(TPCM, 0x17), rts(20, 126464));
+    }),
+    NODE("TP keeps a slow transfer's buffer while packets arrive", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      // The transfer starts first, so it would be the oldest buffer at 650
+      // if its packet at 590 didn't make it young again.
+      receive(n, tp(TPCM, 0xff), bam(20, 126464));
+      until(n, 510);
+      for (unsigned long source = 1; source <= 4; source++)
+        receive(n, 0x0df80500 | source, fp(0x00, {9, 1, 2, 3, 4, 5, 6}));
+      until(n, 590);
+      dts(n, 0xff, 1, 1, 20);
+      until(n, 650);
+      receive(n, 0x0df80506, fp(0x00, {9, 1, 2, 3, 4, 5, 6}));
+      dts(n, 0xff, 2, 3, 20);
+    }),
+    NODE("TP keeps transfers and fast packets of one PGN apart", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0xff), bam(10, 126464));
+      receive(n, 0x19ee0042 | 0xff00, fp(0x00, {9, 1, 2, 3, 4, 5, 6}));
+      dts(n, 0xff, 1, 2, 10);
+      receive(n, 0x19ee0042 | 0xff00, fp(0x01, {7, 8, 9}));
+    }),
+    NODE("TP doesn't answer in listen only mode", {
+      start(n, tNMEA2000::N2km_ListenOnly);
+      until(n, 500);
+      receive(n, tp(TPCM, 0x17), rts(20, 126464));
+      dts(n, 0x17, 1, 3, 20);
+    }),
+    NODE("TP doesn't answer while claiming", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 300);
+      receive(n, tp(TPCM, 0x17), rts(20, 126464));
+      dts(n, 0x17, 1, 3, 20);
+    }),
+
+    // Sending with the ISO transport protocol.
+    NODE("TP sends a broadcast", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20);
+      until(n, 700);
+    }),
+    NODE("TP sends to one device", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 50, 0x42);
+      until(n, 510);
+      receive(n, tp(TPCM, 0x17), cts(5, 1, 126464));
+      until(n, 520);
+      receive(n, tp(TPCM, 0x17), cts(5, 6, 126464));
+      until(n, 530);
+      receive(n, tp(TPCM, 0x17), cm(19, 50, 0, 8, 0xff, 126464));
+      sendTP(n, 126464, 20, 0x42);
+    }),
+    NODE("TP sends one message at a time", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20, 0x42);
+      until(n, 549);
+      sendTP(n, 126464, 20, 0x42);
+      until(n, 550);
+      sendTP(n, 126464, 20, 0x42);
+    }),
+    NODE("TP gives up after 100 ms without a CTS", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 50, 0x42);
+      receive(n, tp(TPCM, 0x17), cts(5, 1, 126464));
+      until(n, 599);
+      sendTP(n, 126464, 20, 0x42);
+      until(n, 600);
+      sendTP(n, 126464, 20, 0x42);
+    }),
+    NODE("TP waits when asked for no packets", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20, 0x42);
+      receive(n, tp(TPCM, 0x17), cts(0, 1, 126464));
+      until(n, 590);
+      receive(n, tp(TPCM, 0x17), cts(2, 1, 126464));
+      receive(n, tp(TPCM, 0x17), cts(9, 3, 126464));
+    }),
+    NODE("TP ends a transfer on a CTS out of sequence", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20, 0x42);
+      receive(n, tp(TPCM, 0x17), cts(2, 2, 126464));
+      receive(n, tp(TPCM, 0x17), cts(2, 1, 126464));
+      sendTP(n, 126464, 20, 0x42);
+    }),
+    NODE("TP ends a transfer on a CTS for another PGN", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20, 0x42);
+      receive(n, tp(TPCM, 0x17), cts(2, 1, 126996));
+      sendTP(n, 126464, 20, 0x42);
+    }),
+    NODE("TP ends a transfer on an abort", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20, 0x42);
+      receive(n, tp(TPCM, 0x17), cm(255, 1, 0xff, 0xff, 0xff, 126464));
+      sendTP(n, 126464, 20, 0x42);
+    }),
+    NODE("TP ignores controls for a broadcast", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20);
+      receive(n, tp(TPCM, 0x17), cts(2, 1, 126464));
+      receive(n, tp(TPCM, 0x17), cm(255, 1, 0xff, 0xff, 0xff, 126464));
+      until(n, 650);
+    }),
+    NODE("TP ignores controls for other nodes", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 20, 0x42);
+      receive(n, tp(TPCM, 0x30), cts(2, 1, 126464));
+      receive(n, tp(TPCM, 0x30), cm(255, 1, 0xff, 0xff, 0xff, 126464));
+      sendTP(n, 126464, 20, 0x42);
+    }),
+    NODE("TP sends a short message in one frame", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 59904, 3, 0x42);
+      sendTP(n, 126464, 6, 0x42);
+    }),
+    NODE("TP needs a full node", {
+      start(n, tNMEA2000::N2km_ListenAndSend);
+      until(n, 500);
+      sendTP(n, 126464, 20, 0x42);
+      sendTP(n, 126464, 20);
     }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);

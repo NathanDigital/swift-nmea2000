@@ -62,16 +62,7 @@ public struct MessageFramer: Sendable {
   /// - Returns: The frames to send, in order.
   /// - Throws: ``FramingError`` if the message can't be sent.
   public mutating func frames(for message: Message) throws(FramingError) -> [CANFrame] {
-    if message.source > Self.maxBusAddress && message.pgn != Self.addressClaimPGN {
-      throw .invalidSource(message.source)
-    }
-    let header = CANIdentifier(
-      priority: message.priority, pgn: message.pgn, source: message.source,
-      destination: message.destination)
-    guard message.pgn != 0, let id = header.frameID else { throw .invalidPGN(message.pgn) }
-    guard message.data.count <= Message.maxDataCount else {
-      throw .payloadTooLong(message.data.count)
-    }
+    let id = try Self.validate(message)
 
     let data = message.data
     if data.count <= CANFrame.maxDataCount && !catalog.isFastPacket(message.pgn) {
@@ -93,6 +84,22 @@ public struct MessageFramer: Sendable {
       offset += 7
     }
     return frames
+  }
+
+  /// Checks that a message can be sent, and returns its CAN identifier.
+  @discardableResult
+  static func validate(_ message: Message) throws(FramingError) -> UInt32 {
+    if message.source > maxBusAddress && message.pgn != addressClaimPGN {
+      throw .invalidSource(message.source)
+    }
+    let header = CANIdentifier(
+      priority: message.priority, pgn: message.pgn, source: message.source,
+      destination: message.destination)
+    guard message.pgn != 0, let id = header.frameID else { throw .invalidPGN(message.pgn) }
+    guard message.data.count <= Message.maxDataCount else {
+      throw .payloadTooLong(message.data.count)
+    }
+    return id
   }
 
   /// The highest address a device can claim (`N2kMaxCanBusAddress`).

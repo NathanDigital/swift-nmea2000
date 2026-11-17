@@ -12,8 +12,8 @@ import Testing
 private let ownName: UInt64 = 0xc032_8200_ffc0_0001
 
 /// A node case from `Tools/UpstreamVectors/frames.cpp`: the steps it takes,
-/// and the frames upstream's node sends and the messages it delivers, from
-/// `scripts/upstream-vectors Node`.
+/// and the lines `scripts/upstream-vectors Node` prints for it: the frames
+/// upstream's node sends, the messages it delivers and the sends it refuses.
 struct NodeCase: Sendable, CustomTestStringConvertible {
   enum Step: Sendable {
     /// Poll every 10 ms until this many milliseconds into the case.
@@ -22,6 +22,11 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
     case receive(UInt32, [UInt8])
     /// Send a message whose payload counts up from 0.
     case send(pgn: UInt32, count: Int, priority: UInt8)
+    /// Send a message whose payload counts up from 0 by transport protocol.
+    case sendTP(pgn: UInt32, count: Int, to: UInt8 = 0xff)
+    /// Receive transport protocol data packets from 0x42 carrying a payload
+    /// of `count` bytes counting up from 0.
+    case dataPackets(to: UInt8, ClosedRange<Int>, of: Int)
     /// Receive an address claim with the first `count` bytes of a NAME.
     case claim(source: UInt8, name: UInt64, count: Int = 8)
     /// Receive this many claims with a lower NAME, each from the node's
@@ -31,17 +36,21 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
     case clearEvents
   }
 
+  /// An event, which prints as the harness prints it.
   enum Event: Hashable, Sendable, CustomStringConvertible {
     case tx(at: UInt64, id: UInt32, data: [UInt8])
     case rx(
       at: UInt64, pgn: UInt32, priority: UInt8, source: UInt8, destination: UInt8, data: [UInt8])
+    case refused(at: UInt64)
 
     var description: String {
       switch self {
-      case .tx(let time, let id, let data): "t=\(time) tx id=\(hex(id)) data=\(data.map(hex))"
+      case .tx(let time, let id, let data):
+        "t=\(time) tx id=\(hex(id, digits: 8)) data=\(bytes(data))"
       case .rx(let time, let pgn, let priority, let source, let destination, let data):
         "t=\(time) rx pgn=\(pgn) priority=\(priority) source=\(source) "
-          + "destination=\(destination) data=\(data.map(hex))"
+          + "destination=\(destination) data=\(bytes(data))"
+      case .refused(let time): "t=\(time) send refused"
       }
     }
   }
@@ -51,13 +60,18 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
   var address: UInt8 = 23
   var failedOpens = 0
   var steps: [Step]
-  var events: [Event]
+  var upstream: [String]
 
   var testDescription: String { name }
 }
 
-private func hex(_ value: some BinaryInteger) -> String {
-  "0x" + String(value, radix: 16)
+private func hex(_ value: some BinaryInteger, digits: Int = 2) -> String {
+  let text = String(value, radix: 16)
+  return "0x" + String(repeating: "0", count: max(digits - text.count, 0)) + text
+}
+
+private func bytes(_ data: [UInt8]) -> String {
+  "[" + data.map { hex($0) }.joined(separator: ", ") + "]"
 }
 
 /// Drives an engine as the harness drives upstream's node: polling it the
@@ -114,6 +128,7 @@ struct EngineDriver {
       record(try engine.send(message, at: now))
       return nil
     } catch {
+      events.append(.refused(at: now))
       return error
     }
   }
@@ -129,6 +144,15 @@ struct EngineDriver {
     case .receive(let id, let data): receive(CANFrame(id: id, data: data))
     case .send(let pgn, let count, let priority):
       send(Message(pgn: pgn, priority: priority, data: (0..<count).map(UInt8.init)))
+    case .sendTP(let pgn, let count, let destination):
+      send(
+        Message(
+          pgn: pgn, destination: destination, data: (0..<count).map(UInt8.init),
+          isTransportProtocol: true))
+    case .dataPackets(let destination, let sequences, let count):
+      for sequence in sequences {
+        receive(CANFrame(id: tpDT(to: destination), data: dataPacket(sequence, of: count)))
+      }
     case .claim(let source, let name, let count): claim(from: source, name: name, count: count)
     case .lowerClaimsFromOwnAddress(let count):
       for _ in 0..<count { claim(from: engine.address, name: ownName - 1) }
@@ -142,65 +166,98 @@ struct EngineDriver {
 }
 
 private let claim17: [UInt8] = [0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]
-private let lower: [UInt8] = [0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]
 private let position: [UInt8] = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
 private let sendPosition = NodeCase.Step.send(pgn: 129025, count: 8, priority: 2)
+private let fastPacketStart: [UInt8] = [0x00, 9, 1, 2, 3, 4, 5, 6]
 
 private func claimed(at time: UInt64, from source: UInt8) -> NodeCase.Event {
   .tx(at: time, id: 0x18ee_ff00 | UInt32(source), data: claim17)
 }
 
-private func claimReceived(
-  at time: UInt64, from source: UInt8, data: [UInt8] = lower
-) -> NodeCase.Event {
-  .rx(at: time, pgn: 60928, priority: 6, source: source, destination: 255, data: data)
+// Transport protocol frames from 0x42, as frames.cpp builds them.
+
+private func tpCM(to destination: UInt8) -> UInt32 { 0x18ec_0042 | UInt32(destination) << 8 }
+private func tpDT(to destination: UInt8) -> UInt32 { 0x18eb_0042 | UInt32(destination) << 8 }
+
+private func cm(
+  _ control: UInt8, _ a: UInt8, _ b: UInt8, _ c: UInt8, _ d: UInt8, _ pgn: UInt32
+) -> [UInt8] {
+  [control, a, b, c, d, UInt8(pgn & 0xff), UInt8(pgn >> 8 & 0xff), UInt8(pgn >> 16)]
+}
+
+private func rts(_ count: Int, _ pgn: UInt32, packets: UInt8? = nil) -> [UInt8] {
+  cm(16, UInt8(count & 0xff), UInt8(count >> 8), packets ?? UInt8((count + 6) / 7), 0xff, pgn)
+}
+
+private func bam(_ count: Int, _ pgn: UInt32) -> [UInt8] {
+  cm(32, UInt8(count & 0xff), UInt8(count >> 8), UInt8((count + 6) / 7), 0xff, pgn)
+}
+
+private func cts(_ packets: UInt8, next: UInt8, _ pgn: UInt32) -> [UInt8] {
+  cm(17, packets, next, 0xff, 0xff, pgn)
+}
+
+/// Data packet `sequence` of a payload of `count` bytes counting up from 0.
+private func dataPacket(_ sequence: Int, of count: Int) -> [UInt8] {
+  [UInt8(sequence)] + ((sequence - 1) * 7..<sequence * 7).map { $0 < count ? UInt8($0) : 0xff }
 }
 
 @Suite("Node engine")
 struct NodeEngineTests {
   static let cases: [NodeCase] = [
     NodeCase(
-      name: "open", mode: .node, steps: [.until(600)],
-      events: [claimed(at: 200, from: 23)]),
+      name: "open", mode: .node,
+      steps: [.until(600)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]"
+      ]),
     NodeCase(
-      name: "open retries after a failure", mode: .node, failedOpens: 1, steps: [.until(1400)],
-      events: [claimed(at: 1200, from: 23)]),
+      name: "open retries after a failure", mode: .node, failedOpens: 1,
+      steps: [.until(1400)],
+      upstream: [
+        "t=1200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]"
+      ]),
     NodeCase(
       name: "discards frames while opening", mode: .node,
       steps: [
         .until(100), .receive(0x09f8_0117, [1, 2, 3, 4, 5, 6, 7, 8]), .until(200),
         .receive(0x09f8_0117, [1, 2, 3, 4, 5, 6, 7, 8]),
       ],
-      events: [
-        claimed(at: 200, from: 23),
-        .rx(
-          at: 200, pgn: 129025, priority: 2, source: 23, destination: 255,
-          data: [1, 2, 3, 4, 5, 6, 7, 8]),
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=200 rx pgn=129025 priority=2 source=23 destination=255 data=[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]",
       ]),
     NodeCase(
       name: "sends only after its address claim", mode: .node,
       steps: [.until(190), sendPosition, .until(449), sendPosition, .until(450), sendPosition],
-      events: [
-        claimed(at: 200, from: 23), .tx(at: 450, id: 0x09f8_0117, data: position),
+      upstream: [
+        "t=190 send refused",
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=449 send refused",
+        "t=450 tx id=0x09f80117 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
       ]),
     NodeCase(
       name: "keeps its address against a higher NAME", mode: .node,
       steps: [.until(500), .claim(source: 23, name: ownName + 1), sendPosition],
-      events: [
-        claimed(at: 200, from: 23), claimed(at: 500, from: 23),
-        claimReceived(
-          at: 500, from: 23, data: [0x02, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]),
-        .tx(at: 500, id: 0x09f8_0117, data: position),
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=23 destination=255 data=[0x02, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x09f80117 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
       ]),
     NodeCase(
       name: "moves on against a lower NAME", mode: .node,
       steps: [
-        .until(500), .claim(source: 23, name: ownName - 1), sendPosition, .until(749),
-        sendPosition, .until(750), sendPosition,
+        .until(500), .claim(source: 23, name: ownName - 1), sendPosition, .until(749), sendPosition,
+        .until(750), sendPosition,
       ],
-      events: [
-        claimed(at: 200, from: 23), claimed(at: 500, from: 24), claimReceived(at: 500, from: 23),
-        .tx(at: 750, id: 0x09f8_0118, data: position),
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eeff18 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=23 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 send refused",
+        "t=749 send refused",
+        "t=750 tx id=0x09f80118 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
       ]),
     NodeCase(
       name: "changes device instance against its own NAME while claiming", mode: .node,
@@ -208,51 +265,60 @@ struct NodeEngineTests {
         .until(300), .claim(source: 23, name: ownName), .until(549), sendPosition, .until(550),
         sendPosition,
       ],
-      events: [
-        claimed(at: 200, from: 23),
-        .tx(at: 300, id: 0x18ee_ff17, data: [0x01, 0x00, 0xc0, 0xff, 0x01, 0x82, 0x32, 0xc0]),
-        claimReceived(at: 300, from: 23, data: claim17),
-        .tx(at: 550, id: 0x09f8_0117, data: position),
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=300 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x01, 0x82, 0x32, 0xc0]",
+        "t=300 rx pgn=60928 priority=6 source=23 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=549 send refused",
+        "t=550 tx id=0x09f80117 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
       ]),
     NodeCase(
       name: "moves on against its own NAME after claiming", mode: .node,
       steps: [.until(500), .claim(source: 23, name: ownName)],
-      events: [
-        claimed(at: 200, from: 23), claimed(at: 500, from: 24),
-        claimReceived(at: 500, from: 23, data: claim17),
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eeff18 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=23 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
       ]),
     NodeCase(
       name: "ignores claims for other addresses", mode: .node,
       steps: [
         .until(500), .claim(source: 24, name: ownName - 1), .claim(source: 254, name: ownName - 1),
       ],
-      events: [
-        claimed(at: 200, from: 23), claimReceived(at: 500, from: 24),
-        claimReceived(at: 500, from: 254),
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=24 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=254 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
       ]),
     NodeCase(
       name: "reclaims against a short claim", mode: .node,
       steps: [.until(500), .claim(source: 23, name: ownName - 1, count: 7)],
-      events: [
-        claimed(at: 200, from: 23), claimed(at: 500, from: 23),
-        claimReceived(at: 500, from: 23, data: Array(lower.prefix(7))),
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=23 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32]",
       ]),
     NodeCase(
       name: "wraps from address 251 to 0", mode: .node, address: 251,
       steps: [.until(500), .claim(source: 251, name: ownName - 1)],
-      events: [
-        claimed(at: 200, from: 251), claimed(at: 500, from: 0), claimReceived(at: 500, from: 251),
+      upstream: [
+        "t=200 tx id=0x18eefffb data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eeff00 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=251 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
       ]),
     NodeCase(
       name: "gives up when every address is taken", mode: .node,
       steps: [
         .until(500), .lowerClaimsFromOwnAddress(250), .clearEvents,
-        .claim(source: 21, name: ownName - 1), .claim(source: 22, name: ownName - 1),
-        .until(800), sendPosition,
+        .claim(source: 21, name: ownName - 1), .claim(source: 22, name: ownName - 1), .until(800),
+        sendPosition,
       ],
-      events: [
-        claimed(at: 500, from: 22), claimReceived(at: 500, from: 21),
-        claimed(at: 500, from: 254), claimReceived(at: 500, from: 22),
+      upstream: [
+        "t=500 tx id=0x18eeff16 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=21 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eefffe data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=22 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=800 send refused",
       ]),
     NodeCase(
       name: "gives up from address 0 at 251", mode: .node, address: 0,
@@ -260,30 +326,346 @@ struct NodeEngineTests {
         .until(500), .lowerClaimsFromOwnAddress(250), .clearEvents,
         .claim(source: 250, name: ownName - 1), .claim(source: 251, name: ownName - 1),
       ],
-      events: [
-        claimed(at: 500, from: 251), claimReceived(at: 500, from: 250),
-        claimed(at: 500, from: 254), claimReceived(at: 500, from: 251),
+      upstream: [
+        "t=500 tx id=0x18eefffb data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=250 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eefffe data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=60928 priority=6 source=251 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
       ]),
     NodeCase(
       name: "sends from address 251", mode: .node, address: 251,
       steps: [.until(450), sendPosition],
-      events: [
-        claimed(at: 200, from: 251), .tx(at: 450, id: 0x09f8_01fb, data: position),
+      upstream: [
+        "t=200 tx id=0x18eefffb data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=450 tx id=0x09f801fb data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
+      ]),
+    NodeCase(
+      name: "TP receives a broadcast", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0xff), bam(20, 126464)), .until(550),
+        .dataPackets(to: 0xff, 1...1, of: 20), .until(600), .dataPackets(to: 0xff, 2...3, of: 20),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=600 rx pgn=126464 priority=7 source=66 destination=255 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13]",
+      ]),
+    NodeCase(
+      name: "TP receives from a sender to this node", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0x17), rts(50, 126464)),
+        .dataPackets(to: 0x17, 1...5, of: 50), .dataPackets(to: 0x17, 6...8, of: 50),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x11, 0x05, 0x01, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x11, 0x05, 0x06, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x13, 0x32, 0x00, 0x08, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 rx pgn=126464 priority=7 source=66 destination=23 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31]",
+      ]),
+    NodeCase(
+      name: "TP asks for as many packets as the message has, up to 5", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0x17), rts(20, 126464, packets: 2)),
+        .dataPackets(to: 0x17, 1...2, of: 20), .receive(tpCM(to: 0x17), rts(20, 126464)),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x11, 0x02, 0x01, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x11, 0x02, 0x03, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x11, 0x03, 0x01, 0xff, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP listens in on a transfer to another node", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0x30), rts(20, 126464)),
+        .dataPackets(to: 0x30, 1...3, of: 20),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=126464 priority=7 source=66 destination=48 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13]",
+      ]),
+    NodeCase(
+      name: "TP aborts a transfer with a packet out of sequence", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0x17), rts(20, 126464)),
+        .dataPackets(to: 0x17, 1...1, of: 20), .dataPackets(to: 0x17, 3...3, of: 20),
+        .dataPackets(to: 0x17, 2...2, of: 20),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x11, 0x03, 0x01, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0xff, 0x03, 0xff, 0xff, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP drops a broadcast with a packet out of sequence", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0xff), bam(20, 126464)),
+        .dataPackets(to: 0xff, 2...3, of: 20),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]"
+      ]),
+    NodeCase(
+      name: "TP refuses a message too long for its buffer", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0x17), rts(223, 126464)),
+        .receive(tpCM(to: 0x17), rts(222, 126464)), .receive(tpCM(to: 0xff), bam(223, 126996)),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0xff, 0x01, 0xff, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x11, 0x05, 0x01, 0xff, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP refuses a transfer when every buffer is busy", mode: .node,
+      steps: [.until(500)] + (1...5).map { .receive(0x0df8_0500 | $0, fastPacketStart) } + [
+        .receive(tpCM(to: 0x17), rts(20, 126464)), .until(600),
+        .receive(tpCM(to: 0x17), rts(20, 126464)),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0xff, 0x01, 0xff, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=600 tx id=0x18ec4217 data=[0x11, 0x03, 0x01, 0xff, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP keeps a slow transfer's buffer while packets arrive", mode: .node,
+      steps: [.until(500), .receive(tpCM(to: 0xff), bam(20, 126464)), .until(510)]
+        + (1...4).map { .receive(0x0df8_0500 | $0, fastPacketStart) } + [
+          .until(590), .dataPackets(to: 0xff, 1...1, of: 20), .until(650),
+          .receive(0x0df8_0506, fastPacketStart), .dataPackets(to: 0xff, 2...3, of: 20),
+        ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=650 rx pgn=126464 priority=7 source=66 destination=255 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13]",
+      ]),
+    NodeCase(
+      name: "TP keeps transfers and fast packets of one PGN apart", mode: .node,
+      steps: [
+        .until(500), .receive(tpCM(to: 0xff), bam(10, 126464)),
+        .receive(0x19ee_ff42, fastPacketStart), .dataPackets(to: 0xff, 1...2, of: 10),
+        .receive(0x19ee_ff42, [0x01, 7, 8, 9]),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=126464 priority=7 source=66 destination=255 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09]",
+        "t=500 rx pgn=126464 priority=6 source=66 destination=255 data=[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09]",
+      ]),
+    NodeCase(
+      name: "TP doesn't answer in listen only mode", mode: .listenOnly,
+      steps: [
+        .until(500), .receive(tpCM(to: 0x17), rts(20, 126464)),
+        .dataPackets(to: 0x17, 1...3, of: 20),
+      ],
+      upstream: [
+        "t=500 rx pgn=126464 priority=7 source=66 destination=23 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13]"
+      ]),
+    NodeCase(
+      name: "TP doesn't answer while claiming", mode: .node,
+      steps: [
+        .until(300), .receive(tpCM(to: 0x17), rts(20, 126464)),
+        .dataPackets(to: 0x17, 1...3, of: 20),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=300 rx pgn=126464 priority=7 source=66 destination=23 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13]",
+      ]),
+    NodeCase(
+      name: "TP sends a broadcast", mode: .node,
+      steps: [.until(500), .sendTP(pgn: 126464, count: 20), .until(700)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ecff17 data=[0x20, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=550 tx id=0x18ebff17 data=[0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]",
+        "t=600 tx id=0x18ebff17 data=[0x02, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]",
+        "t=650 tx id=0x18ebff17 data=[0x03, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0xff]",
+      ]),
+    NodeCase(
+      name: "TP sends to one device", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 50, to: 0x42), .until(510),
+        .receive(tpCM(to: 0x17), cts(5, next: 1, 126464)), .until(520),
+        .receive(tpCM(to: 0x17), cts(5, next: 6, 126464)), .until(530),
+        .receive(tpCM(to: 0x17), cm(19, 50, 0, 8, 0xff, 126464)),
+        .sendTP(pgn: 126464, count: 20, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x32, 0x00, 0x08, 0xff, 0x00, 0xee, 0x01]",
+        "t=510 tx id=0x18eb4217 data=[0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]",
+        "t=510 tx id=0x18eb4217 data=[0x02, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]",
+        "t=510 tx id=0x18eb4217 data=[0x03, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14]",
+        "t=510 tx id=0x18eb4217 data=[0x04, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b]",
+        "t=510 tx id=0x18eb4217 data=[0x05, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22]",
+        "t=520 tx id=0x18eb4217 data=[0x06, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29]",
+        "t=520 tx id=0x18eb4217 data=[0x07, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30]",
+        "t=520 tx id=0x18eb4217 data=[0x08, 0x31, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=530 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP sends one message at a time", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42), .until(549),
+        .sendTP(pgn: 126464, count: 20, to: 0x42), .until(550),
+        .sendTP(pgn: 126464, count: 20, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=549 send refused",
+        "t=550 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP gives up after 100 ms without a CTS", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 50, to: 0x42),
+        .receive(tpCM(to: 0x17), cts(5, next: 1, 126464)), .until(599),
+        .sendTP(pgn: 126464, count: 20, to: 0x42), .until(600),
+        .sendTP(pgn: 126464, count: 20, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x32, 0x00, 0x08, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18eb4217 data=[0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]",
+        "t=500 tx id=0x18eb4217 data=[0x02, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]",
+        "t=500 tx id=0x18eb4217 data=[0x03, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14]",
+        "t=500 tx id=0x18eb4217 data=[0x04, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b]",
+        "t=500 tx id=0x18eb4217 data=[0x05, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22]",
+        "t=599 send refused",
+        "t=600 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP waits when asked for no packets", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42),
+        .receive(tpCM(to: 0x17), cts(0, next: 1, 126464)), .until(590),
+        .receive(tpCM(to: 0x17), cts(2, next: 1, 126464)),
+        .receive(tpCM(to: 0x17), cts(9, next: 3, 126464)),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=590 tx id=0x18eb4217 data=[0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]",
+        "t=590 tx id=0x18eb4217 data=[0x02, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]",
+        "t=590 tx id=0x18eb4217 data=[0x03, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0xff]",
+      ]),
+    NodeCase(
+      name: "TP ends a transfer on a CTS out of sequence", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42),
+        .receive(tpCM(to: 0x17), cts(2, next: 2, 126464)),
+        .receive(tpCM(to: 0x17), cts(2, next: 1, 126464)),
+        .sendTP(pgn: 126464, count: 20, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP ends a transfer on a CTS for another PGN", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42),
+        .receive(tpCM(to: 0x17), cts(2, next: 1, 126996)),
+        .sendTP(pgn: 126464, count: 20, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP ends a transfer on an abort", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42),
+        .receive(tpCM(to: 0x17), cm(255, 1, 0xff, 0xff, 0xff, 126464)),
+        .sendTP(pgn: 126464, count: 20, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP ignores controls for a broadcast", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20),
+        .receive(tpCM(to: 0x17), cts(2, next: 1, 126464)),
+        .receive(tpCM(to: 0x17), cm(255, 1, 0xff, 0xff, 0xff, 126464)), .until(650),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ecff17 data=[0x20, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=550 tx id=0x18ebff17 data=[0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]",
+        "t=600 tx id=0x18ebff17 data=[0x02, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]",
+        "t=650 tx id=0x18ebff17 data=[0x03, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0xff]",
+      ]),
+    NodeCase(
+      name: "TP ignores controls for other nodes", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42),
+        .receive(tpCM(to: 0x30), cts(2, next: 1, 126464)),
+        .receive(tpCM(to: 0x30), cm(255, 1, 0xff, 0xff, 0xff, 126464)),
+        .sendTP(pgn: 126464, count: 20, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x14, 0x00, 0x03, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 send refused",
+      ]),
+    NodeCase(
+      name: "TP sends a short message in one frame", mode: .node,
+      steps: [
+        .until(500), .sendTP(pgn: 59904, count: 3, to: 0x42),
+        .sendTP(pgn: 126464, count: 6, to: 0x42),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ea4217 data=[0x00, 0x01, 0x02]",
+        "t=500 tx id=0x18ec4217 data=[0x10, 0x06, 0x00, 0x01, 0xff, 0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "TP needs a full node", mode: .listenAndSend,
+      steps: [
+        .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42), .sendTP(pgn: 126464, count: 20),
+      ],
+      upstream: [
+        "t=500 send refused",
+        "t=500 send refused",
       ]),
     NodeCase(
       name: "starts from address 14 without one", mode: .node, address: 254,
       steps: [.until(300)],
-      events: [claimed(at: 200, from: 14)]),
+      upstream: [
+        "t=200 tx id=0x18eeff0e data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]"
+      ]),
+    NodeCase(
+      name: "listen and node mode claims", mode: .node,
+      steps: [.until(300)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]"
+      ]),
     NodeCase(
       name: "listen only mode stays quiet", mode: .listenOnly,
       steps: [.until(500), .claim(source: 23, name: ownName - 1), sendPosition],
-      events: [claimReceived(at: 500, from: 23)]),
+      upstream: [
+        "t=500 rx pgn=60928 priority=6 source=23 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 send refused",
+      ]),
+    NodeCase(
+      name: "send only mode doesn't claim", mode: .listenAndSend,
+      steps: [.until(200), sendPosition, .claim(source: 23, name: ownName - 1)],
+      upstream: [
+        "t=200 tx id=0x09f80117 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
+        "t=200 rx pgn=60928 priority=6 source=23 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+      ]),
     NodeCase(
       name: "listen and send mode doesn't claim", mode: .listenAndSend,
       steps: [.until(200), sendPosition, .claim(source: 23, name: ownName - 1)],
-      events: [
-        .tx(at: 200, id: 0x09f8_0117, data: position), claimReceived(at: 200, from: 23),
+      upstream: [
+        "t=200 tx id=0x09f80117 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
+        "t=200 rx pgn=60928 priority=6 source=23 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
       ]),
+
   ]
 
   @Test("Behaves as upstream's node", arguments: cases)
@@ -292,7 +674,7 @@ struct NodeEngineTests {
       mode: testCase.mode, address: testCase.address, failedOpens: testCase.failedOpens)
     driver.poll()
     for step in testCase.steps { driver.run(step) }
-    #expect(driver.events == testCase.events)
+    #expect(driver.events.map(\.description) == testCase.upstream)
   }
 
   @Test func refusesToSendWithAReason() {
@@ -308,6 +690,47 @@ struct NodeEngineTests {
     var listener = EngineDriver(mode: .listenOnly, address: 23)
     listener.until(500)
     #expect(listener.send(message) == .listenOnly)
+  }
+
+  @Test func refusesTransportProtocolSendsWithAReason() {
+    let long = Message(
+      pgn: 126464, destination: 0x42, data: Array(0..<20), isTransportProtocol: true)
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.poll()
+    driver.until(450)
+    #expect(driver.send(long) == nil)
+    #expect(driver.send(long) == .transferInProgress)
+
+    var sender = EngineDriver(mode: .listenAndSend, address: 23)
+    sender.poll()
+    sender.until(200)
+    #expect(sender.send(long) == .notAFullNode)
+    #expect(
+      sender.send(Message(pgn: 126464, data: Array(0..<224), isTransportProtocol: true))
+        == .invalidMessage(.payloadTooLong(224)))
+  }
+
+  @Test func broadcastsTransportProtocolMessagesOfPDU2PGNs() {
+    // Upstream's CheckDestination makes a PDU2 PGN broadcast.
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.poll()
+    driver.until(450)
+    driver.events = []
+    driver.send(
+      Message(pgn: 130820, destination: 0x42, data: Array(0..<10), isTransportProtocol: true))
+    #expect(
+      driver.events.first
+        == .tx(at: 450, id: 0x18ec_ff17, data: [0x20, 10, 0, 2, 0xff, 0x04, 0xff, 0x01]))
+  }
+
+  @Test func reportsTransportProtocolDeadlines() {
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.poll()
+    driver.until(450)
+    driver.send(Message(pgn: 126464, data: Array(0..<20), isTransportProtocol: true))
+    #expect(driver.engine.nextDeadline == 500)
+    driver.until(650)
+    #expect(driver.engine.nextDeadline == nil)
   }
 
   @Test func refusesToSendWithoutAnAddress() {

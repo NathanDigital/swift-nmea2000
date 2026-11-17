@@ -12,8 +12,8 @@
 /// whose scheduler uses the 32-bit `millis()`, a deadline is reached at its
 /// exact millisecond.
 ///
-/// Ports the open sequence, `SendMsg` checks, `ParseMessages` and address
-/// claiming of `tNMEA2000`, for one device.
+/// Ports the open sequence, `SendMsg` checks, `ParseMessages`, address
+/// claiming and the ISO transport protocol of `tNMEA2000`, for one device.
 struct NodeEngine: Sendable {
   /// How long to wait after the transport opens before claiming an address.
   /// Upstream found some CAN controllers misbehave when sending straight
@@ -56,6 +56,22 @@ struct NodeEngine: Sendable {
   /// When the address claim in progress ends, or `nil` if there isn't one.
   private var claimDeadline: UInt64?
 
+  /// The message being sent by transport protocol, if any (upstream's
+  /// `PendingTPMsg`).
+  private var transfer: Transfer?
+
+  private struct Transfer {
+    var message: Message
+    /// How many data packets have been sent (`NextDTSequence`).
+    var sentPackets = 0
+    /// When to send the next broadcast packet, or give up waiting for a
+    /// clear to send (`NextDTSendTime`).
+    var deadline: UInt64
+
+    var isBroadcast: Bool { message.destination == Message.broadcastAddress }
+    var isComplete: Bool { sentPackets * 7 >= message.data.count }
+  }
+
   init(
     mode: Node.Mode, address: UInt8, name: DeviceName, framer: MessageFramer,
     assembler: MessageAssembler
@@ -91,6 +107,7 @@ struct NodeEngine: Sendable {
   mutating func transportClosed() {
     openState = .closed(retryAt: 0)
     claimDeadline = nil
+    transfer = nil
   }
 
   /// The next time ``poll(at:)`` has something to do, if any.
@@ -98,7 +115,7 @@ struct NodeEngine: Sendable {
     switch openState {
     case .closed(let retryAt): retryAt
     case .waiting(let until): until
-    case .open: claimDeadline
+    case .open: [claimDeadline, transfer?.deadline].compactMap { $0 }.min()
     }
   }
 
@@ -117,7 +134,7 @@ struct NodeEngine: Sendable {
       return startAddressClaim(at: now)
     case .open:
       _ = isClaimingAddress(at: now)
-      return []
+      return continueTransfer(at: now)
     }
   }
 
@@ -133,13 +150,18 @@ struct NodeEngine: Sendable {
   mutating func receive(_ frame: CANFrame, at now: UInt64) -> (
     frames: [CANFrame], message: Message?
   ) {
-    guard openState == .open,
-      let assembled = assembler.receive(frame, at: UInt32(truncatingIfNeeded: now))
-    else { return ([], nil) }
-    var frames: [CANFrame] = []
+    guard openState == .open else { return ([], nil) }
+    let localAddress = address <= MessageFramer.maxBusAddress + 2 ? address : nil
+    let reception = assembler.receive(
+      frame, at: UInt32(truncatingIfNeeded: now), localAddress: localAddress)
+    var frames = reception.replies.flatMap { sendSystemMessage($0, at: now) ?? [] }
+    if let control = reception.control {
+      frames += handleTransportControl(control, at: now)
+    }
+    guard let assembled = reception.assembled else { return (frames, nil) }
     if assembled.isSystemMessage && mode == .node {
       switch assembled.message.pgn {
-      case ISOAddressClaim.pgn: frames = handleAddressClaim(assembled.message, at: now)
+      case ISOAddressClaim.pgn: frames += handleAddressClaim(assembled.message, at: now)
       default: break
       }
     }
@@ -150,7 +172,10 @@ struct NodeEngine: Sendable {
 
   /// Returns the frames that carry a message from this node.
   ///
-  /// The message's source is replaced with the node's address.
+  /// The message's source is replaced with the node's address. A message
+  /// marked ``Message/isTransportProtocol`` that doesn't fit a single frame
+  /// starts a transport protocol session, which sends its data packets
+  /// later; the frames returned announce it.
   ///
   /// - Throws: ``NodeError`` if the node can't send the message now.
   mutating func send(_ message: Message, at now: UInt64) throws(NodeError) -> [CANFrame] {
@@ -162,10 +187,102 @@ struct NodeEngine: Sendable {
     guard address <= MessageFramer.maxBusAddress || isClaim else { throw .noAddress }
     guard isClaim || !isClaimingAddress(at: now) else { throw .claimingAddress }
     do {
+      try MessageFramer.validate(message)
+    } catch {
+      throw .invalidMessage(error)
+    }
+    if message.isTransportProtocol
+      && (message.data.count > CANFrame.maxDataCount || framer.catalog.isFastPacket(message.pgn))
+    {
+      return try startTransfer(message, at: now)
+    }
+    do {
       return try framer.frames(for: message)
     } catch {
       throw .invalidMessage(error)
     }
+  }
+
+  /// Sends a message the node sends on its own behalf, only as a full node,
+  /// and returns `nil` if it can't be sent now.
+  private mutating func sendSystemMessage(_ message: Message, at now: UInt64) -> [CANFrame]? {
+    guard mode == .node else { return nil }
+    return try? send(message, at: now)
+  }
+
+  // MARK: - Transport protocol
+
+  /// Starts sending a message by transport protocol: a BAM followed by a
+  /// data packet every 50 ms, or a request to send that the receiver must
+  /// answer within 50 ms.
+  ///
+  /// Ports `StartSendTPMessage`.
+  private mutating func startTransfer(_ message: Message, at now: UInt64) throws(NodeError)
+    -> [CANFrame]
+  {
+    guard transfer == nil else { throw .transferInProgress }
+    guard mode == .node else { throw .notAFullNode }
+    var message = message
+    // A PDU2 PGN can only be broadcast (`CheckDestination`).
+    if message.pgn & 0xff != 0 { message.destination = Message.broadcastAddress }
+    transfer = Transfer(message: message, deadline: now + TransportProtocol.packetInterval)
+    return sendSystemMessage(TransportProtocol.start(message), at: now) ?? []
+  }
+
+  /// Sends the next broadcast packet when it's due, or gives up on a
+  /// receiver that stopped answering.
+  ///
+  /// Ports `SendPendingTPMessage`.
+  private mutating func continueTransfer(at now: UInt64) -> [CANFrame] {
+    guard var transfer, now >= transfer.deadline else { return [] }
+    guard transfer.isBroadcast else {
+      self.transfer = nil
+      return []
+    }
+    let frames = sendDataPacket(&transfer, at: now) ?? []
+    transfer.deadline = now + TransportProtocol.packetInterval
+    self.transfer = transfer.isComplete ? nil : transfer
+    return frames
+  }
+
+  /// Handles a clear to send, acknowledgement or abort from the receiver.
+  ///
+  /// Ports the sending side of `TestHandleTPMessage`.
+  private mutating func handleTransportControl(
+    _ control: MessageAssembler.TransportControl, at now: UInt64
+  ) -> [CANFrame] {
+    guard var transfer, !transfer.isBroadcast else { return [] }
+    guard control.pgn == transfer.message.pgn, control.control == .clearToSend else {
+      self.transfer = nil
+      return []
+    }
+    var frames: [CANFrame] = []
+    // A clear to send for no packets asks the sender to wait.
+    if control.packets > 0 {
+      guard Int(control.nextPacket) - 1 == transfer.sentPackets else {
+        self.transfer = nil
+        return []
+      }
+      for _ in 0..<control.packets where !transfer.isComplete {
+        guard let packet = sendDataPacket(&transfer, at: now) else {
+          self.transfer = nil
+          return frames
+        }
+        frames += packet
+      }
+    }
+    transfer.deadline = now + TransportProtocol.clearToSendTimeout
+    self.transfer = transfer
+    return frames
+  }
+
+  /// Sends the next data packet, returning `nil` if it can't be sent.
+  ///
+  /// Ports `SendTPDT`.
+  private mutating func sendDataPacket(_ transfer: inout Transfer, at now: UInt64) -> [CANFrame]? {
+    let packet = TransportProtocol.dataPacket(transfer.sentPackets, of: transfer.message)
+    transfer.sentPackets += 1
+    return sendSystemMessage(packet, at: now)
   }
 
   // MARK: - Address claim

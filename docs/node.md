@@ -4,7 +4,7 @@ Upstream's `tNMEA2000` (`NMEA2000.h/.cpp`) is one class that talks to the CAN dr
 
 1. **CAN frames** (`Sources/NMEA2000/CAN/`, done): pure value types that turn messages into frames and back.
 2. **Transport and node** (`Sources/NMEA2000/Node/`, done): a transport protocol for CAN drivers, and an actor that opens it, claims an address, sends messages and delivers received ones as an `AsyncSequence`.
-3. **ISO transport protocol**: multi-packet sessions (BAM, RTS/CTS) for messages over 223 bytes or sent to one device.
+3. **ISO transport protocol** (done): multi-packet sessions, broadcast (BAM) or to one device (RTS/CTS), received in `MessageAssembler` and sent by `NodeEngine`.
 4. **Network management**: ISO requests, product and configuration information, heartbeat, PGN lists and group functions.
 
 ## CAN frames
@@ -86,7 +86,7 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 ### Not yet ported
 
 - Several devices on one node (`SetDeviceCount`).
-- Commanded address (PGN 65240), which needs the ISO transport protocol.
+- Commanded address (PGN 65240), which arrives by transport protocol (layer 4).
 - Heartbeat, ISO requests, product and configuration information, PGN lists and group functions (layer 4).
 - Forwarding to a stream (`SetForwardStream`, debug modes): gateway formats will be separate codecs.
 - The send frame buffer (`SetN2kCANSendFrameBufSize`): `CANTransport.send(_:)` suspends while the transport is busy instead.
@@ -94,3 +94,27 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 ### Testing
 
 The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node every 10 ms, as a main loop would, and print each event with its time. `Tests/NMEA2000Tests/Node/NodeEngineTests.swift` replays them. `NodeTests.swift` checks the actor's wiring with a manual clock and a fake transport.
+
+## ISO transport protocol
+
+| Upstream | Swift |
+|---|---|
+| `TP_CM`, `TP_DT`, `TP_CM_*`, `TP_MAX_FRAMES`, `TPCtsPackets` | `TransportProtocol` (internal) |
+| `SendTPCM_BAM`, `SendTPCM_RTS`, `SendTPCM_CTS`, `SendTPCM_EndAck`, `SendTPCM_Abort`, `SendTPDT` | `TransportProtocol.start`, `.clearToSend`, `.endOfMessage`, `.abort`, `.dataPacket` |
+| `TestHandleTPMessage` (receiving) | `MessageAssembler.receive(_:at:)`, which shares its buffers between fast packets and sessions |
+| `TestHandleTPMessage` (CTS, ACK, abort for our session), `StartSendTPMessage`, `SendPendingTPMessage`, `EndSendTPMessage` | `NodeEngine`'s transfer |
+| `tN2kMsg::SetIsTPMessage` | `Message.isTransportProtocol` |
+
+### Kept upstream behaviour
+
+- A message marked for transport protocol is sent that way only if it doesn't fit a single frame: more than eight bytes, or a fast-packet PGN. A PDU2 PGN is always broadcast.
+- Sending: a BAM is followed by one data packet every 50 ms. A request to send must get its first clear to send within 50 ms, and each later one within 100 ms of the last, or the node gives up. A clear to send for zero packets makes the sender wait. One out of sequence, or for another PGN, ends the session, as do an acknowledgement or abort. The node sends one message at a time, and only in `.node` mode. Like `SendMsg`, `Node.send(_:)` returns once the session is announced, without reporting whether the receiver took the message.
+- Receiving: a session takes one of the five reassembly buffers, matched by PGN, source, destination and being a session. Each data packet restarts the buffer's 100 ms timeout. Sessions between other devices are reassembled too.
+- A request to send to the node gets a clear to send for as many packets as the message has, at most five, read from the request's packet count rather than its maximum-packets byte. A request for 223 bytes or more, or one that finds every buffer busy, is aborted as busy. A packet out of sequence aborts the session with reason 3. Replies are only sent in `.node` mode and outside an address claim.
+- A message received by transport protocol has priority 7, and its timestamp is the time of its last data packet. The protocol's own frames are never delivered.
+
+### Divergences
+
+| Upstream | Swift | Why |
+|---|---|---|
+| `TestHandleTPMessage` reads connection management fields from leftover buffer bytes when the frame is shorter than eight bytes | `MessageAssembler` ignores the frame | Upstream's result is undefined. |

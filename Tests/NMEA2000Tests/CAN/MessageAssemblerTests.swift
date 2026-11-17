@@ -346,4 +346,50 @@ struct MessageAssemblerTests {
     let messages = assemble(frames, into: &assembler)
     #expect(messages.map(\.data) == [[1, 2, 3, 4, 5, 6, 7, 8]])
   }
+
+  @Test func reassemblesTransportProtocolBroadcasts() throws {
+    // A BAM for a 10-byte PGN 126464 from 0x42, then its two data packets.
+    var assembler = MessageAssembler()
+    #expect(
+      assembler.receive(
+        CANFrame(id: 0x18ec_ff42, data: [32, 10, 0, 2, 0xff, 0x00, 0xee, 0x01]), at: 1000) == nil)
+    #expect(
+      assembler.receive(CANFrame(id: 0x18eb_ff42, data: [1, 0, 1, 2, 3, 4, 5, 6]), at: 1050)
+        == nil)
+    let last = assembler.receive(
+      CANFrame(id: 0x18eb_ff42, data: [2, 7, 8, 9, 0xff, 0xff, 0xff, 0xff]), at: 1100)
+    let assembled = try #require(last)
+    #expect(
+      assembled.message
+        == Message(
+          pgn: 126464, priority: 7, source: 0x42, data: Array(0..<10), timestamp: 1100,
+          isTransportProtocol: true))
+    #expect(!assembled.isSystemMessage)
+  }
+
+  @Test func consumesTransportProtocolFrames() {
+    // Upstream never delivers the transport protocol's own frames.
+    var assembler = MessageAssembler()
+    #expect(
+      assembler.receive(
+        CANFrame(id: 0x18ec_1742, data: [17, 5, 1, 0xff, 0xff, 0x00, 0xee, 0x01]), at: 0) == nil)
+    #expect(
+      assembler.receive(CANFrame(id: 0x18eb_1742, data: [1, 0, 1, 2, 3, 4, 5, 6]), at: 0) == nil)
+  }
+
+  @Test func ignoresTransportProtocolFramesTooShortToRead() {
+    // Deliberate divergence: upstream reads leftover buffer bytes for these.
+    var assembler = MessageAssembler()
+    #expect(
+      assembler.receive(
+        CANFrame(id: 0x18ec_ff42, data: [32, 3, 0, 1, 0xff, 0x00, 0xee]), at: 0) == nil)
+    #expect(assembler.receive(CANFrame(id: 0x18eb_ff42, data: []), at: 0) == nil)
+    #expect(
+      assembler.receive(
+        CANFrame(id: 0x18ec_ff42, data: [32, 3, 0, 1, 0xff, 0x00, 0xee, 0x01]), at: 0) == nil)
+    #expect(assembler.receive(CANFrame(id: 0x18eb_ff42, data: []), at: 0) == nil)
+    #expect(
+      assembler.receive(CANFrame(id: 0x18eb_ff42, data: [1, 1, 2, 3]), at: 0)?.message.data
+        == [1, 2, 3])
+  }
 }

@@ -253,6 +253,33 @@ struct NodeTests {
     try await run.value
   }
 
+  @Test func sendsTransportProtocolPacketsOnTime() async throws {
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let run = Task { try await node.run() }
+    var sent = transport.sent.makeAsyncIterator()
+    try await clock.waitForSleepers()
+    clock.advance(to: 200)
+    #expect(await sent.next() == claim)
+    clock.advance(to: 450)
+
+    try await node.send(
+      Message(pgn: 126464, data: Array(0..<10), isTransportProtocol: true))
+    #expect(await sent.next()?.id == 0x18ec_ff17)
+    // The node wakes itself for each data packet.
+    try await clock.waitForSleepers()
+    clock.advance(to: 500)
+    #expect(await sent.next() == CANFrame(id: 0x18eb_ff17, data: [1, 0, 1, 2, 3, 4, 5, 6]))
+    try await clock.waitForSleepers()
+    clock.advance(to: 550)
+    #expect(
+      await sent.next() == CANFrame(id: 0x18eb_ff17, data: [2, 7, 8, 9, 0xff, 0xff, 0xff, 0xff]))
+
+    transport.receive.finish()
+    try await run.value
+  }
+
   @Test func deliversEveryMessageToEverySubscriber() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
