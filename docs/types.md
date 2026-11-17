@@ -97,6 +97,7 @@ On 2026-11-17 every type here was compared, value by value, with the matching lo
 | `tN2kDD477` / `tN2kWindlassMonitoringEvents` | `WindlassMonitoringEvents` (`OptionSet`) | `Windlass.swift` |
 | `tN2kDD478` / `tN2kWindlassControlEvents` | `WindlassControlEvents` (`OptionSet`) | `Windlass.swift` |
 | `tN2kDD483` / `tN2kWindlassOperatingEvents` | `WindlassOperatingEvents` (`OptionSet`) | `Windlass.swift` |
+| PGN 127493 discrete status bits (from `SetN2kTransmissionParameters`) | `TransmissionDiscreteStatus` (`OptionSet`) | `Propulsion.swift` |
 
 ## Adding a value
 

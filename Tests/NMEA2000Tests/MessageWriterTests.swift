@@ -272,11 +272,13 @@ struct MessageWriterTests {
   @Test func writesOptionalIntegersAsNotAvailable() {
     var writer = MessageWriter()
     writer.appendUInt8(UInt8?.none)
+    writer.appendInt8(Int8?.none)
     writer.appendInt16(Int16?.none)
     writer.appendUInt16(UInt16?.none)
     writer.appendUInt32(UInt32?.none)
     writer.appendUInt16(UInt16?(0x1234))
-    #expect(writer.data == [0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x34, 0x12])
+    #expect(
+      writer.data == [0xff, 0x7f, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x34, 0x12])
   }
 
   @Test func truncatesToEarlierPosition() {

@@ -120,6 +120,10 @@ struct MessageReaderTests {
     #expect(reader.readOptionalUInt16() == 0x1234)
     #expect(reader.readOptionalUInt32() == nil)
     #expect(reader.readOptionalUInt8() == nil)  // past the end
+    #expect(reader.readOptionalInt8() == nil)  // past the end
+    var signed = MessageReader([0x7f, 0xfe])
+    #expect(signed.readOptionalInt8() == nil)
+    #expect(signed.readOptionalInt8() == -2)
   }
 
   @Test func failedReadDoesNotConsumeBytes() {

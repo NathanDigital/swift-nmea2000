@@ -366,3 +366,32 @@ public struct ThrusterControlEvents: OptionSet, Hashable, Sendable {
   /// Boat speed is too fast.
   public static let boatSpeedTooFast = Self(rawValue: 1 << 1)
 }
+
+/// Transmission warning flags.
+///
+/// Ports the bits that upstream's `SetN2kTransmissionParameters` sets in PGN
+/// 127493's discrete status byte. Upstream has no named type for them.
+public struct TransmissionDiscreteStatus: OptionSet, Hashable, Sendable {
+  /// The flags as they appear on the wire.
+  public var rawValue: UInt8
+
+  /// Creates a set of flags from its wire representation.
+  public init(rawValue: UInt8) {
+    self.rawValue = rawValue
+  }
+
+  /// Check transmission.
+  public static let check = Self(rawValue: 1 << 0)
+
+  /// Over temperature.
+  public static let overTemperature = Self(rawValue: 1 << 1)
+
+  /// Low oil pressure.
+  public static let lowOilPressure = Self(rawValue: 1 << 2)
+
+  /// Low oil level.
+  public static let lowOilLevel = Self(rawValue: 1 << 3)
+
+  /// Sail drive.
+  public static let sailDrive = Self(rawValue: 1 << 4)
+}

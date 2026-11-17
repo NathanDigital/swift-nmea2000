@@ -58,6 +58,7 @@ Upstream passes raw integers that may be missing (sequence IDs, dates, counts, w
 | Upstream | Swift writer | Swift reader |
 |---|---|---|
 | `AddByte(v)` / `GetByte(i)` with `N2kUInt8NA` | `appendUInt8(_: UInt8?)` | `readOptionalUInt8()` |
+| `AddByte(v)` / `GetByte(i)` on an `int8_t` with `N2kInt8NA` | `appendInt8(_: Int8?)` | `readOptionalInt8()` |
 | `Add2ByteInt(v)` / `Get2ByteInt(i)` with `N2kInt16NA` | `appendInt16(_: Int16?)` | `readOptionalInt16()` |
 | `Add2ByteUInt(v)` / `Get2ByteUInt(i)` with `N2kUInt16NA` | `appendUInt16(_: UInt16?)` | `readOptionalUInt16()` |
 | `Add4ByteUInt(v)` / `Get4ByteUInt(i)` with `N2kUInt32NA` | `appendUInt32(_: UInt32?)` | `readOptionalUInt32()` |
@@ -106,7 +107,7 @@ A fixed-width read that runs past the end leaves `index` unchanged, as upstream 
 
 ## Deliberate divergences from upstream
 
-All of these are cases where upstream's behaviour is a bug or undefined. None of them changes the bytes sent for a valid input; the PGN rows only change how received bytes are decoded.
+All of these are cases where upstream's behaviour is a bug or undefined. Rows marked **changes the bytes sent** are cases where upstream puts the wrong meaning on the bus (CLAUDE.md rule 2); all others only change how received bytes are decoded.
 
 | Upstream | Swift | Why |
 |---|---|---|
@@ -116,6 +117,10 @@ All of these are cases where upstream's behaviour is a bug or undefined. None of
 | A value equal to the `N2kDoubleNA` sentinel (`-1e9`) is written as NA | Only `nil` is written as NA | Optionals replace the sentinel. |
 | `ParseN2kPGN128259` masks the speed-sensor type to four bits, so `N2kSWRT_Error` and `N2kSWRT_Unavailable` (sent as `0xfe`/`0xff`) decode as 14 and 15, which don't equal those constants | `BoatSpeed` decodes codes 14 and 15 as `.error` and `.unavailable` | Lets the value round-trip and compare equal to its constant. The bytes sent are unchanged. |
 | `ParseN2kPGN129284` decodes only bit 0 of the two-bit bearing reference, so error and unavailable read as magnetic | `NavigationInfo` decodes both bits | The field is two bits wide. The bytes sent are unchanged. |
+| `SetN2kPGN127507` encodes the equalization time remaining (documented in seconds) at 1 s resolution, but `ParseN2kPGN127507` decodes it at 60 s, and canboat defines the field in minutes (`DURATION_UFIX16_MIN`) | `ChargerStatus` encodes and decodes it in minutes | Upstream puts a value 60 times too large on the bus. **Changes the bytes sent** for a non-zero time. |
+| `SetN2kPGN127510` documents the equalization time in seconds but sends the number unscaled; canboat defines the field in minutes | `ChargerConfigurationStatus` takes seconds and sends minutes | Same as above. **Changes the bytes sent** for a non-zero time. |
+| `ParseN2kPGN127510` masks the four-bit battery temperature with `0x04` | Decodes all four bits | The bytes sent are unchanged. |
+| `ParseN2kPGN127513` reads the unsigned capacity as signed, and decodes a not-available Peukert exponent as -999999999 (its NA sentinel plus 1) | Reads the capacity unsigned, and a missing Peukert exponent as `nil` | The bytes sent are unchanged. |
 | Fixed-width `Add…` past `MaxDataLen` overflows the buffer | Traps (`precondition`) | It's a programming error in an encoder. |
 
 ## Not ported

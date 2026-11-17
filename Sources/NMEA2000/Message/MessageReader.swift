@@ -106,6 +106,17 @@ public struct MessageReader: Sendable {
     return value == .max ? nil : value
   }
 
+  /// Reads a signed byte, or `nil` if it is `0x7f` (not available) or past
+  /// the end.
+  ///
+  /// Upstream reads these with `GetByte`, which returns `0xff` (-1) past the
+  /// end; this method returns `nil` instead.
+  public mutating func readOptionalInt8() -> Int8? {
+    guard remainingCount >= 1 else { return nil }
+    let value = Int8(bitPattern: readUInt8())
+    return value == .max ? nil : value
+  }
+
   /// Reads a signed 16-bit integer, or `nil` if it is `0x7fff` (not
   /// available) or past the end.
   public mutating func readOptionalInt16() -> Int16? {

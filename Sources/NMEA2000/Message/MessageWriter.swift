@@ -93,6 +93,14 @@ public struct MessageWriter: Sendable {
     appendUInt8(value ?? .max)
   }
 
+  /// Appends a signed byte, or `0x7f` if it is not available.
+  ///
+  /// Upstream passes an `int8_t` to `AddByte`, with `N2kInt8NA` for a missing
+  /// value.
+  public mutating func appendInt8(_ value: Int8?) {
+    appendLittleEndian(value ?? .max, byteCount: 1)
+  }
+
   /// Appends a signed 16-bit integer, or `0x7fff` if it is not available.
   ///
   /// Upstream passes `N2kInt16NA` to `Add2ByteInt` for a missing value.

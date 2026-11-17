@@ -385,6 +385,144 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) { SetN2kPGN130074(m, 0, 42, 3); }},
   {"PGN127245 defaults",
    [](tN2kMsg &m) { SetN2kRudder(m, 0.1); }},
+  {"PGN127488 typical",
+   [](tN2kMsg &m) { SetN2kPGN127488(m, 1, 2450.25, 150000, -12); }},
+  {"PGN127488 not available",
+   [](tN2kMsg &m) { SetN2kPGN127488(m, 0xff, N2kDoubleNA, N2kDoubleNA, N2kInt8NA); }},
+  {"PGN127488 defaults",
+   [](tN2kMsg &m) { SetN2kEngineParamRapid(m, 0, 800); }},
+  {"PGN127489 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127489(m, 1, 350000, 363.15, 358.15, 14.2, -12.5, 3600000, 120000, 300000, 85, -5, tN2kEngineDiscreteStatus1(0x8421), tN2kEngineDiscreteStatus2(0x00a5));
+   }},
+  {"PGN127489 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127489(m, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kInt8NA, N2kInt8NA, tN2kEngineDiscreteStatus1(0), tN2kEngineDiscreteStatus2(0));
+   }},
+  {"PGN127489 defaults",
+   [](tN2kMsg &m) {
+     // SetN2kEngineDynamicParam with only the required arguments is ambiguous
+     // upstream, so pass its declared defaults explicitly.
+     SetN2kPGN127489(m, 0, 300000, 360, 350, 13.8, 10, 7200, N2kDoubleNA, N2kDoubleNA, N2kInt8NA, N2kInt8NA, tN2kEngineDiscreteStatus1(0), tN2kEngineDiscreteStatus2(0));
+   }},
+  {"PGN127493 typical",
+   [](tN2kMsg &m) { SetN2kPGN127493(m, 1, N2kTG_Reverse, 1500000, 353.15, 0x15); }},
+  {"PGN127493 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127493(m, 0xff, N2kTG_Unknown, N2kDoubleNA, N2kDoubleNA, 0x0a);
+   }},
+  {"PGN127493 defaults",
+   [](tN2kMsg &m) { SetN2kTransmissionParameters(m, 0, N2kTG_Forward, 1000000, 340); }},
+  {"PGN127497 typical",
+   [](tN2kMsg &m) { SetN2kPGN127497(m, 1, 125, 15.5, -2.5, 18.25); }},
+  {"PGN127497 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127497(m, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN127497 defaults",
+   [](tN2kMsg &m) { SetN2kEngineTripParameters(m, 0, 40, 12.5); }},
+  {"PGN127501 four switches",
+   [](tN2kMsg &m) {
+     SetN2kPGN127501(m, 3, N2kOnOff_On, N2kOnOff_Off, N2kOnOff_Error, N2kOnOff_Unavailable);
+   }},
+  {"PGN127501 full bank from a packed value",
+   [](tN2kMsg &m) { SetN2kPGN127501(m, 4, (tN2kBinaryStatus)0x00e4e4e4e4e4e4e4ULL); }},
+  {"PGN127501 no switches",
+   [](tN2kMsg &m) {
+     tN2kBinaryStatus b;
+     N2kResetBinaryStatus(b);
+     SetN2kPGN127501(m, 0, b);
+   }},
+  {"PGN127502 four switches",
+   [](tN2kMsg &m) { SetN2kPGN127502(m, 5, (tN2kBinaryStatus)0xffffffffffffff1bULL); }},
+  {"PGN127502 full bank from a packed value",
+   [](tN2kMsg &m) { SetN2kPGN127502(m, 6, (tN2kBinaryStatus)0x001b1b1b1b1b1b1bULL); }},
+  {"PGN127505 typical",
+   [](tN2kMsg &m) { SetN2kPGN127505(m, 2, N2kft_BlackWater, 75.5, 120.5); }},
+  {"PGN127505 high instance and type",
+   [](tN2kMsg &m) { SetN2kPGN127505(m, 0x0e, N2kft_Error, -1.0, 4000); }},
+  {"PGN127505 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127505(m, 0x0f, N2kft_Unavailable, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN127506 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127506(m, 1, 2, N2kDCt_WindGenerator, 87, 95, 7200, 0.025, 720000);
+   }},
+  {"PGN127506 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127506(m, 0xff, 0xff, (tN2kDCType)0xff, 0xff, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN127506 defaults",
+   [](tN2kMsg &m) { SetN2kDCStatus(m, 1, 0, N2kDCt_Battery, 50, 100, 3600); }},
+  {"PGN127507 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127507(m, 1, 2, N2kCS_Absorption, N2kCM_Secondary, N2kOnOff_On, N2kOnOff_Off, 90);
+   }},
+  {"PGN127507 high values",
+   [](tN2kMsg &m) {
+     SetN2kPGN127507(m, 3, 4, N2kCS_Error, N2kCM_Unavailable, N2kOnOff_Error, N2kOnOff_Unavailable, 0);
+   }},
+  {"PGN127507 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127507(m, 0xff, 0xff, N2kCS_Unavailable, N2kCM_Unavailable, N2kOnOff_Unavailable, N2kOnOff_Unavailable, N2kDoubleNA);
+   }},
+  {"PGN127507 defaults",
+   [](tN2kMsg &m) { SetN2kChargerStatus(m, 0, 1, N2kCS_Bulk); }},
+  {"PGN127508 typical",
+   [](tN2kMsg &m) { SetN2kPGN127508(m, 1, 12.85, -25.5, 298.15, 7); }},
+  {"PGN127508 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127508(m, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, 0xff);
+   }},
+  {"PGN127508 defaults",
+   [](tN2kMsg &m) { SetN2kDCBatStatus(m, 0, 13.2); }},
+  {"PGN127510 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127510(m, 1, 2, N2kOnOff_On, 80, N2kCA_2Stage, N2kCM_Primary, N2kBT_hot, N2kOnOff_Error, N2kOnOff_On, 120);
+   }},
+  {"PGN127510 high values",
+   [](tN2kMsg &m) {
+     SetN2kPGN127510(m, 3, 4, N2kOnOff_Unavailable, 252, N2kCA_Error, N2kCM_Echo, N2kBT_Error, N2kOnOff_Unavailable, N2kOnOff_Error, 0);
+   }},
+  {"PGN127510 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127510(m, 0xff, 0xff, N2kOnOff_Unavailable, 0xff, N2kCA_NotAvailable, N2kCM_Unavailable, N2kBT_NotAvailable, N2kOnOff_Unavailable, N2kOnOff_Unavailable, 0xffff);
+   }},
+  {"PGN127510 defaults",
+   [](tN2kMsg &m) { SetN2kChargerConf(m, 0, 1); }},
+  {"PGN127513 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127513(m, 1, N2kDCbt_AGM, N2kDCES_Yes, N2kDCbnv_12v, N2kDCbc_LeadAcid, 720000, -2, 1.25, 95);
+   }},
+  {"PGN127513 large capacity and high values",
+   [](tN2kMsg &m) {
+     SetN2kPGN127513(m, 2, (tN2kBatType)9, N2kDCES_Unavailable, N2kDCbnv_48v, N2kDCbc_NiMh, 144000000, 3, 1.504, -10);
+   }},
+  {"PGN127513 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127513(m, 0xff, N2kDCbt_Flooded, N2kDCES_No, N2kDCbnv_6v, N2kDCbc_LeadAcid, N2kDoubleNA, N2kInt8NA, N2kDoubleNA, N2kInt8NA);
+   }},
+  {"PGN127750 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127750(m, 1, 2, N2kCICS_Inverting, N2kTS_Warning, N2kOS_OK, N2kDCVS_Warning, N2kRP_High);
+   }},
+  {"PGN127750 other values",
+   [](tN2kMsg &m) {
+     SetN2kPGN127750(m, 3, 4, N2kCICS_Hub1, N2kTS_OK, N2kOS_Overload, N2kDCVS_OK, N2kRP_Warning);
+   }},
+  {"PGN127750 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127750(m, 0xff, 0xff, N2kCICS_NotAvailable, N2kTS_NotAvailable, N2kOS_NotAvailable, N2kDCVS_NotAvailable, N2kRP_NotAvailable);
+   }},
+  {"PGN127751 typical",
+   [](tN2kMsg &m) { SetN2kPGN127751(m, 1, 12.6, 35.25, 9); }},
+  {"PGN127751 negative current",
+   [](tN2kMsg &m) { SetN2kPGN127751(m, 2, 48.0, -1234.56, 10); }},
+  {"PGN127751 not available",
+   [](tN2kMsg &m) { SetN2kPGN127751(m, 0xff, N2kDoubleNA, N2kDoubleNA, 0xff); }},
+  {"PGN127751 defaults",
+   [](tN2kMsg &m) { SetN2kDCVoltageCurrent(m, 0, 13.1); }},
 };
 
 void print(const Case &c) {
