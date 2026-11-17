@@ -20,6 +20,7 @@ Each PGN is one struct conforming to `ParameterGroup`, in its own file under `So
    - `expectDecodes(_:from:)` for each vector, which decodes upstream's bytes and checks that they re-encode identically
    - `expectTolerantDecoding(_:from:)`, which checks that every prefix of a payload decodes and that another PGN is rejected
    - a test for each upstream quirk the type documents
+10. Commit, then run `scripts/mutation-test Sources/NMEA2000/PGNs/PGN<number>*.swift`. For each surviving mutant, add an upstream vector or test that catches it: unknown enum values with high bits set, negative numbers for signed fields, values beyond the signed range for unsigned fields, names past their length limit, and lists that end exactly at the message capacity.
 
 ## Upstream patterns and their Swift equivalents
 

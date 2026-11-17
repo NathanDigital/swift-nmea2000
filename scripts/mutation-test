@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Mutation-test the Swift sources: check that the test suite catches small bugs.
+
+Each mutant makes one small, realistic change to a source file (a wrong
+resolution, mask, shift, flag bit or signedness; a wrong reserved or NA value;
+an off-by-one capacity check; a dropped field), runs the full test suite in
+the pinned container, and restores the file. A mutant the tests catch is
+"killed". One they don't catch has "survived", which points to a missing test
+input or assertion, unless the change can't alter behaviour.
+
+    scripts/mutation-test                       # PGN types and the field codec
+    scripts/mutation-test Sources/NMEA2000/PGNs/PGN129029*.swift
+    scripts/mutation-test --list                # show the mutants, run nothing
+    scripts/mutation-test --only 3,17           # rerun particular mutants
+
+The target files are edited in place and restored after each mutant, including
+on Ctrl-C. The script refuses to run if any target file has uncommitted
+changes. Each mutant takes a few seconds, so a full run takes a while.
+Exits with status 1 if any mutant survives.
+"""
+
+import argparse
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_TARGETS = [
+    "Sources/NMEA2000/PGNs/*.swift",
+    "Sources/NMEA2000/Message/MessageWriter.swift",
+    "Sources/NMEA2000/Message/MessageReader.swift",
+    "Sources/NMEA2000/Message/ParameterGroup.swift",
+]
+
+MASKS = {"0f": "07", "07": "03", "03": "01", "01": "03"}
+FLAGS = {"40": "20", "10": "08", "04": "02", "e0": "f0", "c0": "80", "f0": "e0", "fc": "f8"}
+
+
+def flip_sign(m):
+    return ("" if m.group(1) else "U") + "Int" + m.group(2)
+
+
+# (name, pattern, replacement). Patterns match within one source line.
+OPERATORS = [
+    ("resolution", r"resolution: ([0-9.e+-]+)", lambda m: f"resolution: {m.group(1)} * 10"),
+    ("mask", r"& 0x(0f|07|03|01)\b", lambda m: "& 0x" + MASKS[m.group(1)]),
+    ("shift", r"(<<|>>) (\d+)\b", lambda m: f"{m.group(1)} {int(m.group(2)) + 1}"),
+    ("flag-bit", r"0x(40|10|04|e0|c0|f0|fc)\b", lambda m: "0x" + FLAGS[m.group(1)]),
+    ("reserved", r"appendUInt8\(0xff\)", lambda m: "appendUInt8(0xfe)"),
+    ("reserved", r"appendUInt16\(0xffff\)", lambda m: "appendUInt16(0xfffe)"),
+    (
+        "signedness",
+        r"append(U?)Int(8|16|32)\((?=[\w.]+, resolution)",
+        lambda m: "append" + flip_sign(m) + "(",
+    ),
+    ("signedness", r"read(U?)Int(8|16|32)\((?=resolution)", lambda m: "read" + flip_sign(m) + "("),
+    ("condition", r" != 0\b", lambda m: " == 0"),
+    ("condition", r"\? 0x(\w+) : 0\)", lambda m: f"? 0 : 0x{m.group(1)})"),
+    ("limit", r"(static let \w+(?:Count|Length) = )(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)) - 1}"),
+    ("capacity", r" < Message\.maxDataCount", lambda m: " <= Message.maxDataCount"),
+    ("not-available", r"\?\? 0x(\w+)", lambda m: "?? 0x00"),
+    (
+        "drop-field",
+        r"^(\s+)(writer\.append\w+\(.*\)|_ = reader\.read\w+\(\)|reader\.skip\(\d+\))$",
+        lambda m: f"{m.group(1)}// mutant: removed",
+    ),
+]
+
+
+def find_mutants(paths):
+    mutants = []
+    for path in paths:
+        source = open(path, encoding="utf-8").read()
+        for name, pattern, replace in OPERATORS:
+            for m in re.finditer(pattern, source, flags=re.M):
+                line_start = source.rfind("\n", 0, m.start()) + 1
+                if source[line_start : m.start()].lstrip().startswith("//"):
+                    continue  # Inside a comment.
+                mutants.append(
+                    {
+                        "file": os.path.relpath(path, REPO),
+                        "line": source.count("\n", 0, m.start()) + 1,
+                        "operator": name,
+                        "old": m.group(0).strip(),
+                        "new": replace(m).strip(),
+                        "start": m.start(),
+                        "end": m.end(),
+                        "replacement": replace(m),
+                    }
+                )
+    for number, mutant in enumerate(mutants):
+        mutant["id"] = number
+    return mutants
+
+
+def run_tests():
+    result = subprocess.run(
+        [os.path.join(REPO, "scripts", "linux-swift"), "test"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout + result.stderr
+    if re.search(r"\.swift:\d+:\d+: error:", output):
+        return "invalid", output  # The mutant doesn't compile.
+    if "✘" in output:
+        return "killed", output  # A test failed.
+    if result.returncode != 0:
+        # Neither a compile error nor a test failure, e.g. Docker failed. Don't
+        # count it as killed, or a broken environment would look like success.
+        sys.exit("error: the test run failed without a test failure:\n" + output[-2000:])
+    return "survived", output
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("files", nargs="*", help="source files to mutate (default: PGNs and codec)")
+    parser.add_argument("--list", action="store_true", help="list the mutants without running them")
+    parser.add_argument("--only", help="comma-separated mutant ids to run")
+    parser.add_argument("--output", help="also write one JSON result per line to this file")
+    args = parser.parse_args()
+
+    patterns = args.files or [os.path.join(REPO, p) for p in DEFAULT_TARGETS]
+    paths = sorted({os.path.abspath(p) for pattern in patterns for p in glob.glob(pattern)})
+    if not paths:
+        sys.exit("error: no source files match")
+    mutants = find_mutants(paths)
+    if args.only:
+        wanted = {int(x) for x in args.only.split(",")}
+        mutants = [m for m in mutants if m["id"] in wanted]
+
+    if args.list:
+        for m in mutants:
+            print(f"{m['id']:4} {m['file']}:{m['line']} {m['operator']}: {m['old']} -> {m['new']}")
+        print(f"{len(mutants)} mutants")
+        return 0
+
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain", "--", *paths], cwd=REPO, capture_output=True, text=True
+    ).stdout
+    if dirty.strip():
+        sys.exit("error: commit or stash changes to the target files first:\n" + dirty)
+
+    print("Running the unmutated test suite...", flush=True)
+    status, output = run_tests()
+    if status != "survived":
+        sys.exit("error: the test suite must pass before mutation testing:\n" + output[-2000:])
+
+    log = open(args.output, "w") if args.output else None
+    counts = {"killed": 0, "survived": 0, "invalid": 0}
+    survivors = []
+    for index, m in enumerate(mutants, 1):
+        path = os.path.join(REPO, m["file"])
+        original = open(path, encoding="utf-8").read()
+        started = time.time()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(original[: m["start"]] + m["replacement"] + original[m["end"] :])
+            status, _ = run_tests()
+        finally:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(original)
+        counts[status] += 1
+        if status == "survived":
+            survivors.append(m)
+        print(
+            f"[{index}/{len(mutants)}] {status:8} {m['file']}:{m['line']} "
+            f"{m['operator']}: {m['old']} -> {m['new']} ({time.time() - started:.0f}s)",
+            flush=True,
+        )
+        if log:
+            record = {k: m[k] for k in ("id", "file", "line", "operator", "old", "new")}
+            log.write(json.dumps({**record, "status": status}) + "\n")
+            log.flush()
+
+    print(
+        f"\n{counts['killed']} killed, {counts['survived']} survived, "
+        f"{counts['invalid']} didn't compile"
+    )
+    for m in survivors:
+        print(f"  survived {m['id']}: {m['file']}:{m['line']} {m['operator']}: {m['old']} -> {m['new']}")
+    return 1 if survivors else 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit("\ninterrupted; the file being mutated was restored")

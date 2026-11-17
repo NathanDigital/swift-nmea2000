@@ -27,6 +27,7 @@ scripts/linux-swift test --filter <SuiteOrTestName>     # run a single suite or 
 scripts/linux-swift format lint -s -r Sources Tests     # strict: warnings fail, as in CI
 scripts/linux-swift format -i -r Sources Tests          # format in place (no backup; commit first)
 scripts/upstream-vectors [filter]                       # bytes upstream's encoders produce (see Testing)
+scripts/mutation-test [files]                           # check the tests catch injected bugs (see Testing)
 ```
 
 `swift-format` ships with the toolchain. Formatting rules live in `.swift-format` at the repo root. Generate a starting config with `scripts/linux-swift format dump-configuration > .swift-format`.
@@ -76,3 +77,4 @@ Goal: every PGN's **wire format** (field order, widths, resolutions, signedness,
 - **Wire-format parity with upstream is the main correctness bar.** For each ported PGN, add tests that encode known values and compare the bytes to what upstream produces, plus round-trip decode tests. Port the vectors from upstream `test/*.cpp` where they exist.
 - Use parameterized `@Test(arguments:)` for tables of PGN vectors rather than one test per case.
 - **Expected bytes come from upstream, not from hand calculation.** Add a case to `Tools/UpstreamVectors/vectors.cpp` that calls upstream's `SetN2kPGN…` (or a `tN2kMsg::Add…` helper), run `scripts/upstream-vectors <filter>`, and paste the printed bytes into the Swift test. The script fetches upstream at the commit in `docs/upstream-sync.md` into `.upstream/` (git-ignored) and compiles the harness with `clang++` in the same pinned container, with the repo mounted read-only. Don't run `docker` directly for this; use the script.
+- **Mutation-test new code.** `scripts/mutation-test <files>` makes one small change at a time (resolution, mask, shift, flag bit, signedness, reserved or NA value, capacity check, dropped field), runs the suite, and restores the file. A surviving mutant means a test input or assertion is missing. Fix it with a new upstream vector, typically a value with high bits set, a negative number, or a list that lands exactly on a capacity limit. If a mutant can't change behaviour, say so in the commit. It edits files in place, so commit first; it refuses to run on uncommitted target files.
