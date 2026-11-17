@@ -280,20 +280,37 @@ struct NodeEngine: Sendable {
     }
   }
 
+  /// When to try opening the transport, if it's closed.
+  var openRetryTime: UInt64? {
+    guard case .closed(let retryAt) = openState else { return nil }
+    return retryAt
+  }
+
   /// The next time ``poll(at:)`` has something to do, if any.
+  ///
+  /// It's `nil` while the transport is closed, since polling does nothing
+  /// then: open the transport at ``openRetryTime`` instead.
   var nextDeadline: UInt64? {
     switch openState {
-    case .closed(let retryAt): retryAt
+    case .closed: nil
     case .waiting(let until): until
     case .open:
       devices.flatMap {
         [
           $0.claimDeadline, $0.transfer?.deadline, $0.pendingClaim,
           $0.pendingProductInformation, $0.pendingConfigurationInformation,
-          $0.heartbeat.map { $0.next + 1 },
+          heartbeatDeadline(of: $0),
         ]
       }.compactMap { $0 }.min()
     }
+  }
+
+  /// When a device's next heartbeat is sent, if the node sends heartbeats
+  /// now. Only a full node sends them, and not while the device claims its
+  /// address: the claim's own deadline comes first.
+  private func heartbeatDeadline(of device: DeviceState) -> UInt64? {
+    guard mode == .node, device.claimDeadline == nil else { return nil }
+    return device.heartbeat.map { $0.next + 1 }
   }
 
   /// Advances timers, and returns any frames to send.

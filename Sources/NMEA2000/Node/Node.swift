@@ -438,7 +438,7 @@ public actor Node {
   private func openWithRetries() async throws -> FrameSource {
     while true {
       try Task.checkCancellation()
-      if let deadline = engine.nextDeadline, deadline > clock.now() {
+      if let deadline = engine.openRetryTime, deadline > clock.now() {
         try await clock.sleep(deadline)
       }
       do {

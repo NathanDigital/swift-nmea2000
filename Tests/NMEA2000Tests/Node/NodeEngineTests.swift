@@ -2773,10 +2773,13 @@ struct NodeEngineTests {
 
   @Test func reportsItsNextDeadline() {
     var driver = EngineDriver(mode: .node, address: 23, failedOpens: 1)
-    #expect(driver.engine.nextDeadline == 0)
+    #expect(driver.engine.openRetryTime == 0)
+    #expect(driver.engine.nextDeadline == nil)
     driver.poll()
-    #expect(driver.engine.nextDeadline == 1000)
+    #expect(driver.engine.openRetryTime == 1000)
+    #expect(driver.engine.nextDeadline == nil)
     driver.until(1000)
+    #expect(driver.engine.openRetryTime == nil)
     #expect(driver.engine.nextDeadline == 1200)
     driver.until(1200)
     #expect(driver.engine.nextDeadline == 1450)
@@ -2786,6 +2789,37 @@ struct NodeEngineTests {
     #expect(driver.engine.nextDeadline == 11201)
     driver.until(11210)
     #expect(driver.engine.nextDeadline == 71201)
+  }
+
+  @Test(arguments: [Node.Mode.listenOnly, .listenAndSend, .node])
+  func neverLeavesADeadlineInThePast(mode: Node.Mode) {
+    // A deadline that polling doesn't move would make the node's timer fire
+    // again at once, for ever. Only a full node sends heartbeats.
+    var driver = EngineDriver(mode: mode, address: 23)
+    while driver.now < 200_000 {
+      driver.now += 10
+      driver.poll()
+      if let deadline = driver.engine.nextDeadline {
+        #expect(deadline > driver.now, "at \(driver.now)")
+        if deadline <= driver.now { return }
+      }
+    }
+  }
+
+  @Test func putsTheHeartbeatOffDuringAnAddressClaim() {
+    // The heartbeat falls due while the device claims a new address; it goes
+    // once the claim ends.
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.until(10100)
+    driver.claim(from: 23, name: ownName - 1)
+    while driver.now < 10500 {
+      driver.now += 10
+      driver.poll()
+      if let deadline = driver.engine.nextDeadline {
+        #expect(deadline > driver.now, "at \(driver.now)")
+        if deadline <= driver.now { return }
+      }
+    }
   }
 
   @Test func hasNoDeadlinesWithoutAHeartbeat() {
@@ -2799,7 +2833,8 @@ struct NodeEngineTests {
     var driver = EngineDriver(mode: .node, address: 23)
     driver.until(500)
     driver.engine.transportClosed()
-    #expect(driver.engine.nextDeadline == 0)
+    #expect(driver.engine.openRetryTime == 0)
+    #expect(driver.engine.nextDeadline == nil)
     driver.events = []
     // The next poll, at 510, opens the transport; the claim follows 200 ms later.
     driver.until(800)
