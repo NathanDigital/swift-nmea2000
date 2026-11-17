@@ -220,6 +220,65 @@ void command(TestNode &node, uint64_t name, uint8_t address, int extra = 0) {
   }
 }
 
+// Receives a group function (PGN 126208) from 0x42 as a fast packet, or by
+// transport protocol: a BAM when broadcast, otherwise a request to send whose
+// clear to send is ignored.
+void groupFunction(TestNode &node, uint8_t destination, std::vector<unsigned char> payload,
+                   bool useTP = false) {
+  int count = payload.size();
+  if (useTP) {
+    receive(node, tp(TPCM, destination),
+            destination == 0xff ? bam(count, 126208) : rts(count, 126208));
+    for (int sequence = 1; (sequence - 1) * 7 < count; sequence++) {
+      std::vector<unsigned char> data = {uint8_t(sequence)};
+      for (int i = (sequence - 1) * 7; i < sequence * 7; i++) data.push_back(i < count ? payload[i] : 0xff);
+      receive(node, tp(TPDT, destination), data);
+    }
+    return;
+  }
+  unsigned long id = 0x0ded0042 | destination << 8;
+  std::vector<unsigned char> first = {0x00, uint8_t(count)};
+  for (int i = 0; i < 6; i++) first.push_back(i < count ? payload[i] : 0xff);
+  receive(node, id, first);
+  for (int frame = 1; 6 + (frame - 1) * 7 < count; frame++) {
+    std::vector<unsigned char> data = {uint8_t(frame)};
+    for (int i = 6 + (frame - 1) * 7; i < 6 + frame * 7; i++) data.push_back(i < count ? payload[i] : 0xff);
+    receive(node, id, data);
+  }
+}
+
+// Group function payloads: the function code and PGN, then the rest.
+std::vector<unsigned char> gf(uint8_t code, unsigned long pgn, std::vector<unsigned char> rest) {
+  std::vector<unsigned char> payload = {code, uint8_t(pgn), uint8_t(pgn >> 8), uint8_t(pgn >> 16)};
+  payload.insert(payload.end(), rest.begin(), rest.end());
+  return payload;
+}
+// A request: transmission interval, offset, then parameter pairs.
+std::vector<unsigned char> gfRequest(unsigned long pgn, uint32_t interval, uint16_t offset,
+                                     uint8_t pairs, std::vector<unsigned char> fields = {}) {
+  std::vector<unsigned char> rest = {uint8_t(interval), uint8_t(interval >> 8), uint8_t(interval >> 16),
+                                     uint8_t(interval >> 24), uint8_t(offset), uint8_t(offset >> 8), pairs};
+  rest.insert(rest.end(), fields.begin(), fields.end());
+  return gf(0, pgn, rest);
+}
+// A command: priority setting, then parameter pairs.
+std::vector<unsigned char> gfCommand(unsigned long pgn, uint8_t priority, uint8_t pairs,
+                                     std::vector<unsigned char> fields = {}) {
+  std::vector<unsigned char> rest = {uint8_t(0xf0 | priority), pairs};
+  rest.insert(rest.end(), fields.begin(), fields.end());
+  return gf(1, pgn, rest);
+}
+// A variable-length ASCII string field.
+std::vector<unsigned char> varStr(const char *text) {
+  std::vector<unsigned char> field = {uint8_t(strlen(text) + 2), 1};
+  for (const char *c = text; *c; c++) field.push_back(*c);
+  return field;
+}
+std::vector<unsigned char> operator+(std::vector<unsigned char> a, const std::vector<unsigned char> &b) {
+  a.insert(a.end(), b.begin(), b.end());
+  return a;
+}
+
 // The node a case runs, for the ISO request handler.
 TestNode *current = nullptr;
 
@@ -816,6 +875,164 @@ const std::vector<Case> cases = {
       start(n, tNMEA2000::N2km_ListenAndSend);
       until(n, 500);
       command(n, ownName, 0x30);
+    }),
+    // Group functions from 0x42. The node is at 23 (0x17); 130310 is a PGN it
+    // doesn't transmit unless a case says so.
+#define GF_NODE(name, ...) NODE("group function " name, { \
+      start(n, tNMEA2000::N2km_NodeOnly); \
+      until(n, 500); \
+      __VA_ARGS__; \
+    })
+    GF_NODE("request for an unknown PGN", groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 0xffff, 0))),
+    GF_NODE("request with parameter pairs", groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 0xffff, 3, {1, 2, 3}))),
+    GF_NODE("request broadcast", groupFunction(n, 0xff, gfRequest(130310, 0xffffffff, 0xffff, 0))),
+    NODE("group function request for a transmitted PGN", {
+      static const unsigned long transmit[] = {130310, 0};
+      n.ExtendTransmitMessages(transmit);
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(130310, 0, 0, 0));
+      groupFunction(n, 0x17, gfRequest(130310, 0xfffffffe, 0, 0));
+      groupFunction(n, 0x17, gfRequest(130310, 1000, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 5, 0));
+    }),
+    GF_NODE("command for an unknown PGN", {
+      groupFunction(n, 0x17, gfCommand(130310, 8, 0));
+      groupFunction(n, 0x17, gfCommand(130310, 3, 2, {1, 2, 3, 4}));
+      groupFunction(n, 0xff, gfCommand(130310, 8, 0));
+    }),
+    NODE("group function command for a transmitted PGN", {
+      static const unsigned long transmit[] = {130310, 0};
+      n.ExtendTransmitMessages(transmit);
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      groupFunction(n, 0x17, gfCommand(130310, 8, 0));
+      groupFunction(n, 0x17, gfCommand(130310, 9, 0));
+      groupFunction(n, 0x17, gfCommand(130310, 0x0f, 0));
+      groupFunction(n, 0x17, gfCommand(130310, 7, 0));
+    }),
+    GF_NODE("read and write", {
+      groupFunction(n, 0x17, gf(3, 130310, {0, 0, 2}));
+      groupFunction(n, 0x17, gf(5, 126996, {0, 1, 1}));
+      groupFunction(n, 0x17, gf(3, 130816, {0x6d, 0x18, 0, 0, 3}));
+      groupFunction(n, 0xff, gf(5, 130310, {0, 0, 2}));
+    }),
+    GF_NODE("acknowledgements and replies", {
+      groupFunction(n, 0x17, gf(2, 130310, {0x01, 0}));
+      groupFunction(n, 0x17, gf(4, 130310, {0, 0, 0}));
+      groupFunction(n, 0x17, gf(6, 130310, {0, 0, 0}));
+      groupFunction(n, 0x17, gf(7, 130310, {0, 0, 0}));
+    }),
+    GF_NODE("for another node", groupFunction(n, 0x30, gfRequest(130310, 0xffffffff, 0xffff, 0))),
+    GF_NODE("request for the address claim", {
+      groupFunction(n, 0x17, gfRequest(60928, 0xffffffff, 0xffff, 0));
+      until(n, 520);
+      groupFunction(n, 0x17, gfRequest(60928, 1000, 0xffff, 0));
+    }),
+    GF_NODE("request for the address claim with matching fields", {
+      groupFunction(n, 0x17, gfRequest(60928, 0xffffffff, 0xffff, 10,
+                                       {1, 0x01, 0x00, 0xe0, 2, 0xfe, 0xff, 3, 0, 4, 0, 5, 130,
+                                        6, 0x55, 7, 25, 8, 0, 9, 4, 10, 0x55}));
+      until(n, 520);
+    }),
+    GF_NODE("request for the address claim with other fields", {
+      groupFunction(n, 0x17, gfRequest(60928, 0xffffffff, 0xffff, 3, {2, 100, 0, 5, 131, 8, 0}));
+      groupFunction(n, 0x17, gfRequest(60928, 0xffffffff, 0xffff, 3, {11, 1, 2, 4, 0}));
+      groupFunction(n, 0xff, gfRequest(60928, 0xffffffff, 0xffff, 2, {2, 100, 0, 5, 130}));
+      groupFunction(n, 0xff, gfRequest(60928, 0xffffffff, 0xffff, 1, {5, 130}));
+      until(n, 520);
+    }),
+    GF_NODE("command for the address claim", {
+      groupFunction(n, 0x17, gfCommand(60928, 8, 3, {3, 5, 4, 0x1f, 8, 7}));
+      until(n, 520);
+      groupFunction(n, 0x17, gfCommand(60928, 2, 2, {9, 3, 1}));
+      until(n, 540);
+      groupFunction(n, 0xff, gfCommand(60928, 8, 1, {3, 2}));
+      until(n, 560);
+    }),
+    GF_NODE("request for the PGN lists", {
+      groupFunction(n, 0x17, gfRequest(126464, 0xffffffff, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(126464, 0xffffffff, 0xffff, 1, {1, 1}));
+      groupFunction(n, 0x17, gfRequest(126464, 0xffffffff, 0xffff, 1, {1, 2}));
+      groupFunction(n, 0xff, gfRequest(126464, 0xffffffff, 0xffff, 1, {1, 0}));
+    }),
+    GF_NODE("request for the PGN lists by transport protocol", {
+      groupFunction(n, 0xff, gfRequest(126464, 0xffffffff, 0xffff, 0), true);
+      until(n, 700);
+    }),
+    GF_NODE("request for product information", {
+      groupFunction(n, 0x17, gfRequest(126996, 0xffffffff, 0xffff, 2, {1, 0x35, 0x08, 2, 0x9a, 0x02}));
+      groupFunction(n, 0x17, gfRequest(126996, 0xffffffff, 0xffff, 2, {7, 1, 8, 1}));
+      groupFunction(n, 0xff, gfRequest(126996, 0xffffffff, 0xffff, 1, {8, 2}));
+    }),
+    GF_NODE("request for product information by model ID", {
+      std::vector<unsigned char> model = {3};
+      const char *id = "Arduino N2k->PC";
+      for (int i = 0; i < 32; i++) model.push_back(i < (int)strlen(id) ? id[i] : 0xff);
+      groupFunction(n, 0x17, gfRequest(126996, 0xffffffff, 0xffff, 1, model), true);
+      until(n, 600);
+    }),
+    GF_NODE("request for product information by software version", {
+      // Upstream compares the software version with the model ID.
+      std::vector<unsigned char> version = {4};
+      const char *id = "1.0.0.0";
+      for (int i = 0; i < 32; i++) version.push_back(i < (int)strlen(id) ? id[i] : 0xff);
+      groupFunction(n, 0x17, gfRequest(126996, 0xffffffff, 0xffff, 1, version), true);
+      until(n, 600);
+    }),
+    GF_NODE("request for configuration information", {
+      groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 1, std::vector<unsigned char>{1} + varStr("")));
+      groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 1, std::vector<unsigned char>{2} + varStr("x")));
+      groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 2, std::vector<unsigned char>{4, 1} + varStr("")));
+    }),
+    GF_NODE("command for configuration information", {
+      groupFunction(n, 0x17, gfCommand(126998, 8, 3, std::vector<unsigned char>{1} + varStr("Bow") + std::vector<unsigned char>{2} + varStr("Port side") + std::vector<unsigned char>{3}));
+      groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 1, std::vector<unsigned char>{2} + varStr("Port side")));
+      groupFunction(n, 0x17, gfCommand(126998, 5, 1, std::vector<unsigned char>{1} + varStr("")));
+      request(n, 0x17, 126998);
+    }),
+    NODE("group function command for missing configuration information", {
+      n.SetProgmemConfigurationInformation(0, 0, 0);
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      groupFunction(n, 0x17, gfCommand(126998, 8, 1, std::vector<unsigned char>{2} + varStr("Aft")));
+      request(n, 0x17, 126998);
+    }),
+    GF_NODE("request for the heartbeat interval", {
+      groupFunction(n, 0x17, gfRequest(126993, 2000, 0xffff, 0));
+      until(n, 12300);
+    }),
+    GF_NODE("request for the heartbeat interval and offset", {
+      groupFunction(n, 0xff, gfRequest(126993, 5000, 100, 0));
+      until(n, 6300);
+    }),
+    GF_NODE("request for the default heartbeat interval", {
+      groupFunction(n, 0x17, gfRequest(126993, 2000, 0, 0));
+      groupFunction(n, 0x17, gfRequest(126993, 0xfffffffe, 0, 0));
+      until(n, 10300);
+    }),
+    GF_NODE("request for an unsupported heartbeat interval", {
+      groupFunction(n, 0x17, gfRequest(126993, 999, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(126993, 60001, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(126993, 0, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(126993, 1000, 6001, 0));
+      groupFunction(n, 0xff, gfRequest(126993, 999, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(126993, 0xffffffff, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(126993, 1000, 0xffff, 1, {1, 2}));
+      groupFunction(n, 0x17, gfCommand(126993, 8, 0));
+    }),
+    NODE("group function during the address claim", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 300);
+      groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 0xffff, 0));
+      groupFunction(n, 0x17, gfCommand(60928, 8, 1, {3, 5}));
+      until(n, 320);
+    }),
+    NODE("group function needs a full node", {
+      start(n, tNMEA2000::N2km_ListenAndSend);
+      until(n, 500);
+      groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 0xffff, 0));
     }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);

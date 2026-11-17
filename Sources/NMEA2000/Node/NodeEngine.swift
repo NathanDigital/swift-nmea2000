@@ -81,8 +81,9 @@ struct NodeEngine: Sendable {
 
   let mode: Node.Mode
   private(set) var openState = OpenState.closed(retryAt: 0)
-  private(set) var name: DeviceName
-  private(set) var address: UInt8
+  // Group function handlers (NodeEngine+GroupFunctions.swift) change these.
+  var name: DeviceName
+  var address: UInt8
   private var framer: MessageFramer
   private var assembler: MessageAssembler
 
@@ -101,15 +102,39 @@ struct NodeEngine: Sendable {
 
   /// When heartbeats are due, once the node is open (upstream's
   /// `HeartbeatScheduler`).
-  private var heartbeat: HeartbeatSchedule?
+  var heartbeat: HeartbeatSchedule?
 
-  private struct HeartbeatSchedule {
-    /// When the first heartbeat was due; later ones follow at whole periods.
-    var start: UInt64
+  /// When to send an address claim that was put off for a moment, if any
+  /// (upstream's `PendingIsoAddressClaim`).
+  var pendingClaim: UInt64?
+
+  /// A heartbeat schedule synchronised to the time the node opened
+  /// (upstream's `tN2kSyncScheduler`).
+  struct HeartbeatSchedule {
+    /// When the node opened.
+    var sync: UInt64
+    /// How long after opening the first heartbeat is due.
+    var offset: UInt64
     var period: UInt64
     /// Heartbeats are sent once this time has passed.
-    var next: UInt64
+    var next: UInt64 = 0
     var sequence: UInt8 = 0
+
+    init(sync: UInt64, offset: UInt64, period: UInt64, now: UInt64) {
+      self.sync = sync
+      self.offset = offset
+      self.period = period
+      scheduleNext(at: now)
+    }
+
+    /// Schedules the next heartbeat: the first one if it's still to come,
+    /// otherwise the next whole period after it.
+    ///
+    /// Ports `tN2kSyncScheduler::UpdateNextTime`.
+    mutating func scheduleNext(at now: UInt64) {
+      let start = sync + offset
+      next = start > now ? start : start + ((now - start) / period + 1) * period
+    }
   }
 
   private struct Transfer {
@@ -162,6 +187,7 @@ struct NodeEngine: Sendable {
     claimDeadline = nil
     transfer = nil
     heartbeat = nil
+    pendingClaim = nil
   }
 
   /// The next time ``poll(at:)`` has something to do, if any.
@@ -170,7 +196,8 @@ struct NodeEngine: Sendable {
     case .closed(let retryAt): retryAt
     case .waiting(let until): until
     case .open:
-      [claimDeadline, transfer?.deadline, heartbeat.map { $0.next + 1 }].compactMap { $0 }.min()
+      [claimDeadline, transfer?.deadline, pendingClaim, heartbeat.map { $0.next + 1 }]
+        .compactMap { $0 }.min()
     }
   }
 
@@ -193,13 +220,18 @@ struct NodeEngine: Sendable {
       // A device without an address starts again from the first one.
       if address == Self.nullAddress { moveToNextAddress(restartingFromFirstAddress: true) }
       if let period = device.heartbeatInterval {
-        let start = now + Self.heartbeatOffset
-        heartbeat = HeartbeatSchedule(start: start, period: period, next: start)
+        heartbeat = HeartbeatSchedule(
+          sync: now, offset: Self.heartbeatOffset, period: period, now: now)
       }
       return startAddressClaim(at: now)
     case .open:
       _ = isClaimingAddress(at: now)
-      return continueTransfer(at: now)
+      var frames = continueTransfer(at: now)
+      if let time = pendingClaim, now >= time {
+        pendingClaim = nil
+        frames += addressClaimFrames()
+      }
+      return frames
     }
   }
 
@@ -211,8 +243,7 @@ struct NodeEngine: Sendable {
     guard mode == .node, var schedule = heartbeat, now > schedule.next,
       !isClaimingAddress(at: now)
     else { return [] }
-    schedule.next =
-      schedule.start + ((now - schedule.start) / schedule.period + 1) * schedule.period
+    schedule.scheduleNext(at: now)
     let message = Heartbeat(
       interval: Double(schedule.period) / 1000, sequenceCounter: schedule.sequence
     ).makeMessage()
@@ -259,6 +290,7 @@ struct NodeEngine: Sendable {
       case ISOAddressClaim.pgn: frames += handleAddressClaim(assembled.message, at: now)
       case ISORequest.pgn: frames += handleISORequest(assembled.message, at: now)
       case Self.commandedAddressPGN: frames += handleCommandedAddress(assembled.message, at: now)
+      case GroupFunction.pgn: frames += handleGroupFunction(assembled.message, at: now)
       default: break
       }
     }
@@ -326,22 +358,11 @@ struct NodeEngine: Sendable {
     case ISOAddressClaim.pgn:
       return addressClaimFrames()
     case PGNList.pgn:
-      let transmit = MessageFramer.defaultTransmitPGNs + device.transmitPGNs
-      let receive = Self.defaultReceivePGNs + device.receivePGNs
-      return sendAll(
-        [
-          PGNList(kind: .transmit, pgns: Array(transmit.prefix(Self.maxPGNsInList)))
-            .makeMessage(destination: requester),
-          PGNList(kind: .receive, pgns: Array(receive.prefix(Self.maxPGNsInList)))
-            .makeMessage(destination: requester),
-        ], at: now)
+      return sendAll([transmitList(to: requester), receiveList(to: requester)], at: now)
     case ProductInformation.pgn:
       return sendAll([device.productInformation.makeMessage()], at: now)
     case ConfigurationInformation.pgn:
-      let reply =
-        device.configurationInformation?.makeMessage()
-        ?? ISOAcknowledgement(control: 1, pgn: ConfigurationInformation.pgn).makeMessage()
-      return sendAll([reply], at: now)
+      return sendAll([configurationReply(to: Message.broadcastAddress)], at: now)
     default:
       if let handler = device.isoRequestHandler {
         if !isAddressed && Self.ignoredBroadcastRequests.contains(requested) { return [] }
@@ -355,7 +376,7 @@ struct NodeEngine: Sendable {
   }
 
   /// Sends messages, dropping any that can't be sent.
-  private mutating func sendAll(_ messages: [Message], at now: UInt64) -> [CANFrame] {
+  mutating func sendAll(_ messages: [Message], at now: UInt64) -> [CANFrame] {
     messages.flatMap { (try? send($0, at: now)) ?? [] }
   }
 
@@ -440,7 +461,7 @@ struct NodeEngine: Sendable {
   /// node keeps the address and remembers where to stop trying next time.
   ///
   /// Ports `IsAddressClaimStarted`.
-  private mutating func isClaimingAddress(at now: UInt64) -> Bool {
+  mutating func isClaimingAddress(at now: UInt64) -> Bool {
     guard let deadline = claimDeadline else { return false }
     guard now >= deadline else { return true }
     claimDeadline = nil
@@ -524,7 +545,7 @@ struct NodeEngine: Sendable {
   }
 
   /// Ports `SendIsoAddressClaim`.
-  private mutating func addressClaimFrames() -> [CANFrame] {
+  mutating func addressClaimFrames() -> [CANFrame] {
     var message = ISOAddressClaim(name: name).makeMessage()
     message.source = address
     return (try? framer.frames(for: message)) ?? []

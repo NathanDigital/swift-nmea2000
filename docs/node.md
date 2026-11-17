@@ -5,7 +5,7 @@ Upstream's `tNMEA2000` (`NMEA2000.h/.cpp`) is one class that talks to the CAN dr
 1. **CAN frames** (`Sources/NMEA2000/CAN/`, done): pure value types that turn messages into frames and back.
 2. **Transport and node** (`Sources/NMEA2000/Node/`, done): a transport protocol for CAN drivers, and an actor that opens it, claims an address, sends messages and delivers received ones as an `AsyncSequence`.
 3. **ISO transport protocol** (done): multi-packet sessions, broadcast (BAM) or to one device (RTS/CTS), received in `MessageAssembler` and sent by `NodeEngine`.
-4. **Network management** (in progress): ISO requests, product and configuration information, heartbeat, PGN lists and commanded address are done; group functions are next.
+4. **Network management** (done): ISO requests, product and configuration information, heartbeat, PGN lists, commanded address and group functions.
 
 ## CAN frames
 
@@ -86,7 +86,6 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 ### Not yet ported
 
 - Several devices on one node (`SetDeviceCount`).
-- Group functions (layer 4).
 - Forwarding to a stream (`SetForwardStream`, debug modes): gateway formats will be separate codecs.
 - The send frame buffer (`SetN2kCANSendFrameBufSize`): `CANTransport.send(_:)` suspends while the transport is busy instead.
 
@@ -149,4 +148,33 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 
 - Pending product and configuration information (`SetPendingProductInformation`, `SetPendingConfigurationInformation`): upstream retries them only when sending fails, which can't happen in `NodeEngine`.
 - `ReadResetAddressChanged`, `ReadResetDeviceInformationChanged`: read `Node.address` and `Node.name` instead.
-- Changing the heartbeat interval at run time, which upstream's group function handler does (layer 4).
+
+## Group functions
+
+| Upstream | Swift |
+|---|---|
+| `tN2kGroupFunctionCode`, `tN2kGroupFunctionPGNErrorCode`, `tN2kGroupFunctionTransmissionOrPriorityErrorCode`, `tN2kGroupFunctionParameterErrorCode` | `GroupFunction.Code`, `.PGNError`, `.TransmissionError`, `.ParameterError` (internal) |
+| `SetStartAcknowledge`, `AddAcknowledgeParameter`, `SendAcknowledge` | `GroupFunction.Acknowledgement` (internal) |
+| `GetRequestGroupFunctionTransmissionOrPriorityErrorCode` | `GroupFunction.transmissionError(interval:offset:intervalLimits:maxOffset:)` |
+| `tNMEA2000::HandleGroupFunction`, `RespondGroupFunction`, `tN2kGroupFunctionHandler` | `NodeEngine.handleGroupFunction(_:at:)` |
+| `tN2kGroupFunctionHandlerForPGN60928`, `…126464`, `…126993`, `…126996`, `…126998` | `NodeEngine+GroupFunctions.swift` |
+| `SetDeviceInformationInstances`, `SetInstallationDescription1/2`, `SetHeartbeatIntervalAndOffset` | changes `Node.name`, `Node.configurationInformation` and the heartbeat schedule |
+
+### Kept upstream behaviour
+
+- Group functions are handled in `.node` mode, when sent to the node or broadcast. Commands, reads and writes that are broadcast are ignored, as are acknowledgements and read and write replies.
+- A request for a PGN without its own handler is acknowledged: "PGN not supported" if the node doesn't transmit it, "temporarily not available" if it does, or "transmission interval not supported" for an interval or offset that isn't a special value. A command is acknowledged likewise, with "not supported" for a priority setting other than 8, 9 or 15. Reads and writes get "not supported". Nothing is sent for a broadcast request.
+- Requests for 60928, 126464, 126996 and 126998 may filter on the PGN's fields. If every field matches, the node sends the PGN: an address claim 2 ms later, its PGN lists, or its product or configuration information, by transport protocol if the request came that way. Otherwise an addressed request is acknowledged field by field. An unknown field stops the parsing, and the fields after it are answered "temporarily unable to comply". A broadcast request stops at the first mismatch. Once a field has failed, upstream reports every later string field as out of range too.
+- A command for 60928 sets the device instance (lower and upper) and system instance, and the node claims its address again 2 ms later. A command for 126998 sets the installation descriptions. In both, a field the handler doesn't know isn't skipped, so later pairs are read from the wrong place, and the 60928 command never reports an unsupported priority.
+- A request for 126993 with an interval from 1 to 60 seconds and an offset up to 60 seconds (in 10 ms units) changes the heartbeat schedule and sends a heartbeat at once with sequence number `0xff`. An interval of 0 is refused, and `0xfffffffe` restores 60 seconds. A command for 126993 is answered "PGN not supported".
+- Requests for both PGN lists by transport protocol send only the transmit list, because the node sends one transport protocol message at a time.
+
+### Divergences
+
+| Upstream | Swift | Why |
+|---|---|---|
+| The 126996 handler compares the software version, model version and serial code filters with the model ID | Compares each with its own field | Upstream answers "out of range" to a matching filter. **Changes the frames sent** for those requests. |
+
+### Not ported
+
+- Application group function handlers (`AddGroupFunctionHandler`, subclasses of `tN2kGroupFunctionHandler`). Requests for other PGNs get the default answers.

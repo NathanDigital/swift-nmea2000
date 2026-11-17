@@ -44,8 +44,8 @@ public actor Node {
     case listenAndSend
 
     /// A full node: claims an address and defends it, answers ISO requests
-    /// and sends heartbeats (upstream's `N2km_NodeOnly` and
-    /// `N2km_ListenAndNode`).
+    /// and group functions, and sends heartbeats (upstream's
+    /// `N2km_NodeOnly` and `N2km_ListenAndNode`).
     case node
   }
 
@@ -144,8 +144,17 @@ public actor Node {
   public var address: UInt8 { engine.address }
 
   /// The NAME the node claims its address with. The node changes the device
-  /// instance if another device claims the same NAME.
+  /// instance if another device claims the same NAME, and another device can
+  /// set the device and system instances with a group function command; save
+  /// the NAME so the device keeps them across restarts.
   public var name: DeviceName { engine.name }
+
+  /// The configuration information the node sends when asked. Another
+  /// device can change the installation descriptions with a group function
+  /// command; save them so the device keeps them across restarts.
+  public var configurationInformation: ConfigurationInformation? {
+    engine.device.configurationInformation
+  }
 
   /// Sets the handler that answers ISO requests the node doesn't answer
   /// itself, or removes it.
