@@ -1022,6 +1022,25 @@ const std::vector<Case> cases = {
       groupFunction(n, 0x17, gfRequest(126993, 1000, 0xffff, 1, {1, 2}));
       groupFunction(n, 0x17, gfCommand(126993, 8, 0));
     }),
+    GF_NODE("request for the address claim to the millisecond", {
+      groupFunction(n, 0x17, gfRequest(60928, 0xffffffff, 0xffff, 0));
+      until(n, 505, 1);
+    }),
+    GF_NODE("command for the address claim to the millisecond", {
+      groupFunction(n, 0x17, gfCommand(60928, 8, 1, {8, 0x0d}));
+      until(n, 505, 1);
+    }),
+    NODE("group function request for the heartbeat offset at its time", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 1200);
+      // The node opened at 200, so an offset of 1 s falls due now.
+      groupFunction(n, 0xff, gfRequest(126993, 5000, 100, 0));
+      until(n, 6300);
+    }),
+    GF_NODE("command for a long installation description", {
+      groupFunction(n, 0x17, gfCommand(126998, 8, 1, std::vector<unsigned char>{1} + varStr("0123456789012345678901234567890123456789012345678901234567890123456789XYZ")));
+      groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 1, std::vector<unsigned char>{1} + varStr("0123456789012345678901234567890123456789012345678901234567890123456789")));
+    }),
     NODE("group function during the address claim", {
       start(n, tNMEA2000::N2km_NodeOnly);
       until(n, 300);
