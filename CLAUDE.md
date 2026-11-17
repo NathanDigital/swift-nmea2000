@@ -53,6 +53,8 @@ When porting a feature, read the corresponding upstream file in `src/` (and its 
 
 ### Fidelity to upstream
 
+Upstream is the single master source for **what** is ported: which PGNs, fields and enum values exist. Don't add PGNs, fields or named enum values that upstream doesn't have, even if canboat or another source defines them; unnamed values still round-trip as raw values. Other sources (canboat, manufacturer manuals) are only used to check a value upstream already defines when it looks wrong (rule 2).
+
 Upstream's bytes are proven on real buses, so matching them is how we know we interoperate. Its decoders and enum names are less reliable. Apply these rules in order:
 
 1. **Encoding is byte-identical to upstream by default**, including odd but harmless choices (e.g. an empty waypoint name sent as a single NUL, UCS-2 strings leaving two bytes unused). Tests check this against `scripts/upstream-vectors`.
