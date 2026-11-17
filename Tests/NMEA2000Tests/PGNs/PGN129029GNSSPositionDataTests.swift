@@ -107,4 +107,12 @@ struct GNSSPositionDataTests {
         .init(type: .gpsGLONASS, id: 34, ageOfCorrection: 2),
       ])
   }
+
+  @Test func sendsOnlyTheFirstReferenceStation() throws {
+    // Upstream's SetN2kPGN129029 takes one station, and sends a count of 1.
+    var position = try GNSSPositionData(Message(pgn: 129029, data: Self.vectors[0].1))
+    let first = try #require(position.referenceStations?.first)
+    position.referenceStations = [first, .init(type: .glonass, id: 16, ageOfCorrection: 1)]
+    #expect(position.makeMessage().data == Self.vectors[0].1)
+  }
 }

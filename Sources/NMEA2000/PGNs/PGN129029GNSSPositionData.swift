@@ -9,8 +9,8 @@
 /// Ports `SetN2kPGN129029` / `ParseN2kPGN129029`.
 ///
 /// Upstream sends and reads at most one reference station. This type keeps a
-/// list: encoding a list of zero or one station is byte-identical to upstream,
-/// and decoding reads every station the message declares.
+/// list so that decoding can read every station the message declares, but
+/// encoding sends only the first, as upstream does.
 public struct GNSSPositionData: ParameterGroup, Hashable {
   public static let pgn: UInt32 = 129029
   public static let defaultPriority: UInt8 = 3
@@ -77,7 +77,8 @@ public struct GNSSPositionData: ParameterGroup, Hashable {
   /// The reference stations used for differential corrections, or `nil` if
   /// not available.
   ///
-  /// `nil` is sent as a station count of `0xff`; an empty list as `0`.
+  /// `nil` is sent as a station count of `0xff`; an empty list as `0`. Only
+  /// the first station is sent, as upstream sends at most one.
   public var referenceStations: [ReferenceStation]?
 
   /// Creates a GNSS position data message.
@@ -162,12 +163,12 @@ public struct GNSSPositionData: ParameterGroup, Hashable {
       writer.appendUInt8(UInt8?.none)
       return
     }
-    // Each station takes 4 bytes, and 0xff would mean "not available".
-    let count = min(referenceStations.count, (writer.availableCount - 1) / 4, 0xfe)
-    writer.appendUInt8(UInt8(count))
-    for station in referenceStations.prefix(count) {
-      writer.appendUInt16(UInt16(station.type.rawValue & 0x0f) | station.id << 4)
-      writer.appendUInt16(station.ageOfCorrection, resolution: 0.01)
+    guard let station = referenceStations.first else {
+      writer.appendUInt8(0)
+      return
     }
+    writer.appendUInt8(1)
+    writer.appendUInt16(UInt16(station.type.rawValue & 0x0f) | station.id << 4)
+    writer.appendUInt16(station.ageOfCorrection, resolution: 0.01)
   }
 }
