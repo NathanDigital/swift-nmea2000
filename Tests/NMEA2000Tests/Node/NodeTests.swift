@@ -504,6 +504,51 @@ struct NodeTests {
     #expect(try await events.next() == nil)
   }
 
+  @Test func waitsUntilTheAddressIsClaimed() async throws {
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
+    let events = Recorder(await node.events())
+    let ready = Task { try await node.waitUntilReady() }
+    let run = Task { try await node.run() }
+    try await clock.waitForSleepers()
+    clock.advance(to: 200)
+    #expect(try await events.next() == .opened)
+    #expect(await !node.isReady())
+    try await clock.waitForSleepers()
+    clock.advance(to: 450)
+    try await ready.value
+    #expect(await node.isReady())
+    #expect(try await events.next() == .addressClaimed(device: 0, address: 23))
+    try await node.send(PositionRapidUpdate(latitude: 1, longitude: 2))
+
+    transport.receive.finish()
+    try await finish(run)
+  }
+
+  @Test func stopsWaitingWhenItCantBeReady() async throws {
+    let clock = ManualClock()
+    await #expect(throws: NodeError.listenOnly) {
+      try await makeNode(FakeTransport(), clock: clock).waitUntilReady()
+    }
+    let transport = FakeTransport()
+    let node = makeNode(transport, mode: .node, clock: clock)
+    await #expect(throws: NodeError.noSuchDevice(1)) { try await node.waitUntilReady(1) }
+    let ready = Task { try await node.waitUntilReady() }
+    let run = Task { try await node.run() }
+    try await clock.waitForSleepers()
+    transport.receive.finish()
+    try await finish(run)
+    await #expect(throws: NodeError.notOpen) { try await ready.value }
+  }
+
+  @Test func stopsWaitingWhenCancelled() async throws {
+    let node = makeNode(FakeTransport(), mode: .node, clock: ManualClock())
+    let ready = Task { try await node.waitUntilReady() }
+    ready.cancel()
+    await #expect(throws: CancellationError.self) { try await ready.value }
+  }
+
   @Test func deliversEveryMessageToEverySubscriber() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()

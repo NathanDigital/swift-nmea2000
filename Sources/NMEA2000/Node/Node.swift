@@ -190,8 +190,14 @@ public actor Node {
   /// `ReadResetInstallationDescriptionChanged` flags.
   public enum Event: Sendable, Hashable {
     /// The transport opened and the devices started claiming their
-    /// addresses. Sending is possible once a claim ends, 250 ms later.
+    /// addresses. Sending is possible once a claim ends, 250 ms later; see
+    /// ``Node/waitUntilReady(_:)``.
     case opened
+    /// A device's address claim ended with the address it now holds, so it
+    /// can send.
+    case addressClaimed(device: DeviceID, address: UInt8)
+    /// A device found no free address, so it can't send.
+    case addressClaimFailed(device: DeviceID)
     /// A device moved to another address. Save ``Node/devices`` so the
     /// device starts from it next time.
     case addressChanged(device: DeviceID)
@@ -221,12 +227,16 @@ public actor Node {
       [:]
   private var eventSubscribers: [Int: AsyncStream<Event>.Continuation] = [:]
   private var nextSubscriberID = 0
+  /// Tasks waiting in ``waitUntilReady(_:)`` for the engine to change.
+  private var stateWaiters: [Int: CheckedContinuation<Void, any Error>] = [:]
   private var lastTransmission: Task<Void, any Error>?
   /// How many frames are queued to send and not yet sent.
   private var queuedFrameCount = 0
   private var timer: Task<Void, Never>?
   private var timerDeadline: UInt64?
   private var isRunning = false
+  /// Whether ``run()`` has returned since it last started.
+  private var hasStopped = false
 
   /// How a node takes part in the bus, and the devices it hosts.
   ///
@@ -414,6 +424,7 @@ public actor Node {
   public func run() async throws {
     precondition(!isRunning, "Node.run() is already running")
     isRunning = true
+    hasStopped = false
     defer { stop() }
     let frames = try await openWithRetries()
     scheduleTimer()
@@ -464,6 +475,54 @@ public actor Node {
   /// Whether the node is open: its transport is open and its devices have
   /// started claiming their addresses.
   public var isOpen: Bool { engine.isOpen }
+
+  /// Whether a device can send now: the node is open, isn't listening only,
+  /// and in ``Mode/node`` mode the device has claimed an address.
+  public func isReady(_ device: DeviceID = .first) -> Bool {
+    engine.devices.indices.contains(device.rawValue) && engine.isReady(device.rawValue)
+  }
+
+  /// Waits until a device can send: until the node opens and, in
+  /// ``Mode/node`` mode, the device has claimed an address. Call it before
+  /// the first ``send(_:from:)``, while ``run()`` runs in another task.
+  ///
+  /// - Throws: ``NodeError/listenOnly`` for a node that never sends,
+  ///   ``NodeError/noAddress`` if the device found no free address,
+  ///   ``NodeError/notOpen`` if ``run()`` returns first, or
+  ///   `CancellationError`.
+  public func waitUntilReady(_ device: DeviceID = .first) async throws {
+    try checkDevice(device.rawValue)
+    guard mode != .listenOnly else { throw NodeError.listenOnly }
+    while !engine.isReady(device.rawValue) {
+      if engine.hasNoAddress(device.rawValue) { throw NodeError.noAddress }
+      if !isRunning && hasStopped { throw NodeError.notOpen }
+      try await waitForEngineOutput()
+    }
+  }
+
+  /// Waits until the engine's state may have changed, which the node
+  /// signals each time it passes on the engine's output.
+  private func waitForEngineOutput() async throws {
+    let id = nextSubscriberID
+    nextSubscriberID += 1
+    try await withTaskCancellationHandler {
+      try await withCheckedThrowingContinuation {
+        (continuation: CheckedContinuation<Void, any Error>) in
+        if Task.isCancelled {
+          continuation.resume(throwing: CancellationError())
+        } else {
+          stateWaiters[id] = continuation
+        }
+      }
+    } onCancel: {
+      Task { await self.resumeStateWaiter(id, throwing: CancellationError()) }
+    }
+  }
+
+  private func resumeStateWaiter(_ id: Int, throwing error: (any Error)? = nil) {
+    guard let continuation = stateWaiters.removeValue(forKey: id) else { return }
+    if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+  }
 
   /// Whether a device lists a PGN as one it transmits (`IsTxPGN`).
   public func isTransmitted(_ pgn: UInt32, by device: DeviceID = .first) -> Bool {
@@ -564,10 +623,12 @@ public actor Node {
       }
     }
     engine.sentMessages = []
+    for id in stateWaiters.keys { resumeStateWaiter(id) }
   }
 
   private func stop() {
     isRunning = false
+    hasStopped = true
     engine.transportClosed()
     timer?.cancel()
     timer = nil
@@ -577,6 +638,7 @@ public actor Node {
     subscribers = [:]
     for subscriber in eventSubscribers.values { subscriber.finish() }
     eventSubscribers = [:]
+    for id in stateWaiters.keys { resumeStateWaiter(id, throwing: NodeError.notOpen) }
   }
 
   private func removeSubscriber(_ id: Int) {

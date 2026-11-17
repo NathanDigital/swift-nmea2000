@@ -757,7 +757,27 @@ struct NodeEngine: Sendable {
     guard now >= deadline else { return true }
     devices[device].claimDeadline = nil
     devices[device].resetLastAddressToTry()
+    let id = Node.DeviceID(rawValue: device)
+    let address = devices[device].address
+    events.append(
+      address <= MessageFramer.maxBusAddress
+        ? .addressClaimed(device: id, address: address) : .addressClaimFailed(device: id))
     return false
+  }
+
+  /// Whether a device can send now: the node is open and sends, and in
+  /// ``Node/Mode/node`` mode the device has claimed an address.
+  func isReady(_ device: Int) -> Bool {
+    guard openState == .open, mode != .listenOnly else { return false }
+    return devices[device].claimDeadline == nil
+      && devices[device].address <= MessageFramer.maxBusAddress
+  }
+
+  /// Whether a device gave up claiming an address because every address was
+  /// taken.
+  func hasNoAddress(_ device: Int) -> Bool {
+    openState == .open && devices[device].claimDeadline == nil
+      && devices[device].address > MessageFramer.maxBusAddress
   }
 
   /// Claims a device's address, if the node is a full node.
