@@ -7,22 +7,33 @@
 /// A device on an NMEA 2000 bus: it opens a CAN transport, claims an address,
 /// sends messages and delivers the messages it receives.
 ///
-/// Create a node with a transport, start ``run()`` in a task, and read
-/// ``messages()``:
+/// Create a node from a transport and a ``Configuration``, run it with
+/// ``run()``, and read what it receives with ``messages(of:includingSent:bufferingPolicy:)``
+/// or ``messages(includingSent:bufferingPolicy:)``:
 ///
 /// ```swift
-/// let node = Node(transport: transport, mode: .node, name: myName)
-/// Task { try await node.run() }
-/// for await message in await node.messages() {
-///   if message.pgn == PositionRapidUpdate.pgn {
-///     let position = try PositionRapidUpdate(message)
+/// let node = Node(
+///   transport: transport,
+///   configuration: .node(myDevice, configurationInformation: myConfigurationInformation))
+/// try await withThrowingTaskGroup(of: Void.self) { group in
+///   group.addTask { try await node.run() }
+///   group.addTask {
+///     for await position in await node.messages(of: PositionRapidUpdate.self) {
+///       print(position.latitude ?? .nan, position.longitude ?? .nan)
+///     }
 ///   }
+///   group.addTask {
+///     try await node.waitUntilReady()
+///     try await node.send(WindData(sequenceID: nil, windSpeed: 5, windAngle: 1, reference: .apparent))
+///   }
+///   try await group.waitForAll()
 /// }
 /// ```
 ///
 /// When the transport opens, the node waits 200 ms and then claims its
 /// address. While the claim is in progress (250 ms, longer if another device
-/// contests the address) sending throws ``NodeError/claimingAddress``.
+/// contests the address) sending throws ``NodeError/claimingAddress``;
+/// ``waitUntilReady(_:)`` waits for it to end.
 ///
 /// Ports `tNMEA2000` for one device: the open sequence, sending, receiving
 /// and address claiming. Upstream calls message handlers from
@@ -500,7 +511,7 @@ public actor Node {
   ///
   /// ```swift
   /// for await wind in await node.messages(of: WindData.self) {
-  ///   print(wind.speed ?? .nan)
+  ///   print(wind.windSpeed ?? .nan)
   /// }
   /// ```
   ///

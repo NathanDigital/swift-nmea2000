@@ -51,25 +51,46 @@ Tagged releases will follow once the API settles.
 ```swift
 import NMEA2000
 
+let device = Node.Device(
+    name: DeviceName(
+        uniqueNumber: 12345, manufacturerCode: 2046, deviceFunction: 130, deviceClass: 25),
+    productInformation: ProductInformation(
+        nmea2000Version: 2101, productCode: 1, modelID: "My Display", softwareVersion: "1.0",
+        modelVersion: "1", modelSerialCode: "0001"))
 let node = Node(
     transport: transport,  // your CANTransport
-    mode: .node,
-    name: DeviceName(
-        uniqueNumber: 12345, manufacturerCode: 2046, deviceFunction: 130, deviceClass: 25))
+    configuration: .node(device, configurationInformation: nil))
 
-let messages = await node.messages()
-Task { try await node.run() }
+try await withThrowingTaskGroup(of: Void.self) { group in
+    group.addTask { try await node.run() }
 
-for await message in messages where message.pgn == PositionRapidUpdate.pgn {
-    let position = try PositionRapidUpdate(message)
-    print(position.latitude ?? .nan, position.longitude ?? .nan)
+    // Receive positions, decoded.
+    group.addTask {
+        for await position in await node.messages(of: PositionRapidUpdate.self) {
+            print(position.latitude ?? .nan, position.longitude ?? .nan)
+        }
+    }
+
+    // Send once the node has claimed its address.
+    group.addTask {
+        try await node.waitUntilReady()
+        try await node.send(PositionRapidUpdate(latitude: 60.17, longitude: 24.94))
+    }
+
+    try await group.waitForAll()
 }
 ```
 
-Sending is one call once the node has claimed its address:
+To handle several kinds of message, decode each with the parameter group type for its PGN:
 
 ```swift
-try await node.send(PositionRapidUpdate(latitude: 60.17, longitude: 24.94))
+for await message in await node.messages() {
+    switch try? message.decoded() {
+    case let position as PositionRapidUpdate: print(position)
+    case let wind as WindData: print(wind)
+    default: break
+    }
+}
 ```
 
 The [docs](docs/) map each part of upstream's library to its Swift counterpart, and list where the port deliberately differs.
