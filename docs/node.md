@@ -178,3 +178,19 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 ### Not ported
 
 - Application group function handlers (`AddGroupFunctionHandler`, subclasses of `tN2kGroupFunctionHandler`). Requests for other PGNs get the default answers.
+
+## Device list
+
+| Upstream | Swift |
+|---|---|
+| `tN2kDeviceList` | `DeviceList`, a value type driven by `handle(_:at:sending:)`; `Node(discoversDevices: true)` keeps one in `Node.deviceList` |
+| `tN2kDeviceList::tInternalDevice`, `tNMEA2000::tDevice` | `DeviceList.Device` |
+| `FindDeviceBySource`, `FindDeviceByName`, `FindDeviceByIDs`, `FindDeviceByProduct` | `DeviceList[source:]`, `device(named:)`, `device(manufacturerCode:uniqueNumber:)`, `device(manufacturerCode:productCode:after:)` |
+| `Count`, `ReadResetIsListUpdated`, `GetDeviceLastMessageTime` | `count`, `resetUpdated()`, `Device.lastMessageTime` |
+
+### Kept upstream behaviour
+
+- A device is added when it claims its address, or when the list first hears from it and its request for the device's NAME goes out. A request that can't be sent (in listen-only mode, or while the node claims its address) adds nothing.
+- Requests are paced by traffic: each message from a device other than a claim or one of the replies lets the list make at most one request. The list asks for the NAME of the device just heard (up to 20 times), then for each device's product information, configuration information and PGN lists in turn, one kind at a time, in address order. Each is asked at most four times, a second apart, starting a second after the device was added. Configuration information is asked more than a second apart, because upstream compares with `>`.
+- A device that claims a different address keeps its details. A different device claiming an address moves the old one to the first free index, and the list asks every device to claim again.
+- The list sees each message after the application's handler, so its requests follow any replies the node sends.

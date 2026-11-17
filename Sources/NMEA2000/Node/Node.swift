@@ -95,6 +95,9 @@ public actor Node {
   ///     management PGNs every node sends. The node lists them when asked.
   ///   - receivePGNs: The PGNs the device receives, beyond the network
   ///     management PGNs. The node lists them when asked.
+  ///   - discoversDevices: Whether to keep a ``DeviceList`` of the devices
+  ///     on the bus, asking them for their details as upstream's
+  ///     `tN2kDeviceList` does.
   ///   - heartbeatInterval: How often to send a heartbeat, between 1 and
   ///     655.32 seconds, or `nil` for none. The first is sent 10 seconds
   ///     after the node opens.
@@ -112,6 +115,7 @@ public actor Node {
     transmitPGNs: [UInt32] = [],
     receivePGNs: [UInt32] = [],
     handlesOnlyKnownMessages: Bool = false,
+    discoversDevices: Bool = false,
     heartbeatInterval: Duration? = .seconds(60),
     clock: some Clock<Duration> = ContinuousClock()
   ) {
@@ -129,6 +133,7 @@ public actor Node {
         heartbeatInterval: heartbeatInterval.map {
           min(max(NodeClock.milliseconds($0), 1000), 655_320)
         }))
+    if discoversDevices { engine.deviceList = DeviceList() }
     self.clock = NodeClock(clock)
     openTransport = {
       let frames = try await transport.open()
@@ -155,6 +160,10 @@ public actor Node {
   public var configurationInformation: ConfigurationInformation? {
     engine.device.configurationInformation
   }
+
+  /// The devices on the bus, if the node was created with
+  /// `discoversDevices: true`.
+  public var deviceList: DeviceList? { engine.deviceList }
 
   /// Sets the handler that answers ISO requests the node doesn't answer
   /// itself, or removes it.
@@ -261,11 +270,12 @@ public actor Node {
   }
 
   private func handle(_ frame: CANFrame) {
-    let (frames, message) = engine.receive(frame, at: clock.now())
-    transmit(frames)
+    let (frames, message, deliveredAfter) = engine.receive(frame, at: clock.now())
+    transmit(Array(frames[..<deliveredAfter]))
     if let message {
       for subscriber in subscribers.values { subscriber.yield(message) }
     }
+    transmit(Array(frames[deliveredAfter...]))
     scheduleTimer()
   }
 

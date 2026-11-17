@@ -108,6 +108,9 @@ struct NodeEngine: Sendable {
   /// (upstream's `PendingIsoAddressClaim`).
   var pendingClaim: UInt64?
 
+  /// The devices on the bus, if the node keeps track of them.
+  var deviceList: DeviceList?
+
   /// A heartbeat schedule synchronised to the time the node opened
   /// (upstream's `tN2kSyncScheduler`).
   struct HeartbeatSchedule {
@@ -261,15 +264,29 @@ struct NodeEngine: Sendable {
   ///
   /// - Returns: The frames to send in response, and the message the frame
   ///   completes, if any.
+  /// - Returns: The frames to send, the message the frame completes, if
+  ///   any, and how many of the frames come before the application gets
+  ///   the message. Upstream answers system messages first, then calls the
+  ///   application's handler, then its other handlers such as the device
+  ///   list.
   mutating func receive(_ frame: CANFrame, at now: UInt64) -> (
-    frames: [CANFrame], message: Message?
+    frames: [CANFrame], message: Message?, deliveredAfter: Int
   ) {
     var frames = beforeReceiving(at: now)
-    guard openState == .open else { return (frames, nil) }
+    guard openState == .open else { return (frames, nil, frames.count) }
     let (replies, message) = handle(frame, at: now)
     frames += replies
+    let deliveredAfter = frames.count
+    if let message, var list = deviceList {
+      list.handle(message, at: UInt32(truncatingIfNeeded: now)) { request in
+        guard let sent = try? send(request, at: now) else { return false }
+        frames += sent
+        return true
+      }
+      deviceList = list
+    }
     frames += afterReceiving(at: now)
-    return (frames, message)
+    return (frames, message, deliveredAfter)
   }
 
   private mutating func handle(_ frame: CANFrame, at now: UInt64) -> (

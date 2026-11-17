@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "N2kDeviceList.h"
+#include "N2kMessages.h"
 #include "NMEA2000.h"
 
 // The node's clock. The harness is built without the Linux timer, so upstream
@@ -66,6 +68,7 @@ class TestNode : public tNMEA2000 {
  public:
   std::deque<Frame> incoming;
   int failedOpens = 0;  // How many times CANOpen fails before it succeeds.
+  bool isFastPacket(unsigned long pgn) { return IsFastPacketPGN(pgn); }
 
  protected:
   bool CANSendFrame(unsigned long id, unsigned char len, const unsigned char *buf,
@@ -277,6 +280,68 @@ std::vector<unsigned char> varStr(const char *text) {
 std::vector<unsigned char> operator+(std::vector<unsigned char> a, const std::vector<unsigned char> &b) {
   a.insert(a.end(), b.begin(), b.end());
   return a;
+}
+
+// Receives a message built with upstream's encoders, from its source: one
+// frame, or a fast packet.
+void inject(TestNode &node, tN2kMsg m, unsigned char source) {
+  unsigned long id = (unsigned long)(m.Priority & 7) << 26 | m.PGN << 8 | source;
+  if (((m.PGN >> 8) & 0xff) < 240) id |= (unsigned long)m.Destination << 8;
+  if (m.DataLen <= 8 && !node.isFastPacket(m.PGN)) {
+    receive(node, id, std::vector<unsigned char>(m.Data, m.Data + m.DataLen));
+    return;
+  }
+  std::vector<unsigned char> first = {0x00, uint8_t(m.DataLen)};
+  for (int i = 0; i < 6; i++) first.push_back(i < m.DataLen ? m.Data[i] : 0xff);
+  receive(node, id, first);
+  for (int frame = 1; 6 + (frame - 1) * 7 < m.DataLen; frame++) {
+    std::vector<unsigned char> data = {uint8_t(frame)};
+    for (int i = 6 + (frame - 1) * 7; i < 6 + frame * 7; i++) data.push_back(i < m.DataLen ? m.Data[i] : 0xff);
+    receive(node, id, data);
+  }
+}
+
+// Another device's NAME: unique number `unique`, manufacturer 2046.
+uint64_t otherName(uint32_t unique) { return 0xc0328200ffc00000ULL | unique; }
+
+// Sends wind data from a source every 100 ms until t, as a device on the
+// bus would. The device list makes its requests while handling such messages.
+void chatter(TestNode &node, unsigned char source, uint32_t t) {
+  while (now - origin < t) {
+    until(node, now - origin + 100 > t ? t : now - origin + 100);
+    tN2kMsg m;
+    SetN2kPGN130306(m, 1, 5, 1, N2kWind_True_North);
+    inject(node, m, source);
+  }
+}
+
+// Prints the device list's state, as the last events of a case.
+void dumpDevices(tN2kDeviceList &list) {
+  char line[256];
+  snprintf(line, sizeof line, "devices count=%u updated=%d", list.Count(), list.ReadResetIsListUpdated());
+  events.push_back(line);
+  for (int source = 0; source < N2kMaxBusDevices; source++) {
+    const tNMEA2000::tDevice *d = list.FindDeviceBySource(source);
+    if (d == nullptr) continue;
+    auto text = [](const char *s) { return std::string(s ? s : ""); };
+    auto pgns = [](const unsigned long *list) {
+      if (list == nullptr) return std::string("-");
+      std::string s = "[";
+      for (int i = 0; list[i] != 0; i++) s += (i ? ", " : "") + std::to_string(list[i]);
+      return s + "]";
+    };
+    snprintf(line, sizeof line, "device source=%u name=0x%016llx", d->GetSource(),
+             (unsigned long long)d->GetName());
+    events.push_back(line);
+    snprintf(line, sizeof line, "  product version=%u code=%u cert=%u load=%u", d->GetN2kVersion(),
+             d->GetProductCode(), d->GetCertificationLevel(), d->GetLoadEquivalency());
+    events.push_back(line + std::string(" model=") + text(d->GetModelID()) + " sw=" + text(d->GetSwCode()) +
+                     " version=" + text(d->GetModelVersion()) + " serial=" + text(d->GetModelSerialCode()));
+    events.push_back("  config manufacturer=" + text(d->GetManufacturerInformation()) +
+                     " installation1=" + text(d->GetInstallationDescription1()) +
+                     " installation2=" + text(d->GetInstallationDescription2()));
+    events.push_back("  pgns transmit=" + pgns(d->GetTransmitPGNs()) + " receive=" + pgns(d->GetReceivePGNs()));
+  }
 }
 
 // The node a case runs, for the ISO request handler.
@@ -1052,6 +1117,60 @@ const std::vector<Case> cases = {
       start(n, tNMEA2000::N2km_ListenAndSend);
       until(n, 500);
       groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 0xffff, 0));
+    }),
+    // Device list. Device 0x42 answers nothing unless a case says so.
+#define DL_NODE(name, mode, ...) NODE("device list " name, { \
+      tN2kDeviceList list(&n); \
+      start(n, mode); \
+      until(n, 500); \
+      __VA_ARGS__; \
+      dumpDevices(list); \
+    })
+    DL_NODE("discovers a device from its address claim", tNMEA2000::N2km_NodeOnly, {
+      claim(n, 0x42, otherName(7));
+      chatter(n, 0x42, 1600);
+      tN2kMsg product;
+      SetN2kPGN126996(product, 2100, 1234, "Wind sensor", "2.0", "B", "SN7", 1, 2);
+      inject(n, product, 0x42);
+      chatter(n, 0x42, 2700);
+      tN2kMsg config;
+      SetN2kPGN126998(config, "Maker", "Masthead", "");
+      inject(n, config, 0x42);
+      chatter(n, 0x42, 3800);
+      static const unsigned long transmit[] = {130306, 60928, 0};
+      static const unsigned long receive[] = {59904, 0};
+      tN2kMsg tx, rx;
+      SetN2kPGN126464(tx, 0x17, N2kpgnl_transmit, transmit);
+      SetN2kPGN126464(rx, 0x17, N2kpgnl_receive, receive);
+      inject(n, tx, 0x42);
+      inject(n, rx, 0x42);
+      chatter(n, 0x42, 4000);
+    }),
+    DL_NODE("asks a device it hears from for its NAME", tNMEA2000::N2km_NodeOnly, {
+      chatter(n, 0x42, 800);
+      claim(n, 0x42, otherName(7));
+      chatter(n, 0x42, 1000);
+    }),
+    DL_NODE("gives up on a device that doesn't answer", tNMEA2000::N2km_NodeOnly, {
+      claim(n, 0x42, otherName(7));
+      chatter(n, 0x42, 14000);
+    }),
+    DL_NODE("follows a device to a new address", tNMEA2000::N2km_NodeOnly, {
+      claim(n, 0x42, otherName(7));
+      claim(n, 0x43, otherName(7));
+    }),
+    DL_NODE("moves a device whose address is taken", tNMEA2000::N2km_NodeOnly, {
+      claim(n, 0x42, otherName(7));
+      claim(n, 0x42, otherName(8));
+    }),
+    DL_NODE("can't ask while the node claims its address", tNMEA2000::N2km_NodeOnly, {
+      claim(n, 0x17, ownName - 1);
+      chatter(n, 0x42, 800);
+    }),
+    DL_NODE("in listen only mode", tNMEA2000::N2km_ListenOnly, {
+      chatter(n, 0x42, 800);
+      claim(n, 0x43, otherName(8));
+      chatter(n, 0x43, 2000);
     }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);
