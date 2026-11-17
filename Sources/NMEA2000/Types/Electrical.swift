@@ -179,8 +179,11 @@ public struct BatteryNominalVoltage: RawRepresentable, Hashable, Sendable, Custo
   /// 32 V.
   public static let volts32 = Self(rawValue: 3)
 
-  /// 62 V.
-  public static let volts62 = Self(rawValue: 4)
+  /// 36 V.
+  ///
+  /// Upstream names this value `N2kDCbnv_62v`. Canboat and Maretron's DCM100 manual both define
+  /// code 4 as 36 V, and 62 V isn't a nominal battery voltage.
+  public static let volts36 = Self(rawValue: 4)
 
   /// 42 V.
   public static let volts42 = Self(rawValue: 5)
@@ -194,7 +197,7 @@ public struct BatteryNominalVoltage: RawRepresentable, Hashable, Sendable, Custo
     case .volts12: "12 V"
     case .volts24: "24 V"
     case .volts32: "32 V"
-    case .volts62: "62 V"
+    case .volts36: "36 V"
     case .volts42: "42 V"
     case .volts48: "48 V"
     default: "unknown (\(rawValue))"

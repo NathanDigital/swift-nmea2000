@@ -33,6 +33,7 @@ struct TypesTests {
       (BinaryStatus.on.rawValue, 1),
       (DCVoltageState.low.rawValue, 2),
       (TemperatureState.high.rawValue, 2),
+      (BatteryNominalVoltage.volts36.rawValue, 4),
     ] as [(UInt8, UInt8)])
   func rawValues(actual: UInt8, expected: UInt8) {
     #expect(actual == expected)

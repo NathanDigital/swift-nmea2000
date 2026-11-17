@@ -14,6 +14,8 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 
 - `tN2kDCVolgateState::N2kDCVS_Low` and `tN2kTemperatureState::N2kTS_High` are 3 upstream, the same value as `NotAvailable`, so sending them puts "not available" on the bus. Canboat defines all four converter state fields of PGN 127750 with one lookup (`GOOD_WARNING_ERROR`: 0 good, 1 warning, 2 error), and upstream's own `N2kOS_Overload` and `N2kRP_High` are 2. This port defines `DCVoltageState.low` and `TemperatureState.high` as 2.
 
+- `tN2kBatNomVolt::N2kDCbnv_62v` (code 4) is named `BatteryNominalVoltage.volts36`. Canboat defines code 4 as 36 V (corrected in canboat issue #143 from Maretron's DCM100 user manual, whose appendix lists "4=36 Volts"), and 62 V isn't a nominal battery voltage. The value sent is unchanged.
+
 ## Upstream quirks kept
 
 - `tN2kDD223` (`EngineDiscreteStatus2`) keeps only the low eight bits when assigned in upstream, and `tN2kDD471`'s `SetEvents` clears bit 6. These are applied in the PGN ports that use them, not in the types.
