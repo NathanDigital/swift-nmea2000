@@ -351,6 +351,36 @@ struct NodeTests {
     try await finish(run)
   }
 
+  @Test func sendsHeartbeatsAndAnswersRequests() async throws {
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    await node.setISORequestHandler { pgn, requester in
+      pgn == 130306 ? [Message(pgn: 130306, destination: requester, data: [requester])] : nil
+    }
+    let run = Task { try await node.run() }
+    let sent = transport.sent
+    try await clock.waitForSleepers()
+    clock.advance(to: 200)
+    #expect(try await sent.next() == claim)
+
+    // Requests during the address claim go unanswered.
+    clock.advance(to: 450)
+    transport.receive.yield(CANFrame(id: 0x18ea_1742, data: [0x02, 0xfd, 0x01]))
+    #expect(try await sent.next() == CANFrame(id: 0x19fd_0217, data: [0x42]))
+
+    // The node wakes itself for the heartbeat, once its time has passed.
+    clock.advance(to: 10200)
+    try await clock.waitForSleepers()
+    clock.advance(to: 10201)
+    #expect(
+      try await sent.next()
+        == CANFrame(id: 0x1df0_1117, data: [0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]))
+
+    transport.receive.finish()
+    try await finish(run)
+  }
+
   @Test func deliversEveryMessageToEverySubscriber() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()

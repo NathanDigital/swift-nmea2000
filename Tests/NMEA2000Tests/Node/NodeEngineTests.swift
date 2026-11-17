@@ -29,6 +29,9 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
     case dataPackets(to: UInt8, ClosedRange<Int>, of: Int)
     /// Receive an address claim with the first `count` bytes of a NAME.
     case claim(source: UInt8, name: UInt64, count: Int = 8)
+    /// Receive an ISO request from 0x42; a count other than 3 pads or cuts
+    /// the payload to that many bytes.
+    case request(to: UInt8, pgn: UInt32, count: Int = 3)
     /// Receive this many claims with a lower NAME, each from the node's
     /// address at the time.
     case lowerClaimsFromOwnAddress(Int)
@@ -59,6 +62,7 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
   var mode: Node.Mode
   var address: UInt8 = 23
   var failedOpens = 0
+  var device = NodeEngine.DeviceInformation()
   var steps: [Step]
   var upstream: [String]
 
@@ -82,23 +86,32 @@ struct EngineDriver {
   var now: UInt64 = 0
   var events: [NodeCase.Event] = []
 
-  init(mode: Node.Mode, address: UInt8, failedOpens: Int = 0) {
+  init(
+    mode: Node.Mode, address: UInt8, failedOpens: Int = 0,
+    device: NodeEngine.DeviceInformation = NodeEngine.DeviceInformation()
+  ) {
     engine = NodeEngine(
-      mode: mode, address: address, name: .default, framer: MessageFramer(),
-      assembler: MessageAssembler())
+      mode: mode, address: address, name: .default,
+      framer: MessageFramer(transmitPGNs: device.transmitPGNs), assembler: MessageAssembler(),
+      device: device)
     self.failedOpens = failedOpens
   }
 
   mutating func poll() {
-    if engine.shouldOpenTransport(at: now) {
-      if failedOpens > 0 {
-        failedOpens -= 1
-        engine.transportFailedToOpen(at: now)
-      } else {
-        engine.transportOpened(at: now)
-      }
-    }
+    openTransportIfDue()
     record(engine.poll(at: now))
+  }
+
+  /// Opens the transport when the engine asks, as upstream's `Open` does at
+  /// the start of `ParseMessages`.
+  mutating func openTransportIfDue() {
+    guard engine.shouldOpenTransport(at: now) else { return }
+    if failedOpens > 0 {
+      failedOpens -= 1
+      engine.transportFailedToOpen(at: now)
+    } else {
+      engine.transportOpened(at: now)
+    }
   }
 
   mutating func until(_ time: UInt64) {
@@ -109,7 +122,7 @@ struct EngineDriver {
   }
 
   mutating func receive(_ frame: CANFrame) {
-    poll()
+    openTransportIfDue()
     let (frames, message) = engine.receive(frame, at: now)
     record(frames)
     if let message {
@@ -154,6 +167,10 @@ struct EngineDriver {
         receive(CANFrame(id: tpDT(to: destination), data: dataPacket(sequence, of: count)))
       }
     case .claim(let source, let name, let count): claim(from: source, name: name, count: count)
+    case .request(let destination, let pgn, let count):
+      var data = (0..<3).map { UInt8(truncatingIfNeeded: pgn >> (8 * $0)) }
+      data = Array((data + repeatElement(0xff, count: max(count - 3, 0))).prefix(count))
+      receive(CANFrame(id: 0x18ea_0042 | UInt32(destination) << 8, data: data))
     case .lowerClaimsFromOwnAddress(let count):
       for _ in 0..<count { claim(from: engine.address, name: ownName - 1) }
     case .clearEvents: events = []
@@ -168,6 +185,13 @@ struct EngineDriver {
 private let claim17: [UInt8] = [0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]
 private let position: [UInt8] = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
 private let sendPosition = NodeCase.Step.send(pgn: 129025, count: 8, priority: 2)
+/// Answers requests for 130306 with a one-byte message, and refuses others,
+/// as frames.cpp's `requestHandler` does.
+private let requestHandler: Node.ISORequestHandler = { pgn, requester in
+  guard pgn == 130306 else { return nil }
+  return [Message(pgn: 130306, destination: requester, data: [requester])]
+}
+
 private let fastPacketStart: [UInt8] = [0x00, 9, 1, 2, 3, 4, 5, 6]
 
 private func claimed(at time: UInt64, from source: UInt8) -> NodeCase.Event {
@@ -656,6 +680,178 @@ struct NodeEngineTests {
         "t=500 send refused",
       ]),
     NodeCase(
+      name: "heartbeat", mode: .node,
+      steps: [.until(70300)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=10210 tx id=0x1df01117 data=[0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=70210 tx id=0x1df01117 data=[0x60, 0xea, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff]",
+      ]),
+    NodeCase(
+      name: "heartbeat waits for the address claim", mode: .node,
+      steps: [.until(10150), .claim(source: 23, name: ownName - 1), .until(10500)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=10150 tx id=0x18eeff18 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=10150 rx pgn=60928 priority=6 source=23 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=10400 tx id=0x1df01118 data=[0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]",
+      ]),
+    NodeCase(
+      name: "heartbeat needs a full node", mode: .listenAndSend,
+      steps: [.until(10300)],
+      upstream: [
+
+      ]),
+    NodeCase(
+      name: "ISO request for the address claim", mode: .node,
+      steps: [.until(500), .request(to: 0xff, pgn: 60928), .request(to: 0x17, pgn: 60928)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=255 data=[0x00, 0xee, 0x00]",
+        "t=500 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x00, 0xee, 0x00]",
+      ]),
+    NodeCase(
+      name: "ISO request during the address claim", mode: .node,
+      steps: [.until(300), .request(to: 0x17, pgn: 60928), .request(to: 0x17, pgn: 130306)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=300 rx pgn=59904 priority=6 source=66 destination=23 data=[0x00, 0xee, 0x00]",
+        "t=300 rx pgn=59904 priority=6 source=66 destination=23 data=[0x02, 0xfd, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request for product information", mode: .node,
+      steps: [.until(500), .request(to: 0x17, pgn: 126996)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x19f01417 data=[0x00, 0x86, 0x35, 0x08, 0x9a, 0x02, 0x41, 0x72]",
+        "t=500 tx id=0x19f01417 data=[0x01, 0x64, 0x75, 0x69, 0x6e, 0x6f, 0x20, 0x4e]",
+        "t=500 tx id=0x19f01417 data=[0x02, 0x32, 0x6b, 0x2d, 0x3e, 0x50, 0x43, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x03, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x04, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x05, 0xff, 0xff, 0x31, 0x2e, 0x30, 0x2e, 0x30]",
+        "t=500 tx id=0x19f01417 data=[0x06, 0x2e, 0x30, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x07, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x08, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x09, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x31]",
+        "t=500 tx id=0x19f01417 data=[0x0a, 0x2e, 0x30, 0x2e, 0x30, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x0b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x0c, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x0d, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x0e, 0xff, 0xff, 0xff, 0x30, 0x30, 0x30, 0x30]",
+        "t=500 tx id=0x19f01417 data=[0x0f, 0x30, 0x30, 0x30, 0x31, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x10, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x11, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x12, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19f01417 data=[0x13, 0x00, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x14, 0xf0, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request for configuration information", mode: .node,
+      steps: [.until(500), .request(to: 0xff, pgn: 126998)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x19f01617 data=[0x00, 0x41, 0x02, 0x01, 0x02, 0x01, 0x3d, 0x01]",
+        "t=500 tx id=0x19f01617 data=[0x01, 0x4e, 0x4d, 0x45, 0x41, 0x32, 0x30, 0x30]",
+        "t=500 tx id=0x19f01617 data=[0x02, 0x30, 0x20, 0x6c, 0x69, 0x62, 0x72, 0x61]",
+        "t=500 tx id=0x19f01617 data=[0x03, 0x72, 0x79, 0x2c, 0x20, 0x68, 0x74, 0x74]",
+        "t=500 tx id=0x19f01617 data=[0x04, 0x70, 0x73, 0x3a, 0x2f, 0x2f, 0x67, 0x69]",
+        "t=500 tx id=0x19f01617 data=[0x05, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f]",
+        "t=500 tx id=0x19f01617 data=[0x06, 0x6d, 0x2f, 0x74, 0x74, 0x6c, 0x61, 0x70]",
+        "t=500 tx id=0x19f01617 data=[0x07, 0x70, 0x61, 0x6c, 0x61, 0x69, 0x6e, 0x65]",
+        "t=500 tx id=0x19f01617 data=[0x08, 0x6e, 0x2f, 0x4e, 0x4d, 0x45, 0x41, 0x32]",
+        "t=500 tx id=0x19f01617 data=[0x09, 0x30, 0x30, 0x30, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=255 data=[0x16, 0xf0, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request for missing configuration information", mode: .node,
+      device: NodeEngine.DeviceInformation(configurationInformation: nil),
+      steps: [.until(500), .request(to: 0x17, pgn: 126998)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18e8ff17 data=[0x01, 0xff, 0xff, 0xff, 0xff, 0x16, 0xf0, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x16, 0xf0, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request for the PGN lists", mode: .node,
+      device: NodeEngine.DeviceInformation(transmitPGNs: [127250, 129025], receivePGNs: [130306]),
+      steps: [.until(500), .request(to: 0x17, pgn: 126464)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x19ee4217 data=[0x00, 0x25, 0x00, 0x00, 0xe8, 0x00, 0x00, 0xea]",
+        "t=500 tx id=0x19ee4217 data=[0x01, 0x00, 0x00, 0xeb, 0x00, 0x00, 0xec, 0x00]",
+        "t=500 tx id=0x19ee4217 data=[0x02, 0x00, 0xee, 0x00, 0x00, 0xed, 0x01, 0x00]",
+        "t=500 tx id=0x19ee4217 data=[0x03, 0xee, 0x01, 0x11, 0xf0, 0x01, 0x14, 0xf0]",
+        "t=500 tx id=0x19ee4217 data=[0x04, 0x01, 0x16, 0xf0, 0x01, 0x12, 0xf1, 0x01]",
+        "t=500 tx id=0x19ee4217 data=[0x05, 0x01, 0xf8, 0x01, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 tx id=0x19ee4217 data=[0x20, 0x19, 0x01, 0x00, 0xe8, 0x00, 0x00, 0xea]",
+        "t=500 tx id=0x19ee4217 data=[0x21, 0x00, 0x00, 0xeb, 0x00, 0x00, 0xec, 0x00]",
+        "t=500 tx id=0x19ee4217 data=[0x22, 0x00, 0xee, 0x00, 0xd8, 0xfe, 0x00, 0x00]",
+        "t=500 tx id=0x19ee4217 data=[0x23, 0xed, 0x01, 0x02, 0xfd, 0x01, 0xff, 0xff]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x00, 0xee, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request for an unknown PGN", mode: .node,
+      steps: [
+        .until(500), .request(to: 0x17, pgn: 130310), .request(to: 0xff, pgn: 130310),
+        .request(to: 0x30, pgn: 130310),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18e84217 data=[0x01, 0xff, 0xff, 0xff, 0xff, 0x06, 0xfd, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x06, 0xfd, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=255 data=[0x06, 0xfd, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=48 data=[0x06, 0xfd, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request of the wrong length", mode: .node,
+      steps: [
+        .until(500), .request(to: 0x17, pgn: 130310, count: 2),
+        .request(to: 0x17, pgn: 130310, count: 8),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18e84217 data=[0x01, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x06, 0xfd]",
+        "t=500 tx id=0x18e84217 data=[0x01, 0xff, 0xff, 0xff, 0xff, 0x06, 0xfd, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x06, 0xfd, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff]",
+      ]),
+    NodeCase(
+      name: "ISO request answered by the application", mode: .node,
+      device: NodeEngine.DeviceInformation(isoRequestHandler: requestHandler),
+      steps: [
+        .until(500), .request(to: 0x17, pgn: 130306), .request(to: 0x17, pgn: 130310),
+        .request(to: 0xff, pgn: 130306), .request(to: 0xff, pgn: 130310),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x19fd0217 data=[0x42]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x02, 0xfd, 0x01]",
+        "t=500 tx id=0x18e84217 data=[0x01, 0xff, 0xff, 0xff, 0xff, 0x06, 0xfd, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x06, 0xfd, 0x01]",
+        "t=500 tx id=0x19fd0217 data=[0x42]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=255 data=[0x02, 0xfd, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=255 data=[0x06, 0xfd, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request ignored when broadcast", mode: .node,
+      device: NodeEngine.DeviceInformation(isoRequestHandler: requestHandler),
+      steps: [.until(500), .request(to: 0xff, pgn: 127500), .request(to: 0x17, pgn: 127500)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=255 data=[0x0c, 0xf2, 0x01]",
+        "t=500 tx id=0x18e84217 data=[0x01, 0xff, 0xff, 0xff, 0xff, 0x0c, 0xf2, 0x01]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x0c, 0xf2, 0x01]",
+      ]),
+    NodeCase(
+      name: "ISO request needs a full node", mode: .listenAndSend,
+      steps: [.until(500), .request(to: 0x17, pgn: 60928), .request(to: 0x17, pgn: 130310)],
+      upstream: [
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x00, 0xee, 0x00]",
+        "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x06, 0xfd, 0x01]",
+      ]),
+    NodeCase(
       name: "starts from address 14 without one", mode: .node, address: 254,
       steps: [.until(300)],
       upstream: [
@@ -694,7 +890,8 @@ struct NodeEngineTests {
   @Test("Behaves as upstream's node", arguments: cases)
   func behavesAsUpstream(_ testCase: NodeCase) {
     var driver = EngineDriver(
-      mode: testCase.mode, address: testCase.address, failedOpens: testCase.failedOpens)
+      mode: testCase.mode, address: testCase.address, failedOpens: testCase.failedOpens,
+      device: testCase.device)
     driver.poll()
     for step in testCase.steps { driver.run(step) }
     #expect(driver.events.map(\.description) == testCase.upstream)
@@ -753,7 +950,7 @@ struct NodeEngineTests {
     driver.send(Message(pgn: 126464, data: Array(0..<20), isTransportProtocol: true))
     #expect(driver.engine.nextDeadline == 500)
     driver.until(650)
-    #expect(driver.engine.nextDeadline == nil)
+    #expect(driver.engine.nextDeadline == 10201)
   }
 
   @Test func refusesToSendWithoutAnAddress() {
@@ -810,7 +1007,18 @@ struct NodeEngineTests {
     #expect(driver.engine.nextDeadline == 1200)
     driver.until(1200)
     #expect(driver.engine.nextDeadline == 1450)
+    // Then the heartbeat, due 10 s after opening, is sent once that has
+    // passed.
     driver.until(1450)
+    #expect(driver.engine.nextDeadline == 11201)
+    driver.until(11210)
+    #expect(driver.engine.nextDeadline == 71201)
+  }
+
+  @Test func hasNoDeadlinesWithoutAHeartbeat() {
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.engine.device.heartbeatInterval = nil
+    driver.until(500)
     #expect(driver.engine.nextDeadline == nil)
   }
 

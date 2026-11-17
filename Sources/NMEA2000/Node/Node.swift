@@ -43,10 +43,22 @@ public actor Node {
     /// used by another device.
     case listenAndSend
 
-    /// A full node: claims an address and defends it (upstream's
-    /// `N2km_NodeOnly` and `N2km_ListenAndNode`).
+    /// A full node: claims an address and defends it, answers ISO requests
+    /// and sends heartbeats (upstream's `N2km_NodeOnly` and
+    /// `N2km_ListenAndNode`).
     case node
   }
+
+  /// Answers an ISO request for a PGN the node doesn't answer itself.
+  ///
+  /// The handler gets the requested PGN and the requester's address, and
+  /// returns the messages to send in reply, or `nil` if it doesn't handle
+  /// the PGN. The node then sends a negative acknowledgement if the request
+  /// was addressed to it. The handler runs on the node, so it must be quick.
+  ///
+  /// Replaces upstream's `SetISORqstHandler` callback.
+  public typealias ISORequestHandler =
+    @Sendable (_ requestedPGN: UInt32, _ requester: UInt8) -> [Message]?
 
   /// How the node takes part in the bus.
   public nonisolated let mode: Mode
@@ -74,9 +86,18 @@ public actor Node {
   ///     device keeps its address across restarts.
   ///   - name: The NAME to claim the address with. Every device on a bus
   ///     needs a different NAME.
+  ///   - productInformation: The product information the node sends when
+  ///     asked.
+  ///   - configurationInformation: The configuration information the node
+  ///     sends when asked, or `nil` to refuse requests for it.
   ///   - catalog: Which PGNs are sent and received as fast packets.
   ///   - transmitPGNs: The PGNs the device sends, beyond the network
-  ///     management PGNs every node sends.
+  ///     management PGNs every node sends. The node lists them when asked.
+  ///   - receivePGNs: The PGNs the device receives, beyond the network
+  ///     management PGNs. The node lists them when asked.
+  ///   - heartbeatInterval: How often to send a heartbeat, between 1 and
+  ///     655.32 seconds, or `nil` for none. The first is sent 10 seconds
+  ///     after the node opens.
   ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
   ///     PGN isn't in the catalog.
   ///   - clock: The clock that times the open sequence and address claim.
@@ -85,9 +106,13 @@ public actor Node {
     mode: Mode = .listenOnly,
     address: UInt8 = 15,
     name: DeviceName = .default,
+    productInformation: ProductInformation = .default,
+    configurationInformation: ConfigurationInformation? = .default,
     catalog: PGNCatalog = PGNCatalog(),
     transmitPGNs: [UInt32] = [],
+    receivePGNs: [UInt32] = [],
     handlesOnlyKnownMessages: Bool = false,
+    heartbeatInterval: Duration? = .seconds(60),
     clock: some Clock<Duration> = ContinuousClock()
   ) {
     self.mode = mode
@@ -95,7 +120,15 @@ public actor Node {
       mode: mode, address: address, name: name,
       framer: MessageFramer(catalog: catalog, transmitPGNs: transmitPGNs),
       assembler: MessageAssembler(
-        catalog: catalog, handlesOnlyKnownMessages: handlesOnlyKnownMessages))
+        catalog: catalog, handlesOnlyKnownMessages: handlesOnlyKnownMessages),
+      device: NodeEngine.DeviceInformation(
+        productInformation: productInformation,
+        configurationInformation: configurationInformation, transmitPGNs: transmitPGNs,
+        receivePGNs: receivePGNs,
+        // Upstream keeps the interval between 1 and 655.32 seconds.
+        heartbeatInterval: heartbeatInterval.map {
+          min(max(NodeClock.milliseconds($0), 1000), 655_320)
+        }))
     self.clock = NodeClock(clock)
     openTransport = {
       let frames = try await transport.open()
@@ -113,6 +146,12 @@ public actor Node {
   /// The NAME the node claims its address with. The node changes the device
   /// instance if another device claims the same NAME.
   public var name: DeviceName { engine.name }
+
+  /// Sets the handler that answers ISO requests the node doesn't answer
+  /// itself, or removes it.
+  public func setISORequestHandler(_ handler: ISORequestHandler?) {
+    engine.device.isoRequestHandler = handler
+  }
 
   /// Opens the transport and runs the node until the transport's frames end
   /// or the task is cancelled.
@@ -213,9 +252,7 @@ public actor Node {
   }
 
   private func handle(_ frame: CANFrame) {
-    let now = clock.now()
-    transmit(engine.poll(at: now))
-    let (frames, message) = engine.receive(frame, at: now)
+    let (frames, message) = engine.receive(frame, at: clock.now())
     transmit(frames)
     if let message {
       for subscriber in subscribers.values { subscriber.yield(message) }

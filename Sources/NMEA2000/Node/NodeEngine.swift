@@ -10,10 +10,12 @@
 ///
 /// Time is milliseconds since the node started. Like upstream on Arduino,
 /// whose scheduler uses the 32-bit `millis()`, a deadline is reached at its
-/// exact millisecond.
+/// exact millisecond. The heartbeat is the exception: upstream schedules it
+/// with a 64-bit timer that fires only once its deadline has passed.
 ///
 /// Ports the open sequence, `SendMsg` checks, `ParseMessages`, address
-/// claiming and the ISO transport protocol of `tNMEA2000`, for one device.
+/// claiming, the ISO transport protocol, ISO requests and the heartbeat of
+/// `tNMEA2000`, for one device.
 struct NodeEngine: Sendable {
   /// How long to wait after the transport opens before claiming an address.
   /// Upstream found some CAN controllers misbehave when sending straight
@@ -32,6 +34,37 @@ struct NodeEngine: Sendable {
 
   /// Where a device without an address starts claiming.
   static let firstClaimedAddress: UInt8 = 14
+
+  /// How long after opening the first heartbeat is due.
+  static let heartbeatOffset: UInt64 = 10000
+
+  /// The PGNs every node receives (`DefReceiveMessages`).
+  static let defaultReceivePGNs: [UInt32] = [59392, 59904, 60160, 60416, 60928, 65240, 126208]
+
+  /// The most PGNs a PGN list holds (`MAX_PGNS_IN_LIST`).
+  static let maxPGNsInList = 74
+
+  /// PGNs whose broadcast ISO requests go unanswered
+  /// (`IgnoreBroadcastISORequest`).
+  static let ignoredBroadcastRequests: Set<UInt32> = [
+    127500, 130060, 130061, 130330, 130561, 130562, 130563, 130564, 130565, 130566,
+  ]
+
+  /// What the node tells other devices about itself.
+  struct DeviceInformation: Sendable {
+    var productInformation = ProductInformation.default
+    /// `nil` makes the node answer requests for it with a negative
+    /// acknowledgement.
+    var configurationInformation: ConfigurationInformation? = .default
+    /// The PGNs the device transmits beyond the defaults.
+    var transmitPGNs: [UInt32] = []
+    /// The PGNs the device receives beyond the defaults.
+    var receivePGNs: [UInt32] = []
+    /// The heartbeat interval in milliseconds, or `nil` for none.
+    var heartbeatInterval: UInt64? = 60000
+    /// Answers ISO requests the node doesn't answer itself.
+    var isoRequestHandler: Node.ISORequestHandler?
+  }
 
   enum OpenState: Hashable {
     /// The transport isn't open; try to open it at the given time.
@@ -60,6 +93,21 @@ struct NodeEngine: Sendable {
   /// `PendingTPMsg`).
   private var transfer: Transfer?
 
+  var device: DeviceInformation
+
+  /// When heartbeats are due, once the node is open (upstream's
+  /// `HeartbeatScheduler`).
+  private var heartbeat: HeartbeatSchedule?
+
+  private struct HeartbeatSchedule {
+    /// When the first heartbeat was due; later ones follow at whole periods.
+    var start: UInt64
+    var period: UInt64
+    /// Heartbeats are sent once this time has passed.
+    var next: UInt64
+    var sequence: UInt8 = 0
+  }
+
   private struct Transfer {
     var message: Message
     /// How many data packets have been sent (`NextDTSequence`).
@@ -74,13 +122,14 @@ struct NodeEngine: Sendable {
 
   init(
     mode: Node.Mode, address: UInt8, name: DeviceName, framer: MessageFramer,
-    assembler: MessageAssembler
+    assembler: MessageAssembler, device: DeviceInformation = DeviceInformation()
   ) {
     self.mode = mode
     self.address = address
     self.name = name
     self.framer = framer
     self.assembler = assembler
+    self.device = device
     resetLastAddressToTry()
   }
 
@@ -108,6 +157,7 @@ struct NodeEngine: Sendable {
     openState = .closed(retryAt: 0)
     claimDeadline = nil
     transfer = nil
+    heartbeat = nil
   }
 
   /// The next time ``poll(at:)`` has something to do, if any.
@@ -115,15 +165,22 @@ struct NodeEngine: Sendable {
     switch openState {
     case .closed(let retryAt): retryAt
     case .waiting(let until): until
-    case .open: [claimDeadline, transfer?.deadline].compactMap { $0 }.min()
+    case .open:
+      [claimDeadline, transfer?.deadline, heartbeat.map { $0.next + 1 }].compactMap { $0 }.min()
     }
   }
 
   /// Advances timers, and returns any frames to send.
   ///
-  /// Call it before ``receive(_:at:)`` and ``send(_:at:)``, and at
-  /// ``nextDeadline``.
+  /// Call it before ``send(_:at:)``, and at ``nextDeadline``.
+  /// ``receive(_:at:)`` polls itself.
   mutating func poll(at now: UInt64) -> [CANFrame] {
+    beforeReceiving(at: now) + afterReceiving(at: now)
+  }
+
+  /// What upstream's `ParseMessages` does before reading frames: open, and
+  /// send pending messages.
+  private mutating func beforeReceiving(at now: UInt64) -> [CANFrame] {
     switch openState {
     case .closed: return []
     case .waiting(let until):
@@ -131,11 +188,33 @@ struct NodeEngine: Sendable {
       openState = .open
       // A device without an address starts again from the first one.
       if address == Self.nullAddress { moveToNextAddress(restartingFromFirstAddress: true) }
+      if let period = device.heartbeatInterval {
+        let start = now + Self.heartbeatOffset
+        heartbeat = HeartbeatSchedule(start: start, period: period, next: start)
+      }
       return startAddressClaim(at: now)
     case .open:
       _ = isClaimingAddress(at: now)
       return continueTransfer(at: now)
     }
+  }
+
+  /// What upstream's `ParseMessages` does after reading frames: send the
+  /// heartbeat when it's due.
+  ///
+  /// Ports `SendHeartbeat`.
+  private mutating func afterReceiving(at now: UInt64) -> [CANFrame] {
+    guard mode == .node, var schedule = heartbeat, now > schedule.next,
+      !isClaimingAddress(at: now)
+    else { return [] }
+    schedule.next =
+      schedule.start + ((now - schedule.start) / schedule.period + 1) * schedule.period
+    let message = Heartbeat(
+      interval: Double(schedule.period) / 1000, sequenceCounter: schedule.sequence
+    ).makeMessage()
+    schedule.sequence = schedule.sequence >= 252 ? 0 : schedule.sequence + 1
+    heartbeat = schedule
+    return sendSystemMessage(message, at: now) ?? []
   }
 
   // MARK: - Receiving
@@ -150,7 +229,17 @@ struct NodeEngine: Sendable {
   mutating func receive(_ frame: CANFrame, at now: UInt64) -> (
     frames: [CANFrame], message: Message?
   ) {
-    guard openState == .open else { return ([], nil) }
+    var frames = beforeReceiving(at: now)
+    guard openState == .open else { return (frames, nil) }
+    let (replies, message) = handle(frame, at: now)
+    frames += replies
+    frames += afterReceiving(at: now)
+    return (frames, message)
+  }
+
+  private mutating func handle(_ frame: CANFrame, at now: UInt64) -> (
+    frames: [CANFrame], message: Message?
+  ) {
     // Upstream also counts 252 and 253 as local, but a node there can't send
     // replies, so they make no difference.
     let localAddress = address <= MessageFramer.maxBusAddress ? address : nil
@@ -164,6 +253,7 @@ struct NodeEngine: Sendable {
     if assembled.isSystemMessage && mode == .node {
       switch assembled.message.pgn {
       case ISOAddressClaim.pgn: frames += handleAddressClaim(assembled.message, at: now)
+      case ISORequest.pgn: frames += handleISORequest(assembled.message, at: now)
       default: break
       }
     }
@@ -210,6 +300,58 @@ struct NodeEngine: Sendable {
   private mutating func sendSystemMessage(_ message: Message, at now: UInt64) -> [CANFrame]? {
     guard mode == .node else { return nil }
     return try? send(message, at: now)
+  }
+
+  // MARK: - ISO requests
+
+  /// Answers an ISO request sent to the node or broadcast, unless the node
+  /// is claiming its address.
+  ///
+  /// Ports `HandleISORequest` and `RespondISORequest`.
+  private mutating func handleISORequest(_ message: Message, at now: UInt64) -> [CANFrame] {
+    let isAddressed = message.destination != Message.broadcastAddress
+    guard !isAddressed || message.destination == address,
+      message.destination != Self.nullAddress
+    else { return [] }
+    // Upstream ignores a request it can't parse, which asks for PGN 0.
+    let requested = (try? ISORequest(message))?.requestedPGN ?? 0
+    guard !isClaimingAddress(at: now) else { return [] }
+    let requester = message.source
+    switch requested {
+    case ISOAddressClaim.pgn:
+      return addressClaimFrames()
+    case PGNList.pgn:
+      let transmit = MessageFramer.defaultTransmitPGNs + device.transmitPGNs
+      let receive = Self.defaultReceivePGNs + device.receivePGNs
+      return sendAll(
+        [
+          PGNList(kind: .transmit, pgns: Array(transmit.prefix(Self.maxPGNsInList)))
+            .makeMessage(destination: requester),
+          PGNList(kind: .receive, pgns: Array(receive.prefix(Self.maxPGNsInList)))
+            .makeMessage(destination: requester),
+        ], at: now)
+    case ProductInformation.pgn:
+      return sendAll([device.productInformation.makeMessage()], at: now)
+    case ConfigurationInformation.pgn:
+      let reply =
+        device.configurationInformation?.makeMessage()
+        ?? ISOAcknowledgement(control: 1, pgn: ConfigurationInformation.pgn).makeMessage()
+      return sendAll([reply], at: now)
+    default:
+      if let handler = device.isoRequestHandler {
+        if !isAddressed && Self.ignoredBroadcastRequests.contains(requested) { return [] }
+        if let replies = handler(requested, requester) { return sendAll(replies, at: now) }
+      }
+      guard isAddressed else { return [] }
+      return sendAll(
+        [ISOAcknowledgement(control: 1, pgn: requested).makeMessage(destination: requester)],
+        at: now)
+    }
+  }
+
+  /// Sends messages, dropping any that can't be sent.
+  private mutating func sendAll(_ messages: [Message], at now: UInt64) -> [CANFrame] {
+    messages.flatMap { (try? send($0, at: now)) ?? [] }
   }
 
   // MARK: - Transport protocol

@@ -43,6 +43,13 @@ public struct ProductInformation: ParameterGroup, Hashable {
   /// The current the device draws from the bus, in units of 50 mA.
   public var loadEquivalency: UInt8
 
+  /// The product information upstream gives a device that doesn't set its
+  /// own: NMEA 2000 version 2.101, product code 666 and model "Arduino
+  /// N2k->PC". Set your own before connecting to a real bus.
+  public static let `default` = ProductInformation(
+    nmea2000Version: 2101, productCode: 666, modelID: "Arduino N2k->PC", softwareVersion: "1.0.0.0",
+    modelVersion: "1.0.0", modelSerialCode: "00000001", certificationLevel: 0, loadEquivalency: 1)
+
   /// Creates product information.
   public init(
     nmea2000Version: UInt16,

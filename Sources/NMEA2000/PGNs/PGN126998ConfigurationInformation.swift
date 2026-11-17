@@ -27,6 +27,13 @@ public struct ConfigurationInformation: ParameterGroup, Hashable {
   /// The second line of the installation description.
   public var installationDescription2: String
 
+  /// The configuration information upstream gives a device that doesn't set
+  /// its own: the library's name and address as the manufacturer
+  /// information, and empty installation descriptions.
+  public static let `default` = ConfigurationInformation(
+    manufacturerInformation: "NMEA2000 library, https://github.com/ttlappalainen/NMEA2000",
+    installationDescription1: "", installationDescription2: "")
+
   /// Creates configuration information. Each field is cut to 71 bytes, or
   /// fewer if it has to be sent as UCS-2.
   public init(

@@ -196,6 +196,28 @@ void claim(TestNode &node, uint8_t source, uint64_t name, int count = 8) {
   receive(node, 0x18eeff00 | source, data);
 }
 
+// An ISO request from 0x42 for a PGN, sent to a destination. A count other
+// than 3 sends that many bytes instead.
+void request(TestNode &node, uint8_t destination, unsigned long pgn, int count = 3) {
+  std::vector<unsigned char> data = {uint8_t(pgn), uint8_t(pgn >> 8), uint8_t(pgn >> 16)};
+  data.resize(count, 0xff);
+  receive(node, 0x18ea0042 | destination << 8, data);
+}
+
+// The node a case runs, for the ISO request handler.
+TestNode *current = nullptr;
+
+// Answers requests for 130306 with a one-byte message, and refuses others.
+bool requestHandler(unsigned long pgn, unsigned char requester, int) {
+  if (pgn != 130306) return false;
+  tN2kMsg m;
+  m.SetPGN(130306);
+  m.Destination = requester;
+  m.AddByte(requester);
+  current->SendMsg(m);
+  return true;
+}
+
 struct Case {
   const char *name;
   std::function<void(TestNode &)> run;
@@ -637,6 +659,93 @@ const std::vector<Case> cases = {
       until(n, 500);
       sendTP(n, 126464, 20, 0x42);
       sendTP(n, 126464, 20);
+    }),
+    // Heartbeats.
+    NODE("heartbeat", start(n, tNMEA2000::N2km_NodeOnly); until(n, 70300)),
+    NODE("heartbeat waits for the address claim", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 10150);
+      claim(n, 23, ownName - 1);
+      until(n, 10500);
+    }),
+    NODE("heartbeat needs a full node", start(n, tNMEA2000::N2km_ListenAndSend); until(n, 10300)),
+
+    // ISO requests from 0x42. The node is at 23 (0x17).
+    NODE("ISO request for the address claim", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0xff, 60928);
+      request(n, 0x17, 60928);
+    }),
+    NODE("ISO request during the address claim", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 300);
+      request(n, 0x17, 60928);
+      request(n, 0x17, 130306);
+    }),
+    NODE("ISO request for product information", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0x17, 126996);
+    }),
+    NODE("ISO request for configuration information", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0xff, 126998);
+    }),
+    NODE("ISO request for missing configuration information", {
+      n.SetProgmemConfigurationInformation(0, 0, 0);
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0x17, 126998);
+    }),
+    NODE("ISO request for the PGN lists", {
+      static const unsigned long transmit[] = {127250, 129025, 0};
+      static const unsigned long receive[] = {130306, 0};
+      n.ExtendTransmitMessages(transmit);
+      n.ExtendReceiveMessages(receive);
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0x17, 126464);
+    }),
+    NODE("ISO request for an unknown PGN", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0x17, 130310);
+      request(n, 0xff, 130310);
+      request(n, 0x30, 130310);
+    }),
+    NODE("ISO request of the wrong length", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      // A request shorter than 3 bytes asks for PGN 0; upstream ignores the
+      // parse failure.
+      request(n, 0x17, 130310, 2);
+      request(n, 0x17, 130310, 8);
+    }),
+    NODE("ISO request answered by the application", {
+      current = &n;
+      n.SetISORqstHandler(requestHandler);
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0x17, 130306);
+      request(n, 0x17, 130310);
+      request(n, 0xff, 130306);
+      request(n, 0xff, 130310);
+    }),
+    NODE("ISO request ignored when broadcast", {
+      current = &n;
+      n.SetISORqstHandler(requestHandler);
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      request(n, 0xff, 127500);
+      request(n, 0x17, 127500);
+    }),
+    NODE("ISO request needs a full node", {
+      start(n, tNMEA2000::N2km_ListenAndSend);
+      until(n, 500);
+      request(n, 0x17, 60928);
+      request(n, 0x17, 130310);
     }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);

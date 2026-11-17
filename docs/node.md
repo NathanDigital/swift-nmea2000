@@ -5,7 +5,7 @@ Upstream's `tNMEA2000` (`NMEA2000.h/.cpp`) is one class that talks to the CAN dr
 1. **CAN frames** (`Sources/NMEA2000/CAN/`, done): pure value types that turn messages into frames and back.
 2. **Transport and node** (`Sources/NMEA2000/Node/`, done): a transport protocol for CAN drivers, and an actor that opens it, claims an address, sends messages and delivers received ones as an `AsyncSequence`.
 3. **ISO transport protocol** (done): multi-packet sessions, broadcast (BAM) or to one device (RTS/CTS), received in `MessageAssembler` and sent by `NodeEngine`.
-4. **Network management**: ISO requests, product and configuration information, heartbeat, PGN lists and group functions.
+4. **Network management** (in progress): ISO requests, product and configuration information, heartbeat and PGN lists are done; commanded address and group functions are next.
 
 ## CAN frames
 
@@ -87,7 +87,7 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 
 - Several devices on one node (`SetDeviceCount`).
 - Commanded address (PGN 65240), which arrives by transport protocol (layer 4).
-- Heartbeat, ISO requests, product and configuration information, PGN lists and group functions (layer 4).
+- Group functions (layer 4).
 - Forwarding to a stream (`SetForwardStream`, debug modes): gateway formats will be separate codecs.
 - The send frame buffer (`SetN2kCANSendFrameBufSize`): `CANTransport.send(_:)` suspends while the transport is busy instead.
 
@@ -118,3 +118,34 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 | Upstream | Swift | Why |
 |---|---|---|
 | `TestHandleTPMessage` reads connection management fields from leftover buffer bytes when the frame is shorter than eight bytes | `MessageAssembler` ignores the frame | Upstream's result is undefined. |
+
+## Network management
+
+| Upstream | Swift |
+|---|---|
+| `SetN2kPGN59392` / `SetN2kPGNISOAcknowledgement` | `ISOAcknowledgement` |
+| `SetN2kPGN59904`, `ParseN2kPGN59904` | `ISORequest` |
+| `SetN2kPGN126464`, `tN2kPGNList` | `PGNList`, `PGNList.Kind` |
+| `SetN2kPGN126993` / `SetHeartbeat` | `Heartbeat` |
+| `SetN2kPGN126996`, `ParseN2kPGN126996`, `tProductInformation`, `DefProductInformation` | `ProductInformation`, `.default` |
+| `SetN2kPGN126998`, `ParseN2kPGN126998`, `DefManufacturerInformation` | `ConfigurationInformation`, `.default` |
+| `SetProductInformation`, `SetConfigurationInformation` | `Node(productInformation:configurationInformation:)` |
+| `ExtendTransmitMessages`, `ExtendReceiveMessages` | `Node(transmitPGNs:receivePGNs:)` |
+| `SetHeartbeatIntervalAndOffset` | `Node(heartbeatInterval:)` |
+| `HandleISORequest`, `RespondISORequest`, `IgnoreBroadcastISORequest` | `NodeEngine` (internal) |
+| `SetISORqstHandler` | `Node.setISORequestHandler(_:)`, which returns the replies instead of sending them |
+| `SendHeartbeat` | `NodeEngine` (internal) |
+
+### Kept upstream behaviour
+
+- The node answers ISO requests addressed to it or broadcast, only in `.node` mode and not while claiming its address. It answers 60928 with an address claim; 126464 with its transmit list then its receive list, sent to the requester, each at most 74 PGNs; and 126996 and 126998 by broadcasting its product or configuration information. With no configuration information, it broadcasts a negative acknowledgement for 126998.
+- Other requests go to the application's handler, except broadcast requests for the ten PGNs upstream ignores (127500, 130060, 130061, 130330 and 130561–130566). If the handler doesn't answer, an addressed request gets a negative acknowledgement.
+- A request shorter than three bytes asks for PGN 0, because upstream ignores the parse failure.
+- The first heartbeat is due 10 s after the node opens and later ones every interval after that. Upstream's 64-bit timer sends each once its time has passed, at the first poll after it. Heartbeats wait for an address claim to end, are only sent in `.node` mode, and carry a sequence number that wraps from 252 to 0.
+- `ParseMessages` sends pending messages, then handles received frames, then the heartbeat; `NodeEngine.receive(_:at:)` keeps that order.
+
+### Not ported
+
+- Pending product and configuration information (`SetPendingProductInformation`, `SetPendingConfigurationInformation`): upstream retries them only when sending fails, which can't happen in `NodeEngine`.
+- `ReadResetAddressChanged`, `ReadResetDeviceInformationChanged`: read `Node.address` and `Node.name` instead.
+- Changing the heartbeat interval at run time, which upstream's group function handler does (layer 4).
