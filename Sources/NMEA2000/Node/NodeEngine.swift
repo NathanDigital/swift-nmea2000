@@ -100,6 +100,10 @@ struct NodeEngine: Sendable {
     /// heartbeat is off, as upstream's scheduler keeps them when disabled.
     var lastHeartbeatPeriod: UInt64
     var lastHeartbeatOffset = NodeEngine.heartbeatOffset
+    /// The next heartbeat's sequence counter (upstream's
+    /// `HeartbeatSequence`), which carries on when the heartbeat stops and
+    /// starts again.
+    var heartbeatSequence: UInt8 = 0
     /// When to send an address claim that was put off for a moment, if any
     /// (upstream's `PendingIsoAddressClaim`).
     var pendingClaim: UInt64?
@@ -149,7 +153,6 @@ struct NodeEngine: Sendable {
     var period: UInt64
     /// Heartbeats are sent once this time has passed.
     var next: UInt64 = 0
-    var sequence: UInt8 = 0
 
     init(sync: UInt64, offset: UInt64, period: UInt64, now: UInt64) {
       self.sync = sync
@@ -280,6 +283,8 @@ struct NodeEngine: Sendable {
   mutating func transportClosed() {
     openState = .closed(retryAt: 0)
     openTime = nil
+    // Frames after reconnecting can't continue a message from before.
+    assembler.reset()
     for index in devices.indices {
       devices[index].claimDeadline = nil
       devices[index].transfer = nil
@@ -390,9 +395,10 @@ struct NodeEngine: Sendable {
       else { continue }
       schedule.scheduleNext(at: now)
       let message = Heartbeat(
-        interval: Double(schedule.period) / 1000, sequenceCounter: schedule.sequence
+        interval: Double(schedule.period) / 1000, sequenceCounter: devices[index].heartbeatSequence
       ).makeMessage()
-      schedule.sequence = schedule.sequence >= 252 ? 0 : schedule.sequence + 1
+      let sequence = devices[index].heartbeatSequence
+      devices[index].heartbeatSequence = sequence >= 252 ? 0 : sequence + 1
       devices[index].heartbeat = schedule
       frames += sendSystemMessage(message, from: index, at: now) ?? []
     }

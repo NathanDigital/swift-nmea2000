@@ -95,6 +95,12 @@ Upstream hands each frame to its CAN driver, and keeps the ones the driver can't
 
 `Node` queues frames for `CANTransport.send(_:)`, which suspends while the transport is busy. Up to 40 frames can wait. Beyond that the frames the node sends on its own (claims, heartbeats, answers, transport protocol packets) are dropped, and messages sent with `send(_:from:)` wait for the transport. A dropped frame and a frame the transport fails to send are handled as upstream handles a failed send (`NodeEngine.transmissionFailed`): product and configuration information are tried again 187 ms plus 8 or 10 ms per unit of the address later, a transport protocol send ends when its request to send or BAM fails, or when an addressed data packet fails, and a broadcast send carries on, as upstream sends the next packet regardless. An application's own message that fails isn't retried: `send(_:from:)` throws.
 
+When the transport closes, the node drops every message it was reassembling, since the frames after reconnecting can't continue them. Upstream has no reconnect to compare with. The heartbeat sequence counter carries on across a reconnect and when the heartbeat is turned off and on, as upstream's does.
+
+### Own messages
+
+`messages(includingSent: true)` delivers each message the node hands to the transport, including those whose frames later fail to send, as upstream forwards its own messages whatever the driver does with them. Upstream also forwards a message that `SendMsg` refuses after its first checks, such as a transport protocol message while another is being sent; the port doesn't, because `send(_:from:)` throws for it and nothing went on the bus.
+
 ### Not ported
 
 - Forwarding to a stream (`SetForwardStream`, debug modes): see `docs/coverage.md`.

@@ -50,6 +50,12 @@ public struct MessageAssembler: Sendable {
 
   private var buffers: [Buffer]
 
+  /// Drops every message being reassembled, as when the bus connection is
+  /// lost and the frames that follow can't belong to them.
+  public mutating func reset() {
+    buffers = Array(repeating: Buffer(), count: buffers.count)
+  }
+
   /// Creates an assembler.
   ///
   /// - Parameters:

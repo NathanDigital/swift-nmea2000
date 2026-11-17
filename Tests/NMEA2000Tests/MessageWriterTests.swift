@@ -259,6 +259,13 @@ struct MessageWriterTests {
     #expect(Array(writer.data.suffix(4)) == [0x04, 0x01, 0x48, 0x65])
   }
 
+  @Test func variableStringWithNegativeLimitIsEmpty() {
+    var writer = MessageWriter()
+    writer.appendVariableString("Hello", maxLength: -1)
+    writer.appendVariableString("Héllo", maxLength: -3, lengthUnit: .characters)
+    #expect(writer.data == [0x02, 0x01, 0x02, 0x00])
+  }
+
   @Test func patchesEarlierFields() {
     var writer = MessageWriter()
     let countIndex = writer.count

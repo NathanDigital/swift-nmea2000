@@ -2564,6 +2564,22 @@ struct NodeEngineTests {
         "t=3710 tx id=0x1df01117 data=[0xd0, 0x07, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff]",
       ]),
     NodeCase(
+      name: "group function application turns the heartbeat off and on", mode: .node,
+      steps: [
+        .until(500), .until(10300),
+        .perform { e, t in
+          e.setHeartbeat(of: 0, interval: nil, offset: nil, at: t)
+          e.setHeartbeat(of: 0, interval: 2000, offset: 1500, at: t)
+          return []
+        }, .until(14000),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=10210 tx id=0x1df01117 data=[0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=11710 tx id=0x1df01117 data=[0xd0, 0x07, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=13710 tx id=0x1df01117 data=[0xd0, 0x07, 0x02, 0xff, 0xff, 0xff, 0xff, 0xff]",
+      ]),
+    NodeCase(
       name: "group function application changes the instances", mode: .node,
       steps: [
         .until(500),
@@ -2895,6 +2911,17 @@ struct NodeEngineTests {
         if deadline <= driver.now { return }
       }
     }
+  }
+
+  @Test func dropsHalfReceivedMessagesWhenTheTransportCloses() {
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.until(500)
+    let first = CANFrame(id: 0x09f8_0542, data: [0x20, 9, 1, 2, 3, 4, 5, 6])
+    let last = CANFrame(id: 0x09f8_0542, data: [0x21, 7, 8, 9, 0xff, 0xff, 0xff, 0xff])
+    #expect(driver.engine.receive(first, at: 500).message == nil)
+    driver.engine.transportClosed()
+    driver.until(800)
+    #expect(driver.engine.receive(last, at: 800).message == nil)
   }
 
   @Test func hasNoDeadlinesWithoutAHeartbeat() {

@@ -1693,6 +1693,12 @@ const std::vector<Case> cases = {
       n.SetHeartbeatIntervalAndOffset(0, 0);
       until(n, 6000);
     }),
+    GF_NODE("application turns the heartbeat off and on", {
+      until(n, 10300);
+      n.SetHeartbeatIntervalAndOffset(0, 0);
+      n.SetHeartbeatIntervalAndOffset(2000, 1500);
+      until(n, 14000);
+    }),
     GF_NODE("application changes the instances", {
       n.SetDeviceInformationInstances(5, 0x1f, 7);
       until(n, 520);

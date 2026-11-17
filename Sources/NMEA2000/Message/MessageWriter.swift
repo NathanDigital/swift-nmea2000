@@ -345,6 +345,8 @@ public struct MessageWriter: Sendable {
   /// - Parameters:
   ///   - string: The string, or `nil` for an empty field.
   ///   - maxLength: The most characters to write, measured in `lengthUnit`.
+  ///     A negative limit writes no characters. (Upstream writes a length
+  ///     byte that counts the negative limit.)
   ///   - encoding: Whether non-ASCII characters may be written as UCS-2.
   ///   - lengthUnit: The unit that `maxLength` counts.
   public mutating func appendVariableString(
@@ -353,6 +355,7 @@ public struct MessageWriter: Sendable {
     encoding: VariableStringEncoding = .unicode,
     lengthUnit: VariableStringLengthUnit = .bytes
   ) {
+    let maxLength = max(maxLength, 0)
     // Upstream works on C strings, so anything after a NUL is ignored.
     let utf8 = Array((string ?? "").utf8.prefix { $0 != 0 })
     var free = max(0, availableCount)
