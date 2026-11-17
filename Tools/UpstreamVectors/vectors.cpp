@@ -527,6 +527,116 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) {
      SetN2kPGN127513(m, 3, N2kDCbt_Gel, N2kDCES_Error, (tN2kBatNomVolt)9, (tN2kBatChem)12, 360000, 0, 1.4, 100);
    }},
+  {"PGN130306 typical",
+   [](tN2kMsg &m) { SetN2kPGN130306(m, 1, 7.5, 5.5, N2kWind_Apparent); }},
+  {"PGN130306 true over water",
+   [](tN2kMsg &m) { SetN2kPGN130306(m, 2, 12.25, 0.25, N2kWind_True_water); }},
+  {"PGN130306 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN130306(m, 0xff, N2kDoubleNA, N2kDoubleNA, N2kWind_Unavailable);
+   }},
+  {"PGN130310 typical",
+   [](tN2kMsg &m) { SetN2kPGN130310(m, 1, 288.15, 293.65, 101325); }},
+  {"PGN130310 not available",
+   [](tN2kMsg &m) { SetN2kPGN130310(m, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA); }},
+  {"PGN130310 defaults",
+   [](tN2kMsg &m) { SetN2kOutsideEnvironmentalParameters(m, 1, 285.5); }},
+  {"PGN130311 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN130311(m, 1, N2kts_ShaftSealTemperature, 310.5, N2khs_OutsideHumidity, 65.5, 100800);
+   }},
+  {"PGN130311 high temperature source code",
+   [](tN2kMsg &m) {
+     SetN2kPGN130311(m, 2, (tN2kTempSource)0x2a, 250, N2khs_InsideHumidity, -1.0, 99000);
+   }},
+  {"PGN130311 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN130311(m, 0xff, N2kts_SeaTemperature, N2kDoubleNA, N2khs_Undef, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN130311 defaults",
+   [](tN2kMsg &m) {
+     SetN2kEnvironmentalParameters(m, 1, N2kts_MainCabinTemperature, 294.15);
+   }},
+  {"PGN130312 typical",
+   [](tN2kMsg &m) { SetN2kPGN130312(m, 1, 3, N2kts_FreezerTemperature, 255.15, 253.15); }},
+  {"PGN130312 unknown source",
+   [](tN2kMsg &m) { SetN2kPGN130312(m, 2, 0xfe, (tN2kTempSource)0xc8, 600, N2kDoubleNA); }},
+  {"PGN130312 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN130312(m, 0xff, 0xff, (tN2kTempSource)0xff, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN130312 defaults",
+   [](tN2kMsg &m) { SetN2kTemperature(m, 1, 0, N2kts_EngineRoomTemperature, 320); }},
+  {"PGN130313 typical",
+   [](tN2kMsg &m) { SetN2kPGN130313(m, 1, 2, N2khs_InsideHumidity, 55.5, 50); }},
+  {"PGN130313 undefined source",
+   [](tN2kMsg &m) { SetN2kPGN130313(m, 2, 3, N2khs_Undef, -2.5, N2kDoubleNA); }},
+  {"PGN130313 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN130313(m, 0xff, 0xff, N2khs_Undef, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN130313 defaults",
+   [](tN2kMsg &m) { SetN2kHumidity(m, 1, 0, N2khs_OutsideHumidity, 80); }},
+  {"PGN130314 typical",
+   [](tN2kMsg &m) { SetN2kPGN130314(m, 1, 2, N2kps_Hydraulic, 2500000.5); }},
+  {"PGN130314 negative pressure",
+   [](tN2kMsg &m) { SetN2kPGN130314(m, 2, 3, N2kps_Error, -5000); }},
+  {"PGN130314 not available",
+   [](tN2kMsg &m) { SetN2kPGN130314(m, 0xff, 0xff, N2kps_Unavailable, N2kDoubleNA); }},
+  {"PGN130315 typical",
+   [](tN2kMsg &m) { SetN2kPGN130315(m, 1, 2, N2kps_Hydraulic, 2500000.5); }},
+  {"PGN130315 negative pressure",
+   [](tN2kMsg &m) { SetN2kPGN130315(m, 2, 3, N2kps_Error, -5000); }},
+  {"PGN130315 not available",
+   [](tN2kMsg &m) { SetN2kPGN130315(m, 0xff, 0xff, N2kps_Unavailable, N2kDoubleNA); }},
+  {"PGN130316 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN130316(m, 1, 4, N2kts_ExhaustGasTemperature, 850.125, 900.5);
+   }},
+  {"PGN130316 high values",
+   [](tN2kMsg &m) { SetN2kPGN130316(m, 2, 0xfe, (tN2kTempSource)0x80, 16000, 6000); }},
+  {"PGN130316 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN130316(m, 0xff, 0xff, (tN2kTempSource)0xff, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN130316 defaults",
+   [](tN2kMsg &m) { SetN2kTemperatureExt(m, 1, 0, N2kts_OutsideTemperature, 278.15); }},
+  {"PGN130323 typical",
+   [](tN2kMsg &m) {
+     tN2kMeteorlogicalStationData d;
+     d.Mode = N2kaismode_Assigned;
+     d.SystemDate = 19000;
+     d.SystemTime = 43200.5;
+     d.Latitude = -33.8688;
+     d.Longitude = -151.2093;
+     d.WindSpeed = 8.5;
+     d.WindDirection = 3.5;
+     d.WindReference = N2kWind_True_North;
+     d.WindGusts = 12.25;
+     d.AtmosphericPressure = 101300;
+     d.OutsideAmbientAirTemperature = 291.15;
+     d.SetStationID("SYD-01");
+     d.SetStationName("Sydney \xc3\x96" "bservatory");
+     SetN2kPGN130323(m, d);
+   }},
+  {"PGN130323 long names",
+   [](tN2kMsg &m) {
+     tN2kMeteorlogicalStationData d;
+     d.Mode = (tN2kAISMode)9;
+     d.WindReference = N2kWind_Error;
+     d.SetStationID("ABCDEFGHIJKLMNO");
+     d.SetStationName("An extremely long meteorological station name over 50");
+     SetN2kPGN130323(m, d);
+   }},
+  {"PGN130323 defaults",
+   [](tN2kMsg &m) {
+     tN2kMeteorlogicalStationData d;
+     SetN2kPGN130323(m, d);
+   }},
+  {"PGN130576 typical",
+   [](tN2kMsg &m) { SetN2kPGN130576(m, 25, -10); }},
+  {"PGN130576 not available",
+   [](tN2kMsg &m) { SetN2kPGN130576(m, N2kInt8NA, N2kInt8NA); }},
 };
 
 void print(const Case &c) {

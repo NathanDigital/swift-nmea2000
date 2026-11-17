@@ -24,7 +24,7 @@ public struct Attitude: ParameterGroup, Hashable {
   /// The roll, in radians, positive when tilted to starboard, or `nil` if not available.
   public var roll: Double?
 
-  /// Creates a attitude message.
+  /// Creates an attitude message.
   public init(
     sequenceID: UInt8?,
     yaw: Double?,
