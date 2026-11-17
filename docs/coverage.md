@@ -37,7 +37,7 @@ Status: **done**, **to do**, or **by design** where the Swift API covers the nee
 |---|---|---|
 | `N2kMsg.h` field helpers, `tN2kMsg` | `Message`, `MessageReader`, `MessageWriter` | done |
 | `tN2kMsg::Print`, `PrintBuf` | `Message.description` | done |
-| `tN2kMsg::SendInActisenseFormat`, `tActisenseReader` | `Actisense`, `ActisenseDecoder` | done; by design for `GetMessageFromStream(ReadOut: false)`, which leaves bytes in an Arduino stream for another reader: split shared input before decoding |
+| `tN2kMsg::SendInActisenseFormat`, `tActisenseReader` | `Actisense`, `Actisense.Decoder` | done; by design for `GetMessageFromStream(ReadOut: false)`, which leaves bytes in an Arduino stream for another reader: split shared input before decoding |
 | `N2kToSeasmart`, `SeasmartToN2k` | `Seasmart` | done |
 | `N2kMessages.h/.cpp` | `Sources/NMEA2000/PGNs/` | done |
 | `N2kTypes.h` | `Sources/NMEA2000/Types/` | done |

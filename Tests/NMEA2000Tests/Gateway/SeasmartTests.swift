@@ -23,14 +23,15 @@ private func sentence(_ body: String, wrong: UInt8 = 0, lower: Bool = false, tai
 
 @Suite("Seasmart")
 struct SeasmartTests {
-  @Test func encodesAsUpstreamDoes() {
+  @Test func encodesAsUpstreamDoes() throws {
     // upstream-vectors "Seasmart write"
-    #expect(Seasmart.encode(typical) == "$PCDIN,01F112,01020304,01,010203ABCDEF10FF*26")
+    #expect(try Seasmart.encode(typical) == "$PCDIN,01F112,01020304,01,010203ABCDEF10FF*26")
     #expect(
-      Seasmart.encode(Message(pgn: 0x1ffff, priority: 7, source: 255, data: [0], timestamp: .max))
+      try Seasmart.encode(
+        Message(pgn: 0x1ffff, priority: 7, source: 255, data: [0], timestamp: .max))
         == "$PCDIN,01FFFF,FFFFFFFF,FF,00*51")
     #expect(
-      Seasmart.encode(Message(pgn: 59904, source: 0, destination: 0x42))
+      try Seasmart.encode(Message(pgn: 59904, source: 0, destination: 0x42))
         == "$PCDIN,00EA00,00000000,00,*54")
   }
 
@@ -39,25 +40,27 @@ struct SeasmartTests {
     // destination.
     let expected = Message(
       pgn: 127250, source: 1, data: typical.data, timestamp: 0x0102_0304)
-    #expect(Seasmart.decode(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF")) == expected)
     #expect(
-      Seasmart.decode(sentence("PCDIN,01f112,01020304,01,010203abcdef10ff", lower: true))
+      try Seasmart.decode(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF")) == expected)
+    #expect(
+      try Seasmart.decode(sentence("PCDIN,01f112,01020304,01,010203abcdef10ff", lower: true))
         == expected)
     #expect(
-      Seasmart.decode(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF", tail: "\r\n"))
+      try Seasmart.decode(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF", tail: "\r\n"))
         == expected)
     #expect(
-      Seasmart.decode(sentence("PCDIN,01F112,01020304,01,"))
+      try Seasmart.decode(sentence("PCDIN,01F112,01020304,01,"))
         == Message(pgn: 127250, source: 1, timestamp: 0x0102_0304))
-    #expect(Seasmart.decode(try #require(Seasmart.encode(typical)))?.data == typical.data)
+    #expect(try Seasmart.decode(Seasmart.encode(typical)).data == typical.data)
   }
 
   @Test func doesNotEncodePayloadsLongerThanAMessage() throws {
     // Upstream's message holds at most 223 bytes, and decode rejects more.
-    let longest = try #require(
-      Seasmart.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 223))))
-    #expect(Seasmart.decode(longest)?.data.count == 223)
-    #expect(Seasmart.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 224))) == nil)
+    let longest = try Seasmart.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 223)))
+    #expect(try Seasmart.decode(longest).data.count == 223)
+    #expect(throws: GatewayError.payloadTooLong(count: 224)) {
+      try Seasmart.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 224)))
+    }
   }
 
   @Test(arguments: [
@@ -79,12 +82,22 @@ struct SeasmartTests {
   ])
   func rejectsWhatUpstreamRejects(_ text: String) {
     // upstream-vectors "Seasmart read rejects" and "Seasmart read longest"
-    #expect(Seasmart.decode(text) == nil)
+    #expect(throws: GatewayError.self) { try Seasmart.decode(text) }
   }
 
-  @Test func decodesTheLongestPayload() {
+  @Test func decodesTheLongestPayload() throws {
     // upstream-vectors "Seasmart read longest"
     let text = sentence("PCDIN,01F014,00000000,21," + String(repeating: "A5", count: 223))
-    #expect(Seasmart.decode(text)?.data == Array(repeating: 0xa5, count: 223))
+    #expect(try Seasmart.decode(text).data == Array(repeating: 0xa5, count: 223))
+  }
+
+  @Test func saysWhyASentenceIsRejected() {
+    #expect(throws: GatewayError.malformedSentence(offset: 13)) {
+      try Seasmart.decode(sentence("PCDIN,01F112;01020304,01,01"))
+    }
+    #expect(throws: GatewayError.payloadTooLong(count: 224)) {
+      try Seasmart.decode(
+        sentence("PCDIN,01F014,00000000,21," + String(repeating: "A5", count: 224)))
+    }
   }
 }

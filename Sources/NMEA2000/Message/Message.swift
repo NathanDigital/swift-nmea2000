@@ -96,12 +96,6 @@ public struct Message: Sendable, Hashable {
     self.timestamp = timestamp
     self.framing = framing
   }
-
-  /// Whether the message has a PGN and a non-empty payload, which upstream
-  /// requires of a message it writes in a gateway format (`IsValid`).
-  var isValid: Bool {
-    pgn != 0 && !data.isEmpty
-  }
 }
 
 extension Message: CustomStringConvertible {

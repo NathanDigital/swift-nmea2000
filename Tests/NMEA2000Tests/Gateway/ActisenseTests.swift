@@ -33,29 +33,29 @@ private let short = Message(
 
 @Suite("Actisense")
 struct ActisenseTests {
-  @Test func encodesAsUpstreamDoes() {
-    #expect(Actisense.encode(typical) == typicalBytes)
-    #expect(Actisense.encode(escapes) == escapeBytes)
+  @Test func encodesAsUpstreamDoes() throws {
+    #expect(try Actisense.encode(typical) == typicalBytes)
+    #expect(try Actisense.encode(escapes) == escapeBytes)
   }
 
-  @Test func escapesAChecksumOf0x10() {
+  @Test func escapesAChecksumOf0x10() throws {
     // upstream-vectors "Actisense write checksum to escape"
     let message = Message(
       pgn: 130306, priority: 2, source: 7, destination: 255, data: [1, 2, 0x6b], timestamp: 1234)
     #expect(
-      Actisense.encode(message) == [
+      try Actisense.encode(message) == [
         0x10, 0x02, 0x93, 0x0e, 0x02, 0x02, 0xfd, 0x01, 0xff, 0x07, 0xd2, 0x04, 0x00, 0x00, 0x03,
         0x01, 0x02, 0x6b, 0x10, 0x10, 0x10, 0x03,
       ])
   }
 
-  @Test func encodesTheLongestMessage() {
+  @Test func encodesTheLongestMessage() throws {
     // upstream-vectors "Actisense write long"
     let message = Message(
       pgn: 126996, priority: 6, source: 33, destination: 255,
       data: (0..<223).map { UInt8(0x20 + $0 % 0x50) }, timestamp: 0xffff_fffe)
     #expect(
-      Actisense.encode(message) == [
+      try Actisense.encode(message) == [
         0x10, 0x02, 0x93, 0xea, 0x06, 0x14, 0xf0, 0x01, 0xff, 0x21, 0xfe, 0xff, 0xff, 0xff, 0xdf,
         0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e,
         0x2f, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d,
@@ -82,28 +82,34 @@ struct ActisenseTests {
     let message = Message(
       pgn: 0x1f010, priority: 6, source: 0x10, destination: 0x10,
       data: Array(repeating: 0x10, count: 223), timestamp: 0x1010_1010)
-    let bytes = try #require(Actisense.encode(message))
+    let bytes = try Actisense.encode(message)
     #expect(bytes.count > 255)
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     #expect(decoder.decode(bytes, at: 0) == [message])
   }
 
   @Test func doesNotEncodeInvalidMessages() {
-    #expect(Actisense.encode(Message(pgn: 0, data: [1])) == nil)
-    #expect(Actisense.encode(Message(pgn: 127250, data: [])) == nil)
+    #expect(throws: GatewayError.missingPGN) { try Actisense.encode(Message(pgn: 0, data: [1])) }
+    #expect(throws: GatewayError.emptyPayload) {
+      try Actisense.encode(Message(pgn: 127250, data: []))
+    }
     // Upstream's message holds at most 223 bytes, and readers reject more.
-    #expect(Actisense.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 224))) == nil)
-    #expect(Actisense.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 245))) == nil)
+    #expect(throws: GatewayError.payloadTooLong(count: 224)) {
+      try Actisense.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 224)))
+    }
+    #expect(throws: GatewayError.payloadTooLong(count: 245)) {
+      try Actisense.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 245)))
+    }
   }
 
   @Test func decodesWhatUpstreamWrites() {
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     #expect(decoder.decode(typicalBytes, at: 0) == [typical])
     #expect(decoder.decode(escapeBytes, at: 0) == [escapes])
   }
 
   @Test func decodesByteByByte() {
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     var messages: [Message] = []
     for byte in typicalBytes {
       if let message = decoder.decode(byte, at: 0) { messages.append(message) }
@@ -113,10 +119,10 @@ struct ActisenseTests {
 
   @Test func skipsNoiseBetweenMessages() throws {
     // upstream-vectors "Actisense read two messages and noise"
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     let input =
       [0x41, 0x10, 0x10, 0x03, 0x02, 0x10] + typicalBytes + [0x55]
-      + (try #require(Actisense.encode(short)))
+      + (try Actisense.encode(short))
     #expect(decoder.decode(input, at: 0) == [typical, short])
   }
 
@@ -124,21 +130,21 @@ struct ActisenseTests {
     // upstream-vectors "Actisense read request"
     let body: [UInt8] = [0x94, 8, 3, 0x12, 0xf1, 0x01, 0x17, 2, 0xaa, 0xbb]
     let checksum = 0 &- body.reduce(0, &+)
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     #expect(
       decoder.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: 777) == [
         Message(
           pgn: 127250, priority: 3, source: 65, destination: 23, data: [0xaa, 0xbb],
           timestamp: 777)
       ])
-    var custom = ActisenseDecoder(defaultSource: 9)
+    var custom = Actisense.Decoder(defaultSource: 9)
     #expect(custom.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: 0).first?.source == 9)
   }
 
   @Test func dropsMessagesThatDoNotCheckOut() {
     // upstream-vectors "Actisense read bad checksum", "wrong length",
     // "unknown type" and "data longer than a message"
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     var input = typicalBytes
     input[input.count - 3] ^= 1
     #expect(decoder.decode(input, at: 0).isEmpty)
@@ -162,7 +168,7 @@ struct ActisenseTests {
 
   @Test func restartsAtAStartOfText() {
     // upstream-vectors "Actisense read restarted" and "broken escape"
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     #expect(
       decoder.decode([0x10, 0x02, 0x93, 0x05, 0x01, 0x10, 0x02] + typicalBytes.dropFirst(2), at: 0)
         == [typical])
@@ -172,7 +178,7 @@ struct ActisenseTests {
 
   @Test func dropsBodiesLongerThanTheBuffer() {
     // upstream-vectors "Actisense read too long"
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     let input = [0x10, 0x02, 0x93] + Array(repeating: UInt8(0x20), count: 300) + typicalBytes
     #expect(decoder.decode(input, at: 0) == [typical])
   }
@@ -181,7 +187,7 @@ struct ActisenseTests {
     // upstream-vectors "Actisense read empty payload"
     var body: [UInt8] = [0x93, 11, 2, 0x12, 0xf1, 0x01, 0xff, 0x01, 4, 3, 2, 1, 0]
     body.append(0 &- body.reduce(0, &+))
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     #expect(
       decoder.decode([0x10, 0x02] + body + [0x10, 0x03], at: 0) == [
         Message(pgn: 127250, priority: 2, source: 1, destination: 255, timestamp: 0x0102_0304)
@@ -190,7 +196,7 @@ struct ActisenseTests {
 
   @Test func dropsAFullBodyThatCannotTakeAnEscapedByte() {
     // upstream-vectors "Actisense read full buffer then escaped escape"
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     let input =
       [0x10, 0x02, 0x93] + Array(repeating: UInt8(0x20), count: 299) + [0x10, 0x10]
       + typicalBytes.dropFirst()
@@ -201,7 +207,7 @@ struct ActisenseTests {
     // Upstream keeps the whole byte; Message holds three bits.
     var body: [UInt8] = [0x93, 0x0c, 0x0e, 0x12, 0xf1, 0x01, 0xff, 0x01, 0, 0, 0, 0, 1, 0x55]
     body.append(0 &- body.reduce(0, &+))
-    var decoder = ActisenseDecoder()
+    var decoder = Actisense.Decoder()
     #expect(decoder.decode([0x10, 0x02] + body + [0x10, 0x03], at: 0).first?.priority == 6)
   }
 }

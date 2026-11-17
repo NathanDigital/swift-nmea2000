@@ -7,8 +7,8 @@ Upstream reads and writes gateway formats straight from and to streams (`N2kStre
 | Upstream | Swift |
 |---|---|
 | `tN2kMsg::SendInActisenseFormat` | `Actisense.encode(_:)` |
-| `tActisenseReader`, `GetMessageFromStream`, `ParseMessages` | `ActisenseDecoder.decode(_:at:)` |
-| `tActisenseReader::SetDefaultSource` (default 65) | `ActisenseDecoder(defaultSource:)` |
+| `tActisenseReader`, `GetMessageFromStream`, `ParseMessages` | `Actisense.Decoder.decode(_:at:)` |
+| `tActisenseReader::SetDefaultSource` (default 65) | `Actisense.Decoder(defaultSource:)` |
 | `SetReadStream`, `SetMsgHandler` | not needed: feed the decoder bytes and use the messages it returns |
 
 ### Kept upstream behaviour
@@ -29,7 +29,7 @@ Upstream reads and writes gateway formats straight from and to streams (`N2kStre
 
 | Upstream | Swift |
 |---|---|
-| `N2kToSeasmart(msg, timestamp, buffer, size)` | `Seasmart.encode(_:)`, which takes the time stamp from `Message.timestamp` and returns a `String`, or `nil` for a payload over 223 bytes (upstream returns 0 when the buffer is too small) |
+| `N2kToSeasmart(msg, timestamp, buffer, size)` | `Seasmart.encode(_:)`, which takes the time stamp from `Message.timestamp` and returns a `String`, or throws `GatewayError.payloadTooLong` for a payload over 223 bytes (upstream returns 0 when the buffer is too small) |
 | `SeasmartToN2k(buffer, timestamp, msg)` | `Seasmart.decode(_:)`, which returns the time stamp in `Message.timestamp` |
 
 ### Kept upstream behaviour
@@ -37,3 +37,7 @@ Upstream reads and writes gateway formats straight from and to streams (`N2kStre
 - The sentence is `$PCDIN,` then the PGN (6 hex digits), the time stamp (8), the source (2) and the payload in hex, each after a comma, then `*` and the XOR checksum of everything between `$` and `*`. The writer uses upper-case hex and no line ending.
 - The reader requires the `$PCDIN,` prefix exactly, accepts hex digits in either case, and ignores anything after the checksum. It rejects a missing separator, an odd number of payload digits, a payload over 223 bytes, a non-hex digit or a wrong checksum.
 - The sentence carries no priority or destination, so decoded messages get `Message`'s defaults (6 and 255), as upstream leaves whatever the message held.
+
+## Errors
+
+Upstream's codecs return `false` or `0` when they can't encode or decode. The Swift codecs throw a `GatewayError` that says why: `missingPGN` and `emptyPayload` for a message upstream refuses to write in Actisense format, `payloadTooLong` for more than 223 bytes, and, for a Seasmart sentence, `malformedSentence(offset:)` where parsing stopped or `checksumMismatch`. `Actisense.Decoder` reads a byte stream, so it skips bad input instead of throwing, as upstream's reader does.

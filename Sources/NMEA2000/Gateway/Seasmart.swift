@@ -15,14 +15,18 @@
 ///
 /// Ports `N2kToSeasmart` and `SeasmartToN2k`.
 public enum Seasmart {
-  /// Encodes a message as a sentence, without a line ending, or returns
-  /// `nil` if its payload is longer than ``Message/maxDataCount``, which
-  /// upstream's message can't hold and ``decode(_:)`` rejects. The message's
+  /// Encodes a message as a sentence, without a line ending. The message's
   /// ``Message/timestamp`` is the time stamp.
   ///
   /// Ports `N2kToSeasmart`.
-  public static func encode(_ message: Message) -> String? {
-    guard message.data.count <= Message.maxDataCount else { return nil }
+  ///
+  /// - Throws: ``GatewayError/payloadTooLong(count:)`` for a payload longer
+  ///   than ``Message/maxDataCount``, which upstream's message can't hold
+  ///   and ``decode(_:)`` rejects.
+  public static func encode(_ message: Message) throws(GatewayError) -> String {
+    guard message.data.count <= Message.maxDataCount else {
+      throw .payloadTooLong(count: message.data.count)
+    }
     var sentence = "$PCDIN,"
     sentence += hex(UInt8(truncatingIfNeeded: message.pgn >> 16))
     sentence += hex(UInt8(truncatingIfNeeded: message.pgn >> 8))
@@ -35,28 +39,39 @@ public enum Seasmart {
     return sentence + "*" + hex(checksum(Array(sentence.utf8)))
   }
 
-  /// Decodes a sentence, or returns `nil` if it isn't a valid `$PCDIN`
-  /// sentence. Hex digits may be in either case, and anything after the
-  /// checksum, such as a line ending, is ignored.
+  /// Decodes a sentence. Hex digits may be in either case, and anything
+  /// after the checksum, such as a line ending, is ignored.
   ///
   /// Ports `SeasmartToN2k`.
-  public static func decode(_ sentence: String) -> Message? {
+  ///
+  /// - Throws: ``GatewayError/malformedSentence(offset:)`` where the sentence
+  ///   isn't a `$PCDIN` sentence, ``GatewayError/payloadTooLong(count:)``,
+  ///   or ``GatewayError/checksumMismatch(expected:actual:)``.
+  public static func decode(_ sentence: String) throws(GatewayError) -> Message {
     var parser = Parser(text: Array(sentence.utf8))
-    guard parser.skip("$PCDIN,"),
-      let pgnHigh = parser.hex(bytes: 1), let pgnLow = parser.hex(bytes: 2), parser.skip(","),
-      let timestamp = parser.hex(bytes: 4), parser.skip(","),
-      let source = parser.hex(bytes: 1), parser.skip(",")
-    else { return nil }
+    try parser.expect("$PCDIN,")
+    let pgnHigh = try parser.hex(bytes: 1)
+    let pgnLow = try parser.hex(bytes: 2)
+    try parser.expect(",")
+    let timestamp = try parser.hex(bytes: 4)
+    try parser.expect(",")
+    let source = try parser.hex(bytes: 1)
+    try parser.expect(",")
     let digitCount = parser.countUntilEnd()
-    guard digitCount.isMultiple(of: 2), digitCount / 2 <= Message.maxDataCount else { return nil }
+    guard digitCount.isMultiple(of: 2) else {
+      throw .malformedSentence(offset: parser.index + digitCount)
+    }
+    guard digitCount / 2 <= Message.maxDataCount else {
+      throw .payloadTooLong(count: digitCount / 2)
+    }
     var data: [UInt8] = []
     for _ in 0..<digitCount / 2 {
-      guard let byte = parser.hex(bytes: 1) else { return nil }
-      data.append(UInt8(byte))
+      data.append(UInt8(try parser.hex(bytes: 1)))
     }
-    guard parser.skip("*"), let expected = parser.hex(bytes: 1),
-      expected == checksum(parser.text)
-    else { return nil }
+    try parser.expect("*")
+    let expected = UInt8(try parser.hex(bytes: 1))
+    let actual = checksum(parser.text)
+    guard expected == actual else { throw .checksumMismatch(expected: expected, actual: actual) }
     return Message(
       pgn: pgnHigh << 16 + pgnLow, source: UInt8(source), data: data, timestamp: timestamp)
   }
@@ -76,21 +91,20 @@ public enum Seasmart {
     let text: [UInt8]
     var index = 0
 
-    /// Skips a literal, if it comes next.
-    mutating func skip(_ literal: String) -> Bool {
+    /// Skips a literal, which must come next.
+    mutating func expect(_ literal: String) throws(GatewayError) {
       let bytes = Array(literal.utf8)
-      guard text[index...].starts(with: bytes) else { return false }
+      guard text[index...].starts(with: bytes) else { throw .malformedSentence(offset: index) }
       index += bytes.count
-      return true
     }
 
     /// Reads `bytes` bytes written as twice as many hex digits
     /// (`readNHexByte`).
-    mutating func hex(bytes: Int) -> UInt32? {
+    mutating func hex(bytes: Int) throws(GatewayError) -> UInt32 {
       let end = index + 2 * bytes
       guard end <= text.count,
         text[index..<end].allSatisfy({ Character(Unicode.Scalar($0)).isHexDigit })
-      else { return nil }
+      else { throw .malformedSentence(offset: index) }
       let value = text[index..<end].reduce(UInt32(0)) {
         $0 << 4 | UInt32(Character(Unicode.Scalar($1)).hexDigitValue ?? 0)
       }
