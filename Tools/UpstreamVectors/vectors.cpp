@@ -69,6 +69,21 @@ const std::vector<Case> cases = {
      for (int i = 0; i < 221; i++) m.AddByte(0);
      m.AddAISStr("ABCD", 5);
    }},
+  {"Field variable string UCS-2 with two bytes free", [](tN2kMsg &m) {
+     m.SetPGN(1);
+     for (int i = 0; i < 221; i++) m.AddByte(0);
+     m.AddVarStr("\xc3\xa9");
+   }},
+  {"Field variable string ASCII with two bytes free", [](tN2kMsg &m) {
+     m.SetPGN(1);
+     for (int i = 0; i < 221; i++) m.AddByte(0);
+     m.AddVarStr("Hi");
+   }},
+  {"Field variable string ASCII with three bytes free", [](tN2kMsg &m) {
+     m.SetPGN(1);
+     for (int i = 0; i < 220; i++) m.AddByte(0);
+     m.AddVarStr("Hi");
+   }},
   FIELD("Variable string forced ASCII",
         m.AddVarStr("\xc3\xa9" "a", 5000, tN2kMsg::vss_ForceASCII)),
   FIELD("Variable string UCS-2 byte limit",

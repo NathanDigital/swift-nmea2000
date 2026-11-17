@@ -229,6 +229,26 @@ struct MessageReaderTests {
     let latitude = reader.readInt32(resolution: 1e-7)
     #expect(latitude.map { abs($0 - 60.1234567) < 1e-9 } == true)
   }
+
+  @Test func readsZeroLengthFields() {
+    var reader = MessageReader(Message(pgn: 1, data: [1, 2]))
+    #expect(reader.readFixedString(count: 0) == "")
+    #expect(reader.readBytes(count: 0) == [])
+    #expect(reader.readUInt8() == 1)
+  }
+
+  @Test func readsExactlyToTheEnd() {
+    var reader = MessageReader(Message(pgn: 1, data: [0x41, 0x42, 3, 4]))
+    #expect(reader.readFixedString(count: 2) == "AB")
+    #expect(reader.readBytes(count: 2) == [3, 4])
+    #expect(reader.remainingCount == 0)
+  }
+
+  @Test func variableStringUCS2KeepsATerminatorFrom0x80() {
+    // Only terminators below 0x80 are dropped from UCS-2 text.
+    var reader = MessageReader(Message(pgn: 1, data: [0x06, 0x00, 0x80, 0x00, 0x41, 0x00]))
+    #expect(reader.readVariableString(terminator: 0x80) == "\u{80}A")
+  }
 }
 
 @Suite("Message")

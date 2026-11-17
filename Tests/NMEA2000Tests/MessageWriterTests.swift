@@ -289,4 +289,51 @@ struct MessageWriterTests {
     writer.truncate(to: mark)
     #expect(writer.data == [1, 0])
   }
+
+  @Test func variableStringWithTwoBytesFreeIsEmpty() {
+    // upstream-vectors "Field variable string UCS-2 with two bytes free",
+    // "ASCII with two bytes free" and "ASCII with three bytes free"
+    for (text, filled, tail) in [
+      ("é", 221, [UInt8]([0x02, 0x01])), ("Hi", 221, [0x02, 0x01]),
+      ("Hi", 220, [0x03, 0x01, 0x48]),
+    ] {
+      var writer = MessageWriter()
+      writer.appendBytes(Array(repeating: 0, count: filled))
+      writer.appendVariableString(text)
+      #expect(Array(writer.data.dropFirst(filled)) == tail, "\(text) after \(filled) bytes")
+    }
+  }
+
+  @Test func appendsAnEmptyFixedString() {
+    var writer = MessageWriter()
+    writer.appendFixedString("ABC", count: 0)
+    #expect(writer.data.isEmpty)
+  }
+
+  @Test func patchesTheFirstAndLastBytes() {
+    var writer = MessageWriter()
+    writer.appendBytes([0, 0, 0])
+    writer.setUInt16(0x0201, at: 0)
+    #expect(writer.data == [1, 2, 0])
+    writer.setUInt16(0x0403, at: 1)
+    #expect(writer.data == [1, 3, 4])
+  }
+
+  @Test func truncatesToNothingOrToItsLength() {
+    var writer = MessageWriter()
+    writer.appendBytes([1, 2, 3])
+    writer.truncate(to: 3)
+    #expect(writer.data == [1, 2, 3])
+    writer.truncate(to: 0)
+    #expect(writer.data.isEmpty)
+  }
+
+  @Test func writesInt64JustOutOfRangeAsOutOfRange() {
+    // 2^63 doesn't fit; upstream's conversion is undefined there.
+    var writer = MessageWriter()
+    writer.appendInt64(9_223_372_036_854_775_808.0, resolution: 1)
+    writer.appendInt64(-9_223_372_036_854_775_808.0, resolution: 1)
+    #expect(
+      writer.data == [0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0, 0, 0, 0, 0, 0, 0, 0x80])
+  }
 }
