@@ -8,7 +8,7 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 - **Bit-field unions** (`tN2kDD206`, `tN2kDD471`, …) become `OptionSet`s with upstream's bit positions.
 - **Raw values** are identical to upstream's. Reserved values that upstream names (e.g. `N2kdir_reserved1`) aren't given names; they still round-trip through `rawValue`.
 - **Aliases:** upstream's alternative names for a single value (`N2kDD002_Off`, `N2kWind_Apprent`, …) are dropped, except `BinaryStatus.off` / `.on`.
-- **Descriptions:** every type is `CustomStringConvertible`. The strings are written for this port, not copied from `N2kMessagesEnumToStr.h`, whose tables are incomplete and in places wrong (for example, `tN2kMagneticVariation` uses the speed-sensor table). Unknown values print as `unknown (<raw value>)`.
+- **Descriptions:** every enum type is `CustomStringConvertible`; the flag sets (`OptionSet`s) aren't yet. The strings are written for this port, not copied from `N2kMessagesEnumToStr.h`, whose tables are incomplete and in places wrong (for example, `tN2kMagneticVariation` uses the speed-sensor table). Unknown values print as `unknown (<raw value>)`.
 
 ## Deliberate divergences
 

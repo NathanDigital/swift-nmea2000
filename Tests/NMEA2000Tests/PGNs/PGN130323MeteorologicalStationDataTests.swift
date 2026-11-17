@@ -95,4 +95,13 @@ struct MeteorologicalStationDataTests {
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
     expectTolerantDecoding(MeteorologicalStationData.self, from: Self.vectors[0].1)
   }
+
+  @Test func truncatesStringsAtACharacterBoundary() throws {
+    // Deliberate divergence: upstream's strncpy into its 15-byte buffer
+    // would cut the "é" in half; this port stops before it.
+    var station = Self.vectors[0].0
+    station.stationID = "ABCDEFGHIJKLMNé"
+    let decoded = try MeteorologicalStationData(station.makeMessage())
+    #expect(decoded.stationID == "ABCDEFGHIJKLMN")
+  }
 }

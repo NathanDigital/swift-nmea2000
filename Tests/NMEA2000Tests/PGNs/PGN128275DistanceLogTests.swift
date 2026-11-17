@@ -37,4 +37,14 @@ struct DistanceLogTests {
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
     expectTolerantDecoding(DistanceLog.self, from: Self.vectors[0].1)
   }
+
+  @Test func decodesTheHighestLogAndNotAvailable() throws {
+    // Deliberate divergence: upstream reads the log as a double and converts
+    // its not-available sentinel to an unsigned integer, which is undefined.
+    var bytes = Self.vectors[0].1
+    bytes.replaceSubrange(6..<10, with: [0xfe, 0xff, 0xff, 0xff])
+    #expect(try DistanceLog(Message(pgn: 128275, data: bytes)).log == 0xffff_fffe)
+    bytes.replaceSubrange(6..<10, with: [0xff, 0xff, 0xff, 0xff])
+    #expect(try DistanceLog(Message(pgn: 128275, data: bytes)).log == nil)
+  }
 }
