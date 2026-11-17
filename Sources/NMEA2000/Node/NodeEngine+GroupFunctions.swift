@@ -59,7 +59,8 @@ extension NodeEngine {
     // The application's handlers come first: one for the PGN, then one for
     // every PGN. A handler that returns nil leaves the function to the
     // node's own answers.
-    let applicationRequest = GroupFunction.Request(request.message, device: request.device)
+    let applicationRequest = GroupFunction.Request(
+      request.message, device: Node.DeviceID(rawValue: request.device))
     for handler in [groupFunctionHandlers[request.pgn], groupFunctionHandlers[nil]] {
       if let replies = handler?(applicationRequest) {
         return sendAll(replies, from: request.device, at: now)

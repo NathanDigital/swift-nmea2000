@@ -323,16 +323,19 @@ private let position: [UInt8] = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
 private let sendPosition = NodeCase.Step.send(pgn: 129025, count: 8, priority: 2)
 /// Answers requests for 130306 with a one-byte message, and refuses others,
 /// as frames.cpp's `requestHandler` does.
-private let requestHandler: Node.ISORequestHandler = { pgn, requester, _ in
-  guard pgn == 130306 else { return nil }
-  return [Message(pgn: 130306, destination: requester, data: [requester])]
+private let requestHandler: Node.ISORequestHandler = { request in
+  guard request.pgn == 130306 else { return nil }
+  return [Message(pgn: 130306, destination: request.requester, data: [request.requester])]
 }
 
 /// Answers requests for 130306 from the second device only, as frames.cpp's
 /// `deviceRequestHandler` does.
-private let deviceRequestHandler: Node.ISORequestHandler = { pgn, requester, device in
-  guard pgn == 130306, device == 1 else { return nil }
-  return [Message(pgn: 130306, destination: requester, data: [UInt8(device)])]
+private let deviceRequestHandler: Node.ISORequestHandler = { request in
+  guard request.pgn == 130306, request.device == 1 else { return nil }
+  return [
+    Message(
+      pgn: 130306, destination: request.requester, data: [UInt8(request.device.rawValue)])
+  ]
 }
 
 /// Handles group functions for 130310 as frames.cpp's

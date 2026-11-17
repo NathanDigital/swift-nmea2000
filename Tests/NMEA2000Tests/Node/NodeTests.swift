@@ -392,8 +392,9 @@ struct NodeTests {
     let clock = ManualClock()
     let transport = FakeTransport()
     let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
-    await node.setISORequestHandler { pgn, requester, _ in
-      pgn == 130306 ? [Message(pgn: 130306, destination: requester, data: [requester])] : nil
+    await node.setISORequestHandler { request in
+      guard request.pgn == 130306 else { return nil }
+      return [Message(pgn: 130306, destination: request.requester, data: [request.requester])]
     }
     let run = Task { try await node.run() }
     let sent = transport.sent
@@ -468,7 +469,7 @@ struct NodeTests {
     #expect(try await traffic.next()?.source == 23)
     #expect(try await traffic.next()?.source == 24)
 
-    try await node.setInstances(device: 9, system: 3)
+    try await node.setInstances(deviceInstance: 9, systemInstance: 3)
     #expect(try await events.next() == .deviceInformationChanged(device: 0))
     #expect(await node.name.deviceInstance == 9)
     #expect(await node.name.systemInstance == 3)

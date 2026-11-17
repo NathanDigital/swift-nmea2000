@@ -100,28 +100,76 @@ public actor Node {
     }
   }
 
+  /// Identifies one of the devices a node hosts, by its position in the
+  /// devices the node was created with. The first device is ``first``, or
+  /// `0`.
+  public struct DeviceID: RawRepresentable, Hashable, Sendable, Codable,
+    ExpressibleByIntegerLiteral, CustomStringConvertible
+  {
+    /// The device's position in the node's devices.
+    public var rawValue: Int
+
+    /// Creates the identifier of the device at a position.
+    public init(rawValue: Int) {
+      self.rawValue = rawValue
+    }
+
+    /// Creates the identifier of the device at a position.
+    public init(integerLiteral value: Int) {
+      self.init(rawValue: value)
+    }
+
+    /// The first device, which most nodes host alone.
+    public static let first = DeviceID(rawValue: 0)
+
+    public var description: String { "device \(rawValue)" }
+  }
+
+  /// An ISO request for a PGN the node doesn't answer itself.
+  public struct PGNRequest: Sendable, Hashable {
+    /// The PGN asked for.
+    public var pgn: UInt32
+    /// The requester's address.
+    public var requester: UInt8
+    /// The node's device the request is for.
+    public var device: DeviceID
+    /// Whether the request was broadcast, so that every device is asked in
+    /// turn and none answers with a negative acknowledgement.
+    public var isBroadcast: Bool
+
+    /// Creates a request.
+    public init(pgn: UInt32, requester: UInt8, device: DeviceID, isBroadcast: Bool) {
+      self.pgn = pgn
+      self.requester = requester
+      self.device = device
+      self.isBroadcast = isBroadcast
+    }
+  }
+
   /// Answers an ISO request for a PGN the node doesn't answer itself.
   ///
-  /// The handler gets the requested PGN, the requester's address and the
-  /// index of the node's device the request is for, and returns the
-  /// messages that device sends in reply, or `nil` if it doesn't handle the
-  /// PGN. The device then sends a negative acknowledgement if the request
-  /// was addressed to it. A broadcast request asks every device in turn.
-  /// The handler runs on the node, so it must be quick.
+  /// The handler returns the messages the device sends in reply, or `nil`
+  /// if it doesn't handle the PGN; the device then sends a negative
+  /// acknowledgement if the request was addressed to it.
+  ///
+  /// Handlers are synchronous because the node answers while it handles
+  /// the request's frame, before the next one, as upstream does; an
+  /// `await` there would let other frames through first. Keep what a
+  /// handler needs where it can read it at once, such as in a
+  /// `Mutex`-protected value that the rest of the app updates.
   ///
   /// Replaces upstream's `SetISORqstHandler` callback.
-  public typealias ISORequestHandler =
-    @Sendable (_ requestedPGN: UInt32, _ requester: UInt8, _ device: Int) -> [Message]?
+  public typealias ISORequestHandler = @Sendable (PGNRequest) -> [Message]?
 
   /// Answers group functions (PGN 126208) for a PGN, as an upstream
   /// `tN2kGroupFunctionHandler` subclass does.
   ///
   /// The handler gets the request and returns the messages its device sends
-  /// in reply, usually a ``GroupFunction/Acknowledgement`` or a read or
-  /// write reply, or `nil` to let the node answer as it does without a
-  /// handler, which upstream's subclasses get by calling the base class.
-  /// The handler sees broadcast commands, reads and writes too, which
-  /// upstream ignores. It runs on the node, so it must be quick.
+  /// in reply, usually a ``GroupFunction/Acknowledgement`` or a
+  /// ``GroupFunction/Reply``, or `nil` to let the node answer as it does
+  /// without a handler, which upstream's subclasses get by calling the base
+  /// class. The handler sees broadcast commands, reads and writes too,
+  /// which upstream ignores. Like ``ISORequestHandler``, it's synchronous.
   public typealias GroupFunctionHandler = @Sendable (GroupFunction.Request) -> [Message]?
 
   /// Something that happened to the node, from ``events()``.
@@ -135,10 +183,10 @@ public actor Node {
     case opened
     /// A device moved to another address. Save ``Node/devices`` so the
     /// device starts from it next time.
-    case addressChanged(device: Int)
+    case addressChanged(device: DeviceID)
     /// A device's NAME or heartbeat interval changed, from a clash with an
     /// identical device or another device's group function command.
-    case deviceInformationChanged(device: Int)
+    case deviceInformationChanged(device: DeviceID)
     /// Another device changed the installation descriptions in
     /// ``Node/configurationInformation`` with a group function command.
     case installationDescriptionChanged
@@ -292,6 +340,10 @@ public actor Node {
   /// group functions.
   public var devices: [Device] { engine.devices.map(\.settings) }
 
+  /// The identifiers of the devices the node hosts, in the order of
+  /// ``devices``.
+  public var deviceIDs: [DeviceID] { engine.devices.indices.map(DeviceID.init(rawValue:)) }
+
   /// The configuration information the node sends when asked. Another
   /// device can change the installation descriptions with a group function
   /// command; save them so the device keeps them across restarts.
@@ -389,8 +441,9 @@ public actor Node {
   public var isOpen: Bool { engine.isOpen }
 
   /// Whether a device lists a PGN as one it transmits (`IsTxPGN`).
-  public func isTransmitted(_ pgn: UInt32, by device: Int = 0) -> Bool {
-    engine.devices.indices.contains(device) && engine.isTransmitted(pgn, by: device)
+  public func isTransmitted(_ pgn: UInt32, by device: DeviceID = .first) -> Bool {
+    let device = device.rawValue
+    return engine.devices.indices.contains(device) && engine.isTransmitted(pgn, by: device)
   }
 
   /// Sends a message from one of the node's devices.
@@ -410,10 +463,11 @@ public actor Node {
   ///
   /// - Parameters:
   ///   - message: The message to send.
-  ///   - device: The index of the node's device to send from.
+  ///   - device: The node's device to send from.
   /// - Throws: ``NodeError`` if the device can't send the message now, or an
   ///   error from the transport.
-  public func send(_ message: Message, from device: Int = 0) async throws {
+  public func send(_ message: Message, from device: DeviceID = .first) async throws {
+    let device = device.rawValue
     let now = clock.now()
     transmit(engine.poll(at: now))
     // A transport protocol send sets a deadline for its next packet.
@@ -430,13 +484,13 @@ public actor Node {
   ///   - priority: The priority, or `nil` for the parameter group's default.
   ///   - destination: The destination address. Most parameter groups are
   ///     broadcast.
-  ///   - device: The index of the node's device to send from.
+  ///   - device: The node's device to send from.
   ///   - framing: How to split the message into CAN frames.
   /// - Throws: ``NodeError`` if the node can't send the message now, or an
   ///   error from the transport.
   public func send(
     _ parameterGroup: some ParameterGroup, priority: UInt8? = nil,
-    to destination: UInt8 = Message.broadcastAddress, from device: Int = 0,
+    to destination: UInt8 = Message.broadcastAddress, from device: DeviceID = .first,
     framing: Message.Framing = .automatic
   ) async throws {
     var message = parameterGroup.makeMessage(priority: priority, destination: destination)
@@ -547,15 +601,18 @@ public actor Node {
   }
 
   private func checkDevice(_ device: Int) throws(NodeError) {
-    guard engine.devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    guard engine.devices.indices.contains(device) else {
+      throw .noSuchDevice(DeviceID(rawValue: device))
+    }
   }
 
   /// Sends a device's address claim, to every device or to one.
   ///
   /// Ports `SendIsoAddressClaim`.
   public func sendAddressClaim(
-    from device: Int = 0, to destination: UInt8 = Message.broadcastAddress
+    from device: DeviceID = .first, to destination: UInt8 = Message.broadcastAddress
   ) async throws {
+    let device = device.rawValue
     try await perform { engine, now throws(NodeError) in
       try engine.sendAddressClaim(from: device, to: destination, at: now)
     }
@@ -566,9 +623,10 @@ public actor Node {
   ///
   /// Ports `SendProductInformation`.
   public func sendProductInformation(
-    from device: Int = 0, to destination: UInt8 = Message.broadcastAddress,
+    from device: DeviceID = .first, to destination: UInt8 = Message.broadcastAddress,
     transportProtocol: Bool = false
   ) async throws {
+    let device = device.rawValue
     try checkDevice(device)
     try await perform { engine, now in
       engine.sendProductInformation(
@@ -581,9 +639,10 @@ public actor Node {
   ///
   /// Ports `SendConfigurationInformation`.
   public func sendConfigurationInformation(
-    from device: Int = 0, to destination: UInt8 = Message.broadcastAddress,
+    from device: DeviceID = .first, to destination: UInt8 = Message.broadcastAddress,
     transportProtocol: Bool = false
   ) async throws {
+    let device = device.rawValue
     try checkDevice(device)
     try await perform { engine, now in
       engine.sendConfigurationInformation(
@@ -595,9 +654,11 @@ public actor Node {
   ///
   /// Ports `SendTxPGNList` and `SendRxPGNList`.
   public func sendPGNList(
-    _ kind: PGNList.Kind, from device: Int = 0, to destination: UInt8 = Message.broadcastAddress,
+    _ kind: PGNList.Kind, from device: DeviceID = .first,
+    to destination: UInt8 = Message.broadcastAddress,
     transportProtocol: Bool = false
   ) async throws {
+    let device = device.rawValue
     try await perform { engine, now throws(NodeError) in
       try engine.sendPGNList(
         kind, from: device, to: destination, transportProtocol: transportProtocol, at: now)
@@ -608,7 +669,8 @@ public actor Node {
   /// sequence number.
   ///
   /// Ports `SendHeartbeat`.
-  public func sendHeartbeat(from device: Int = 0) async throws {
+  public func sendHeartbeat(from device: DeviceID = .first) async throws {
+    let device = device.rawValue
     try await perform { engine, now throws(NodeError) in
       try engine.sendHeartbeat(from: device, at: now)
     }
@@ -634,13 +696,13 @@ public actor Node {
   ///     due, which later ones keep in step with, or `nil` to keep the
   ///     current offset (10 seconds by default). Only takes effect once the
   ///     node is open.
-  ///   - device: The index of the device, or `nil` for every device.
+  ///   - device: The device, or `nil` for every device.
   public func setHeartbeatInterval(
-    _ interval: Duration?, offset: Duration? = nil, for device: Int? = nil
+    _ interval: Duration?, offset: Duration? = nil, for device: DeviceID? = nil
   ) throws {
-    if let device { try checkDevice(device) }
+    if let device { try checkDevice(device.rawValue) }
     let now = clock.now()
-    for index in device.map({ [$0] }) ?? Array(engine.devices.indices) {
+    for index in device.map({ [$0.rawValue] }) ?? Array(engine.devices.indices) {
       engine.setHeartbeat(
         of: index, interval: interval.map(NodeClock.milliseconds),
         offset: offset.map(NodeClock.milliseconds), at: now)
@@ -658,10 +720,11 @@ public actor Node {
   ///   - deviceInstance: The new device instance, or `nil` to keep it.
   ///   - systemInstance: The new system instance (4 bits), or `nil` to keep
   ///     it.
-  ///   - device: The index of the node's device.
+  ///   - device: The node's device.
   public func setInstances(
-    device deviceInstance: UInt8? = nil, system systemInstance: UInt8? = nil, for device: Int = 0
+    deviceInstance: UInt8? = nil, systemInstance: UInt8? = nil, for device: DeviceID = .first
   ) throws {
+    let device = device.rawValue
     try checkDevice(device)
     engine.setInstances(
       of: device, lower: deviceInstance.map { $0 & 0x07 }, upper: deviceInstance.map { $0 >> 3 },
@@ -673,9 +736,12 @@ public actor Node {
   /// Changes the product information a device sends when asked.
   ///
   /// Ports `SetProductInformation`.
-  public func setProductInformation(_ information: ProductInformation, for device: Int = 0)
+  public func setProductInformation(
+    _ information: ProductInformation, for device: DeviceID = .first
+  )
     throws
   {
+    let device = device.rawValue
     try checkDevice(device)
     engine.devices[device].productInformation = information
   }
@@ -766,7 +832,7 @@ public enum NodeError: Error, Sendable, Hashable {
   /// Only a node in ``Node/Mode/node`` mode can send by transport protocol.
   case notAFullNode
   /// The node has no device with this index.
-  case noSuchDevice(Int)
+  case noSuchDevice(Node.DeviceID)
   /// The message can't be framed.
   case invalidMessage(FramingError)
 }

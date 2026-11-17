@@ -485,7 +485,9 @@ struct NodeEngine: Sendable {
     -> [CANFrame]
   {
     guard openState == .open else { throw .notOpen }
-    guard devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    guard devices.indices.contains(device) else {
+      throw .noSuchDevice(Node.DeviceID(rawValue: device))
+    }
     guard mode != .listenOnly else { throw .listenOnly }
     var message = message
     message.source = devices[device].address
@@ -563,7 +565,10 @@ struct NodeEngine: Sendable {
     default:
       if let handler = isoRequestHandler {
         if !isAddressed && Self.ignoredBroadcastRequests.contains(requested) { return [] }
-        if let replies = handler(requested, requester, device) {
+        let request = Node.PGNRequest(
+          pgn: requested, requester: requester, device: Node.DeviceID(rawValue: device),
+          isBroadcast: !isAddressed)
+        if let replies = handler(request) {
           return sendAll(replies, from: device, at: now)
         }
       }
@@ -783,7 +788,7 @@ struct NodeEngine: Sendable {
     }
     if devices[device].name == claimant && isClaimingAddress(device, at: now) {
       devices[device].name.deviceInstance &+= 1
-      events.append(.deviceInformationChanged(device: device))
+      events.append(.deviceInformationChanged(device: Node.DeviceID(rawValue: device)))
     } else {
       moveToNextAddress(device)
     }
@@ -808,7 +813,7 @@ struct NodeEngine: Sendable {
       }
       devices[device].address = newAddress
       devices[device].resetLastAddressToTry()
-      events.append(.addressChanged(device: device))
+      events.append(.addressChanged(device: Node.DeviceID(rawValue: device)))
       return startAddressClaim(device, at: now)
     }
   }
@@ -821,7 +826,9 @@ struct NodeEngine: Sendable {
   private mutating func moveToNextAddress(_ device: Int, restartingFromFirstAddress: Bool = false) {
     let original = devices[device].address
     defer {
-      if devices[device].address != original { events.append(.addressChanged(device: device)) }
+      if devices[device].address != original {
+        events.append(.addressChanged(device: Node.DeviceID(rawValue: device)))
+      }
     }
     repeat {
       let address = devices[device].address
@@ -861,7 +868,9 @@ struct NodeEngine: Sendable {
   mutating func sendAddressClaim(from device: Int, to destination: UInt8, at now: UInt64)
     throws(NodeError) -> [CANFrame]
   {
-    guard devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    guard devices.indices.contains(device) else {
+      throw .noSuchDevice(Node.DeviceID(rawValue: device))
+    }
     return try send(
       ISOAddressClaim(name: devices[device].name).makeMessage(destination: destination),
       from: device, at: now)
@@ -874,7 +883,9 @@ struct NodeEngine: Sendable {
     _ kind: PGNList.Kind, from device: Int, to destination: UInt8, transportProtocol: Bool,
     at now: UInt64
   ) throws(NodeError) -> [CANFrame] {
-    guard devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    guard devices.indices.contains(device) else {
+      throw .noSuchDevice(Node.DeviceID(rawValue: device))
+    }
     var message =
       kind == .receive
       ? receiveList(of: device, to: destination) : transmitList(of: device, to: destination)
@@ -887,7 +898,9 @@ struct NodeEngine: Sendable {
   ///
   /// Ports `SendHeartbeat(int)`.
   mutating func sendHeartbeat(from device: Int, at now: UInt64) throws(NodeError) -> [CANFrame] {
-    guard devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    guard devices.indices.contains(device) else {
+      throw .noSuchDevice(Node.DeviceID(rawValue: device))
+    }
     let period = devices[device].heartbeat?.period ?? devices[device].heartbeatInterval ?? 60000
     return try send(
       Heartbeat(interval: Double(period) / 1000, sequenceCounter: nil).makeMessage(), from: device,
@@ -927,7 +940,7 @@ struct NodeEngine: Sendable {
       devices[device].heartbeat = HeartbeatSchedule(
         sync: openTime, offset: newOffset, period: period, now: now)
     }
-    events.append(.deviceInformationChanged(device: device))
+    events.append(.deviceInformationChanged(device: Node.DeviceID(rawValue: device)))
   }
 
   /// Sets a device's device and system instances, and claims its address
@@ -942,7 +955,7 @@ struct NodeEngine: Sendable {
     if let upper { devices[device].name.deviceInstanceUpper = upper }
     if let system { devices[device].name.systemInstance = system }
     if devices[device].name != original {
-      events.append(.deviceInformationChanged(device: device))
+      events.append(.deviceInformationChanged(device: Node.DeviceID(rawValue: device)))
     }
     if openState == .open && mode == .node { devices[device].pendingClaim = now + 2 }
   }

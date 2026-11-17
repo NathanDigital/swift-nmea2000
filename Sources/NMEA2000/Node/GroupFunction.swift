@@ -289,11 +289,11 @@ public enum GroupFunction {
     /// The PGN the function is aimed at.
     public var pgn: UInt32
 
-    /// The index of the node's device the function is for.
-    public var device: Int
+    /// The node's device the function is for.
+    public var device: Node.DeviceID
 
     /// Creates a request from a group function message.
-    public init(_ message: Message, device: Int) {
+    public init(_ message: Message, device: Node.DeviceID) {
       self.message = message
       var reader = MessageReader(message)
       code = Code(rawValue: reader.readUInt8())
