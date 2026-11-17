@@ -151,7 +151,9 @@ struct NodeEngine: Sendable {
     frames: [CANFrame], message: Message?
   ) {
     guard openState == .open else { return ([], nil) }
-    let localAddress = address <= MessageFramer.maxBusAddress + 2 ? address : nil
+    // Upstream also counts 252 and 253 as local, but a node there can't send
+    // replies, so they make no difference.
+    let localAddress = address <= MessageFramer.maxBusAddress ? address : nil
     let reception = assembler.receive(
       frame, at: UInt32(truncatingIfNeeded: now), localAddress: localAddress)
     var frames = reception.replies.flatMap { sendSystemMessage($0, at: now) ?? [] }

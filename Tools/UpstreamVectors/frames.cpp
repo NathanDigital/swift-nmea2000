@@ -533,6 +533,18 @@ const std::vector<Case> cases = {
       sendTP(n, 126464, 20);
       until(n, 700);
     }),
+    NODE("TP sends a message of whole packets", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      sendTP(n, 126464, 14);
+      until(n, 700);
+    }),
+    NODE("TP answers at address 251", {
+      start(n, tNMEA2000::N2km_NodeOnly, 251);
+      until(n, 500);
+      receive(n, tp(TPCM, 0xfb), rts(10, 126464));
+      dts(n, 0xfb, 1, 2, 10);
+    }),
     NODE("TP sends to one device", {
       start(n, tNMEA2000::N2km_NodeOnly);
       until(n, 500);
@@ -569,6 +581,8 @@ const std::vector<Case> cases = {
       until(n, 500);
       sendTP(n, 126464, 20, 0x42);
       receive(n, tp(TPCM, 0x17), cts(0, 1, 126464));
+      // With no packets asked for, the next packet number doesn't matter.
+      receive(n, tp(TPCM, 0x17), cts(0, 9, 126464));
       until(n, 590);
       receive(n, tp(TPCM, 0x17), cts(2, 1, 126464));
       receive(n, tp(TPCM, 0x17), cts(9, 3, 126464));
@@ -615,6 +629,7 @@ const std::vector<Case> cases = {
       start(n, tNMEA2000::N2km_NodeOnly);
       until(n, 500);
       sendTP(n, 59904, 3, 0x42);
+      sendTP(n, 59904, 8, 0x42);
       sendTP(n, 126464, 6, 0x42);
     }),
     NODE("TP needs a full node", {

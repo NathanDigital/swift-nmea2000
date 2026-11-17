@@ -480,6 +480,27 @@ struct NodeEngineTests {
         "t=650 tx id=0x18ebff17 data=[0x03, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0xff]",
       ]),
     NodeCase(
+      name: "TP sends a message of whole packets", mode: .node,
+      steps: [.until(500), .sendTP(pgn: 126464, count: 14), .until(700)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ecff17 data=[0x20, 0x0e, 0x00, 0x02, 0xff, 0x00, 0xee, 0x01]",
+        "t=550 tx id=0x18ebff17 data=[0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]",
+        "t=600 tx id=0x18ebff17 data=[0x02, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d]",
+      ]),
+    NodeCase(
+      name: "TP answers at address 251", mode: .node, address: 251,
+      steps: [
+        .until(500), .receive(tpCM(to: 0xfb), rts(10, 126464)),
+        .dataPackets(to: 0xfb, 1...2, of: 10),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eefffb data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18ec42fb data=[0x11, 0x02, 0x01, 0xff, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 tx id=0x18ec42fb data=[0x13, 0x0a, 0x00, 0x02, 0xff, 0x00, 0xee, 0x01]",
+        "t=500 rx pgn=126464 priority=7 source=66 destination=251 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09]",
+      ]),
+    NodeCase(
       name: "TP sends to one device", mode: .node,
       steps: [
         .until(500), .sendTP(pgn: 126464, count: 50, to: 0x42), .until(510),
@@ -537,7 +558,8 @@ struct NodeEngineTests {
       name: "TP waits when asked for no packets", mode: .node,
       steps: [
         .until(500), .sendTP(pgn: 126464, count: 20, to: 0x42),
-        .receive(tpCM(to: 0x17), cts(0, next: 1, 126464)), .until(590),
+        .receive(tpCM(to: 0x17), cts(0, next: 1, 126464)),
+        .receive(tpCM(to: 0x17), cts(0, next: 9, 126464)), .until(590),
         .receive(tpCM(to: 0x17), cts(2, next: 1, 126464)),
         .receive(tpCM(to: 0x17), cts(9, next: 3, 126464)),
       ],
@@ -616,11 +638,12 @@ struct NodeEngineTests {
       name: "TP sends a short message in one frame", mode: .node,
       steps: [
         .until(500), .sendTP(pgn: 59904, count: 3, to: 0x42),
-        .sendTP(pgn: 126464, count: 6, to: 0x42),
+        .sendTP(pgn: 59904, count: 8, to: 0x42), .sendTP(pgn: 126464, count: 6, to: 0x42),
       ],
       upstream: [
         "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
         "t=500 tx id=0x18ea4217 data=[0x00, 0x01, 0x02]",
+        "t=500 tx id=0x18ea4217 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
         "t=500 tx id=0x18ec4217 data=[0x10, 0x06, 0x00, 0x01, 0xff, 0x00, 0xee, 0x01]",
       ]),
     NodeCase(
