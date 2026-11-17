@@ -84,6 +84,37 @@ public struct MessageWriter: Sendable {
     appendLittleEndian(value, byteCount: 8)
   }
 
+  // MARK: - Optional integers
+
+  /// Appends a byte, or `0xff` if it is not available.
+  ///
+  /// Upstream passes `N2kUInt8NA` to `AddByte` for a missing value.
+  public mutating func appendUInt8(_ value: UInt8?) {
+    appendUInt8(value ?? .max)
+  }
+
+  /// Appends a signed 16-bit integer, or `0x7fff` if it is not available.
+  ///
+  /// Upstream passes `N2kInt16NA` to `Add2ByteInt` for a missing value.
+  public mutating func appendInt16(_ value: Int16?) {
+    appendInt16(value ?? .max)
+  }
+
+  /// Appends an unsigned 16-bit integer, or `0xffff` if it is not available.
+  ///
+  /// Upstream passes `N2kUInt16NA` to `Add2ByteUInt` for a missing value.
+  public mutating func appendUInt16(_ value: UInt16?) {
+    appendUInt16(value ?? .max)
+  }
+
+  /// Appends an unsigned 32-bit integer, or `0xffffffff` if it is not
+  /// available.
+  ///
+  /// Upstream passes `N2kUInt32NA` to `Add4ByteUInt` for a missing value.
+  public mutating func appendUInt32(_ value: UInt32?) {
+    appendUInt32(value ?? .max)
+  }
+
   // MARK: - Scaled values
 
   /// Appends a value scaled into a signed 8-bit field.
@@ -386,6 +417,17 @@ public struct MessageWriter: Sendable {
     precondition(index >= 0 && index + 1 < data.count, "Index \(index) has not been written")
     data[index] = UInt8(truncatingIfNeeded: value)
     data[index + 1] = UInt8(truncatingIfNeeded: value >> 8)
+  }
+
+  /// Discards bytes written after a given position.
+  ///
+  /// Ports upstream encoders that assign `N2kMsg.DataLen` directly to undo a
+  /// partly written entry.
+  ///
+  /// - Parameter count: The number of bytes to keep.
+  public mutating func truncate(to count: Int) {
+    precondition(count >= 0 && count <= data.count, "Can't truncate to \(count) bytes")
+    data.removeLast(data.count - count)
   }
 
   // MARK: - Private

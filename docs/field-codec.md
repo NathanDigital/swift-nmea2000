@@ -51,6 +51,18 @@ Scaled values take a `Double?`. `nil` replaces upstream's `N2kDoubleNA` sentinel
 | `GetAvailableDataLength()` | `availableCount` | | |
 | `DataLen` (as a position) | `count` | | |
 
+### Optional raw integers
+
+Upstream passes raw integers that may be missing (sequence IDs, dates, counts, waypoint numbers) with all ones (`N2kUInt8NA`, `N2kUInt16NA`, `N2kUInt32NA`) or `N2kInt16NA` meaning "not available". In Swift these are `Optional`:
+
+| Upstream | Swift writer | Swift reader |
+|---|---|---|
+| `AddByte(v)` / `GetByte(i)` with `N2kUInt8NA` | `appendUInt8(_: UInt8?)` | `readOptionalUInt8()` |
+| `Add2ByteInt(v)` / `Get2ByteInt(i)` with `N2kInt16NA` | `appendInt16(_: Int16?)` | `readOptionalInt16()` |
+| `Add2ByteUInt(v)` / `Get2ByteUInt(i)` with `N2kUInt16NA` | `appendUInt16(_: UInt16?)` | `readOptionalUInt16()` |
+| `Add4ByteUInt(v)` / `Get4ByteUInt(i)` with `N2kUInt32NA` | `appendUInt32(_: UInt32?)` | `readOptionalUInt32()` |
+| `N2kMsg.DataLen=n` (undo a partial entry) | `truncate(to:)` | |
+
 Rounding matches C's `round()` (half away from zero), except for `appendInt64`, which truncates toward zero as upstream does. Unsigned fields write their out-of-range pattern for negative values, and every scaled field writes its out-of-range pattern for NaN.
 
 ## Reading: `tN2kMsg::Get…` → `MessageReader`

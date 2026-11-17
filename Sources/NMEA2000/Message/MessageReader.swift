@@ -98,6 +98,35 @@ public struct MessageReader: Sendable {
     readLittleEndian(byteCount: 8) ?? .max
   }
 
+  // MARK: - Optional integers
+
+  /// Reads a byte, or `nil` if it is `0xff` (not available) or past the end.
+  public mutating func readOptionalUInt8() -> UInt8? {
+    let value = readUInt8()
+    return value == .max ? nil : value
+  }
+
+  /// Reads a signed 16-bit integer, or `nil` if it is `0x7fff` (not
+  /// available) or past the end.
+  public mutating func readOptionalInt16() -> Int16? {
+    let value = readInt16()
+    return value == .max ? nil : value
+  }
+
+  /// Reads an unsigned 16-bit integer, or `nil` if it is `0xffff` (not
+  /// available) or past the end.
+  public mutating func readOptionalUInt16() -> UInt16? {
+    let value = readUInt16()
+    return value == .max ? nil : value
+  }
+
+  /// Reads an unsigned 32-bit integer, or `nil` if it is `0xffffffff` (not
+  /// available) or past the end.
+  public mutating func readOptionalUInt32() -> UInt32? {
+    let value = readUInt32()
+    return value == .max ? nil : value
+  }
+
   // MARK: - Scaled values
 
   /// Reads a signed 8-bit field and scales it.

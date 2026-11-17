@@ -109,6 +109,19 @@ struct MessageReaderTests {
     #expect(reader.readUInt64() == .max)
   }
 
+  @Test func readsOptionalIntegers() {
+    var reader = MessageReader([
+      0xff, 0x05, 0xff, 0x7f, 0xff, 0xff, 0x34, 0x12, 0xff, 0xff, 0xff, 0xff,
+    ])
+    #expect(reader.readOptionalUInt8() == nil)
+    #expect(reader.readOptionalUInt8() == 5)
+    #expect(reader.readOptionalInt16() == nil)
+    #expect(reader.readOptionalUInt16() == nil)
+    #expect(reader.readOptionalUInt16() == 0x1234)
+    #expect(reader.readOptionalUInt32() == nil)
+    #expect(reader.readOptionalUInt8() == nil)  // past the end
+  }
+
   @Test func failedReadDoesNotConsumeBytes() {
     // Upstream leaves the index alone when a read doesn't fit, so a following
     // narrower read still sees the byte.
