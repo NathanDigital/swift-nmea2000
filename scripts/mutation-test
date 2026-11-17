@@ -57,7 +57,8 @@ OPERATORS = [
         r"append(U?)Int(8|16|32)\((?=[\w.]+, resolution)",
         lambda m: "append" + flip_sign(m) + "(",
     ),
-    ("signedness", r"read(U?)Int(8|16|32)\((?=resolution)", lambda m: "read" + flip_sign(m) + "("),
+    # Call sites only: mutating a declaration just makes a duplicate function.
+    ("signedness", r"(?<!func )read(U?)Int(8|16|32)\((?=resolution)", lambda m: "read" + flip_sign(m) + "("),
     ("condition", r" != 0\b", lambda m: " == 0"),
     ("condition", r"\? 0x(\w+) : 0\)", lambda m: f"? 0 : 0x{m.group(1)})"),
     ("limit", r"(static let \w+(?:Count|Length) = )(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)) - 1}"),
@@ -105,7 +106,9 @@ def run_tests():
         text=True,
     )
     output = result.stdout + result.stderr
-    if re.search(r"\.swift:\d+:\d+: error:", output):
+    if re.search(r"\.swift:\d+:\d+: error:", output) or (
+        "error: Build failed" in output and "Test run started" not in output
+    ):
         return "invalid", output  # The mutant doesn't compile.
     if "✘" in output:
         return "killed", output  # A test failed.
