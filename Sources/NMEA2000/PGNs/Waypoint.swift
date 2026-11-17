@@ -9,7 +9,7 @@
 /// Used by ``RouteWaypointInformation`` (PGN 129285) and ``WaypointList``
 /// (PGN 130074). Ports the arguments of upstream's `AppendN2kPGN129285` and
 /// `AppendN2kPGN130074`.
-public struct Waypoint: Sendable, Hashable {
+public struct Waypoint: Sendable, Codable, Hashable {
   /// The waypoint's identifier.
   public var id: UInt16
 

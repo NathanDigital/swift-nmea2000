@@ -7,7 +7,7 @@
 /// PGN 130314, actual pressure.
 ///
 /// Ports `SetN2kPGN130314` / `ParseN2kPGN130314`.
-public struct ActualPressure: ParameterGroup, Hashable {
+public struct ActualPressure: ParameterGroup {
   public static let pgn: UInt32 = 130314
   public static let defaultPriority: UInt8 = 5
 
@@ -37,14 +37,14 @@ public struct ActualPressure: ParameterGroup, Hashable {
     self.pressure = pressure
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
     source = PressureSource(rawValue: reader.readUInt8())
     pressure = reader.readInt32(resolution: 0.1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
     writer.appendUInt8(source.rawValue)

@@ -7,7 +7,7 @@
 /// PGN 129283, cross-track error.
 ///
 /// Ports `SetN2kPGN129283` / `ParseN2kPGN129283`.
-public struct CrossTrackError: ParameterGroup, Hashable {
+public struct CrossTrackError: ParameterGroup {
   public static let pgn: UInt32 = 129283
   public static let defaultPriority: UInt8 = 3
 
@@ -42,7 +42,7 @@ public struct CrossTrackError: ParameterGroup, Hashable {
     self.crossTrackError = crossTrackError
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     let flags = reader.readUInt8()
     mode = CrossTrackErrorMode(rawValue: flags & 0x0f)
@@ -50,7 +50,7 @@ public struct CrossTrackError: ParameterGroup, Hashable {
     crossTrackError = reader.readInt32(resolution: 0.01)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(mode.rawValue | isNavigationTerminated.twoBitFlag << 6)
     writer.appendInt32(crossTrackError, resolution: 0.01)

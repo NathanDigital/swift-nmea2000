@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN130311` / `ParseN2kPGN130311`. This port decodes the two-bit humidity source
 /// code 3 as ``HumiditySource/undefined``; see ``humiditySource``.
-public struct EnvironmentalParameters: ParameterGroup, Hashable {
+public struct EnvironmentalParameters: ParameterGroup {
   public static let pgn: UInt32 = 130311
   public static let defaultPriority: UInt8 = 5
 
@@ -52,7 +52,7 @@ public struct EnvironmentalParameters: ParameterGroup, Hashable {
     self.atmosphericPressure = atmosphericPressure
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     let sources = reader.readUInt8()
     temperatureSource = TemperatureSource(rawValue: sources & 0x3f)
@@ -64,7 +64,7 @@ public struct EnvironmentalParameters: ParameterGroup, Hashable {
     atmosphericPressure = reader.readUInt16(resolution: 100)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8((humiditySource.rawValue & 0x03) << 6 | temperatureSource.rawValue & 0x3f)
     writer.appendUInt16(temperature, resolution: 0.01)

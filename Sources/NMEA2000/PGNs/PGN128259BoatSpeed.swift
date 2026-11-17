@@ -7,7 +7,7 @@
 /// PGN 128259, speed: speed through water and over ground.
 ///
 /// Ports `SetN2kPGN128259` / `ParseN2kPGN128259`.
-public struct BoatSpeed: ParameterGroup, Hashable {
+public struct BoatSpeed: ParameterGroup {
   public static let pgn: UInt32 = 128259
   public static let defaultPriority: UInt8 = 2
 
@@ -44,7 +44,7 @@ public struct BoatSpeed: ParameterGroup, Hashable {
     self.referenceType = referenceType
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     waterReferenced = reader.readUInt16(resolution: 0.01)
     groundReferenced = reader.readUInt16(resolution: 0.01)
@@ -55,7 +55,7 @@ public struct BoatSpeed: ParameterGroup, Hashable {
     }
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt16(waterReferenced, resolution: 0.01)
     writer.appendUInt16(groundReferenced, resolution: 0.01)

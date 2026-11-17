@@ -961,6 +961,6 @@ extension ISOAddressClaim {
   /// Decodes a claim the assembler has already matched by PGN.
   fileprivate init(message: Message) {
     var reader = MessageReader(message)
-    self.init(from: &reader)
+    self.init(decoding: &reader)
   }
 }

@@ -7,7 +7,7 @@
 /// PGN 128000, leeway angle.
 ///
 /// Ports `SetN2kPGN128000` / `ParseN2kPGN128000`.
-public struct Leeway: ParameterGroup, Hashable {
+public struct Leeway: ParameterGroup {
   public static let pgn: UInt32 = 128000
   public static let defaultPriority: UInt8 = 4
 
@@ -27,12 +27,12 @@ public struct Leeway: ParameterGroup, Hashable {
     self.leeway = leeway
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     leeway = reader.readInt16(resolution: 0.0001)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendInt16(leeway, resolution: 0.0001)
     for _ in 0..<5 { writer.appendUInt8(0xff) }

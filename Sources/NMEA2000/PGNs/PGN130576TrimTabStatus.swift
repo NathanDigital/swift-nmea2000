@@ -7,7 +7,7 @@
 /// PGN 130576, trim tab status.
 ///
 /// Ports `SetN2kPGN130576` / `ParseN2kPGN130576`.
-public struct TrimTabStatus: ParameterGroup, Hashable {
+public struct TrimTabStatus: ParameterGroup {
   public static let pgn: UInt32 = 130576
   public static let defaultPriority: UInt8 = 2
 
@@ -26,12 +26,12 @@ public struct TrimTabStatus: ParameterGroup, Hashable {
     self.starboardTrimTab = starboardTrimTab
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     portTrimTab = reader.readOptionalInt8()
     starboardTrimTab = reader.readOptionalInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendInt8(portTrimTab)
     writer.appendInt8(starboardTrimTab)
     writer.appendUInt16(0xffff)

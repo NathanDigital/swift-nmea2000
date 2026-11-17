@@ -7,7 +7,7 @@
 /// PGN 127237, heading/track control: autopilot commands and limits.
 ///
 /// Ports `SetN2kPGN127237` / `ParseN2kPGN127237`.
-public struct HeadingTrackControl: ParameterGroup, Hashable {
+public struct HeadingTrackControl: ParameterGroup {
   public static let pgn: UInt32 = 127237
   public static let defaultPriority: UInt8 = 2
 
@@ -101,7 +101,7 @@ public struct HeadingTrackControl: ParameterGroup, Hashable {
     self.vesselHeading = vesselHeading
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let limits = reader.readUInt8()
     rudderLimitExceeded = OnOffStatus(rawValue: limits & 0x03)
     offHeadingLimitExceeded = OnOffStatus(rawValue: (limits >> 2) & 0x03)
@@ -123,7 +123,7 @@ public struct HeadingTrackControl: ParameterGroup, Hashable {
     vesselHeading = reader.readUInt16(resolution: 0.0001)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(
       rudderLimitExceeded.rawValue & 0x03 | (offHeadingLimitExceeded.rawValue & 0x03) << 2
         | (offTrackLimitExceeded.rawValue & 0x03) << 4 | (override.rawValue & 0x03) << 6)

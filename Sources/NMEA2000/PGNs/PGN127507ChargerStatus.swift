@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN127507` / `ParseN2kPGN127507`. This port sends the equalization time in minutes
 /// rather than upstream's seconds; see ``equalizationTimeRemaining``.
-public struct ChargerStatus: ParameterGroup, Hashable {
+public struct ChargerStatus: ParameterGroup {
   public static let pgn: UInt32 = 127507
   public static let defaultPriority: UInt8 = 6
 
@@ -56,7 +56,7 @@ public struct ChargerStatus: ParameterGroup, Hashable {
     self.equalizationTimeRemaining = equalizationTimeRemaining
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     instance = reader.readUInt8()
     batteryInstance = reader.readUInt8()
     let states = reader.readUInt8()
@@ -68,7 +68,7 @@ public struct ChargerStatus: ParameterGroup, Hashable {
     equalizationTimeRemaining = reader.readUInt16(resolution: 60)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance)
     writer.appendUInt8(batteryInstance)
     writer.appendUInt8((chargerMode.rawValue & 0x0f) << 4 | chargeState.rawValue & 0x0f)

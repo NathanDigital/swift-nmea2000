@@ -7,7 +7,7 @@
 /// PGN 129033, time and date: UTC date and time with the local time offset.
 ///
 /// Ports `SetN2kPGN129033` / `ParseN2kPGN129033`.
-public struct TimeAndDate: ParameterGroup, Hashable {
+public struct TimeAndDate: ParameterGroup {
   public static let pgn: UInt32 = 129033
   public static let defaultPriority: UInt8 = 3
 
@@ -31,13 +31,13 @@ public struct TimeAndDate: ParameterGroup, Hashable {
     self.localOffset = localOffset
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     daysSince1970 = reader.readOptionalUInt16()
     secondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
     localOffset = reader.readOptionalInt16()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(daysSince1970)
     writer.appendUInt32(secondsSinceMidnight, resolution: 0.0001)
     writer.appendInt16(localOffset)

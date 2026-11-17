@@ -399,6 +399,6 @@ extension ISOAddressClaim {
   /// Decodes a claim the device list has already matched by PGN.
   fileprivate init(listMessage message: Message) {
     var reader = MessageReader(message)
-    self.init(from: &reader)
+    self.init(decoding: &reader)
   }
 }

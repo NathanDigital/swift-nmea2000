@@ -11,12 +11,12 @@
 /// Upstream sends and reads at most one reference station. This type keeps a
 /// list so that decoding can read every station the message declares, but
 /// encoding sends only the first, as upstream does.
-public struct GNSSPositionData: ParameterGroup, Hashable {
+public struct GNSSPositionData: ParameterGroup {
   public static let pgn: UInt32 = 129029
   public static let defaultPriority: UInt8 = 3
 
   /// A differential correction reference station.
-  public struct ReferenceStation: Sendable, Hashable {
+  public struct ReferenceStation: Sendable, Codable, Hashable {
     /// The satellite systems the station provides corrections for.
     public var type: GNSSType
 
@@ -115,7 +115,7 @@ public struct GNSSPositionData: ParameterGroup, Hashable {
     self.referenceStations = referenceStations
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     daysSince1970 = reader.readOptionalUInt16()
     secondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
@@ -146,7 +146,7 @@ public struct GNSSPositionData: ParameterGroup, Hashable {
     referenceStations = stations
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt16(daysSince1970)
     writer.appendUInt32(secondsSinceMidnight, resolution: 0.0001)

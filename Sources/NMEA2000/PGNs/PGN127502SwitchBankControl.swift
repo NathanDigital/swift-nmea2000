@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN127502` / `ParseN2kPGN127502`. Upstream's
 /// `tN2kBinaryStatus` becomes the ``statuses`` array.
-public struct SwitchBankControl: ParameterGroup, Hashable {
+public struct SwitchBankControl: ParameterGroup {
   public static let pgn: UInt32 = 127502
   public static let defaultPriority: UInt8 = 3
 
@@ -31,11 +31,11 @@ public struct SwitchBankControl: ParameterGroup, Hashable {
     self.statuses = statuses
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     (targetInstance, statuses) = SwitchBank.decode(from: &reader)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     SwitchBank.encode(instance: targetInstance, statuses: statuses, to: &writer)
   }
 }

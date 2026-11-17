@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN129041` / `ParseN2kPGN129041`. Upstream's `tN2kAISAtoNReportData` becomes this
 /// type's properties.
-public struct AISAtoNReport: ParameterGroup, Hashable {
+public struct AISAtoNReport: ParameterGroup {
   public static let pgn: UInt32 = 129041
   public static let defaultPriority: UInt8 = 4
 
@@ -127,7 +127,7 @@ public struct AISAtoNReport: ParameterGroup, Hashable {
     self.name = name
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let header = reader.readUInt8()
     messageID = header & 0x3f
     repeatIndicator = AISRepeatIndicator(rawValue: (header >> 6) & 0x03)
@@ -153,7 +153,7 @@ public struct AISAtoNReport: ParameterGroup, Hashable {
     name = reader.readVariableString(terminator: UInt8(ascii: "@")) ?? ""
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8((repeatIndicator.rawValue & 0x03) << 6 | messageID & 0x3f)
     writer.appendUInt32(userID)
     writer.appendInt32(longitude, resolution: 1e-07)

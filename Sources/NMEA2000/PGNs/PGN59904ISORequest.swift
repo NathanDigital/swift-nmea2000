@@ -9,7 +9,7 @@
 /// ``Node`` answers requests for the network management PGNs itself.
 ///
 /// Ports `SetN2kPGN59904` / `ParseN2kPGN59904`.
-public struct ISORequest: ParameterGroup, Hashable {
+public struct ISORequest: ParameterGroup {
   public static let pgn: UInt32 = 59904
   public static let defaultPriority: UInt8 = 6
 
@@ -24,14 +24,14 @@ public struct ISORequest: ParameterGroup, Hashable {
 
   /// - Throws: ``MessageDecodingError/invalidPayload(pgn:reason:)`` if the
   ///   payload isn't 3 to 8 bytes long, as upstream requires.
-  public init(from reader: inout MessageReader) throws(MessageDecodingError) {
+  public init(decoding reader: inout MessageReader) throws(MessageDecodingError) {
     guard (3...8).contains(reader.remainingCount) else {
       throw .invalidPayload(pgn: Self.pgn, reason: "an ISO request is 3 to 8 bytes long")
     }
     requestedPGN = reader.readUInt24()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendInt24(Int32(truncatingIfNeeded: requestedPGN))
   }
 }

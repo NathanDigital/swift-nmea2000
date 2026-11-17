@@ -7,7 +7,7 @@
 /// PGN 127250, vessel heading: heading with deviation and variation.
 ///
 /// Ports `SetN2kPGN127250` / `ParseN2kPGN127250`.
-public struct VesselHeading: ParameterGroup, Hashable {
+public struct VesselHeading: ParameterGroup {
   public static let pgn: UInt32 = 127250
   public static let defaultPriority: UInt8 = 2
 
@@ -44,7 +44,7 @@ public struct VesselHeading: ParameterGroup, Hashable {
     self.reference = reference
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     heading = reader.readUInt16(resolution: 0.0001)
     deviation = reader.readInt16(resolution: 0.0001)
@@ -52,7 +52,7 @@ public struct VesselHeading: ParameterGroup, Hashable {
     reference = HeadingReference(rawValue: reader.readUInt8() & 0x03)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt16(heading, resolution: 0.0001)
     writer.appendInt16(deviation, resolution: 0.0001)

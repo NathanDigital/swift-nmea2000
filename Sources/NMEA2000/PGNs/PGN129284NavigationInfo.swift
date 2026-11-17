@@ -7,7 +7,7 @@
 /// PGN 129284, navigation data: progress toward the destination waypoint.
 ///
 /// Ports `SetN2kPGN129284` / `ParseN2kPGN129284`.
-public struct NavigationInfo: ParameterGroup, Hashable {
+public struct NavigationInfo: ParameterGroup {
   public static let pgn: UInt32 = 129284
   public static let defaultPriority: UInt8 = 3
 
@@ -113,7 +113,7 @@ public struct NavigationInfo: ParameterGroup, Hashable {
     self.waypointClosingVelocity = waypointClosingVelocity
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     distanceToWaypoint = reader.readUInt32(resolution: 0.01)
     let flags = reader.readUInt8()
@@ -132,7 +132,7 @@ public struct NavigationInfo: ParameterGroup, Hashable {
     waypointClosingVelocity = reader.readInt16(resolution: 0.01)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt32(distanceToWaypoint, resolution: 0.01)
     writer.appendUInt8(

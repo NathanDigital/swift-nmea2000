@@ -10,7 +10,7 @@
 /// overloads. Upstream's `tN2kBinaryStatus` and its helpers
 /// (`N2kGetStatusOnBinaryStatus`, `N2kSetStatusBinaryOnStatus`) become the
 /// ``statuses`` array.
-public struct BinarySwitchBankStatus: ParameterGroup, Hashable {
+public struct BinarySwitchBankStatus: ParameterGroup {
   public static let pgn: UInt32 = 127501
   public static let defaultPriority: UInt8 = 3
 
@@ -33,11 +33,11 @@ public struct BinarySwitchBankStatus: ParameterGroup, Hashable {
     self.statuses = statuses
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     (instance, statuses) = SwitchBank.decode(from: &reader)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     SwitchBank.encode(instance: instance, statuses: statuses, to: &writer)
   }
 }

@@ -7,7 +7,7 @@
 /// PGN 128776, windlass control status: commands sent to a windlass.
 ///
 /// Ports `SetN2kPGN128776` / `ParseN2kPGN128776`.
-public struct WindlassControlStatus: ParameterGroup, Hashable {
+public struct WindlassControlStatus: ParameterGroup {
   public static let pgn: UInt32 = 128776
   public static let defaultPriority: UInt8 = 2
 
@@ -79,7 +79,7 @@ public struct WindlassControlStatus: ParameterGroup, Hashable {
     self.controlEvents = controlEvents
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     windlassID = reader.readUInt8()
     let commands = reader.readUInt8()
@@ -96,7 +96,7 @@ public struct WindlassControlStatus: ParameterGroup, Hashable {
     controlEvents = WindlassControlEvents(rawValue: reader.readUInt8() & 0x01)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(windlassID)
     writer.appendUInt8(

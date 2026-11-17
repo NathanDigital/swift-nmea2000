@@ -15,7 +15,7 @@
 /// does.
 ///
 /// Ports `tNMEA2000::tDeviceInformation`.
-public struct DeviceName: RawRepresentable, Sendable, Hashable, Comparable {
+public struct DeviceName: RawRepresentable, Codable, Sendable, Hashable, Comparable {
   /// The NAME as it is sent on the bus.
   public var rawValue: UInt64
 

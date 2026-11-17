@@ -7,7 +7,7 @@
 /// PGN 130577, direction data: course, heading, set and drift.
 ///
 /// Ports `SetN2kPGN130577` / `ParseN2kPGN130577`.
-public struct DirectionData: ParameterGroup, Hashable {
+public struct DirectionData: ParameterGroup {
   public static let pgn: UInt32 = 130577
   public static let defaultPriority: UInt8 = 3
 
@@ -62,7 +62,7 @@ public struct DirectionData: ParameterGroup, Hashable {
     self.drift = drift
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let modes = reader.readUInt8()
     dataMode = DataMode(rawValue: modes & 0x0f)
     courseReference = HeadingReference(rawValue: (modes >> 4) & 0x03)
@@ -75,7 +75,7 @@ public struct DirectionData: ParameterGroup, Hashable {
     drift = reader.readUInt16(resolution: 0.01)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(dataMode.rawValue & 0x0f | (courseReference.rawValue & 0x03) << 4 | 0xc0)
     writer.appendUInt8(sequenceID)
     writer.appendUInt16(courseOverGround, resolution: 0.0001)

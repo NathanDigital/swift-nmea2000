@@ -13,7 +13,7 @@
 /// Ports `ParseN2kPGN65284CZoneSwitchStatus`,
 /// `ParseN2kPGN65301CZoneSwitchStatus`, `N2kCZoneIsSwitchOn` and
 /// `N2kCZoneSwitchMask`.
-public struct CZoneSwitchStatus: Sendable, Hashable {
+public struct CZoneSwitchStatus: Sendable, Codable, Hashable {
   /// The single-frame switch status PGN.
   public static let singleFramePGN: UInt32 = 65284
 

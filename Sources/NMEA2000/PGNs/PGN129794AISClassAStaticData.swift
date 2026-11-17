@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN129794` / `ParseN2kPGN129794`. The text fields are upper-cased and padded with
 /// `@` when sent, as AIS requires; decoding stops at the first `@`.
-public struct AISClassAStaticData: ParameterGroup, Hashable {
+public struct AISClassAStaticData: ParameterGroup {
   public static let pgn: UInt32 = 129794
   public static let defaultPriority: UInt8 = 6
 
@@ -121,7 +121,7 @@ public struct AISClassAStaticData: ParameterGroup, Hashable {
     self.sequenceID = sequenceID
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let header = reader.readUInt8()
     messageID = header & 0x3f
     repeatIndicator = AISRepeatIndicator(rawValue: (header >> 6) & 0x03)
@@ -146,7 +146,7 @@ public struct AISClassAStaticData: ParameterGroup, Hashable {
     sequenceID = reader.readOptionalUInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8((repeatIndicator.rawValue & 0x03) << 6 | messageID & 0x3f)
     writer.appendUInt32(userID)
     writer.appendUInt32(imoNumber)

@@ -7,7 +7,7 @@
 /// PGN 129025, position rapid update: a frequently sent latitude and longitude.
 ///
 /// Ports `SetN2kPGN129025` / `ParseN2kPGN129025`.
-public struct PositionRapidUpdate: ParameterGroup, Hashable {
+public struct PositionRapidUpdate: ParameterGroup {
   public static let pgn: UInt32 = 129025
   public static let defaultPriority: UInt8 = 2
 
@@ -27,12 +27,12 @@ public struct PositionRapidUpdate: ParameterGroup, Hashable {
     self.longitude = longitude
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     latitude = reader.readInt32(resolution: 1e-7)
     longitude = reader.readInt32(resolution: 1e-7)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendInt32(latitude, resolution: 1e-7)
     writer.appendInt32(longitude, resolution: 1e-7)
   }

@@ -7,8 +7,8 @@
 /// PGN 130315, set pressure.
 ///
 /// Ports `SetN2kPGN130315`. Upstream has no parser for this PGN;
-/// ``init(from:)`` decodes exactly what upstream's encoder writes.
-public struct SetPressure: ParameterGroup, Hashable {
+/// ``init(decoding:)`` decodes exactly what upstream's encoder writes.
+public struct SetPressure: ParameterGroup {
   public static let pgn: UInt32 = 130315
   public static let defaultPriority: UInt8 = 5
 
@@ -38,14 +38,14 @@ public struct SetPressure: ParameterGroup, Hashable {
     self.setPressure = setPressure
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
     source = PressureSource(rawValue: reader.readUInt8())
     setPressure = reader.readInt32(resolution: 0.1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
     writer.appendUInt8(source.rawValue)

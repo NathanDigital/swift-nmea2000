@@ -8,7 +8,9 @@
 ///
 /// Ports `tN2kNavigationDirection`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct NavigationDirection: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct NavigationDirection: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -44,7 +46,9 @@ public struct NavigationDirection: RawRepresentable, Hashable, Sendable, CustomS
 ///
 /// Ports `tN2kHeadingReference`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct HeadingReference: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct HeadingReference: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -80,7 +84,8 @@ public struct HeadingReference: RawRepresentable, Hashable, Sendable, CustomStri
 ///
 /// Ports `tN2kDistanceCalculationType`. Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct DistanceCalculationType: RawRepresentable, Hashable, Sendable, CustomStringConvertible
+public struct DistanceCalculationType: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
 {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
@@ -109,7 +114,9 @@ public struct DistanceCalculationType: RawRepresentable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kXTEMode`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct CrossTrackErrorMode: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct CrossTrackErrorMode: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -149,7 +156,7 @@ public struct CrossTrackErrorMode: RawRepresentable, Hashable, Sendable, CustomS
 ///
 /// Ports `tN2kTimeSource`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct TimeSource: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct TimeSource: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -193,7 +200,8 @@ public struct TimeSource: RawRepresentable, Hashable, Sendable, CustomStringConv
 ///
 /// Ports `tN2kWindReference`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct WindReference: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct WindReference: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -241,7 +249,8 @@ public struct WindReference: RawRepresentable, Hashable, Sendable, CustomStringC
 ///
 /// Ports `tN2kSpeedWaterReferenceType`. Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct SpeedWaterReferenceType: RawRepresentable, Hashable, Sendable, CustomStringConvertible
+public struct SpeedWaterReferenceType: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
 {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
@@ -290,7 +299,8 @@ public struct SpeedWaterReferenceType: RawRepresentable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kMagneticVariation`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct MagneticVariationSource: RawRepresentable, Hashable, Sendable, CustomStringConvertible
+public struct MagneticVariationSource: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
 {
   /// The value as it appears on the wire.
   public var rawValue: UInt8

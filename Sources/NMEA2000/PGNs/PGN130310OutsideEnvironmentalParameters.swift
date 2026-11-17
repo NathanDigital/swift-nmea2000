@@ -7,7 +7,7 @@
 /// PGN 130310, environmental parameters: water and air temperature and pressure.
 ///
 /// Ports `SetN2kPGN130310` / `ParseN2kPGN130310`.
-public struct OutsideEnvironmentalParameters: ParameterGroup, Hashable {
+public struct OutsideEnvironmentalParameters: ParameterGroup {
   public static let pgn: UInt32 = 130310
   public static let defaultPriority: UInt8 = 5
 
@@ -39,14 +39,14 @@ public struct OutsideEnvironmentalParameters: ParameterGroup, Hashable {
     self.atmosphericPressure = atmosphericPressure
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     waterTemperature = reader.readUInt16(resolution: 0.01)
     outsideAirTemperature = reader.readUInt16(resolution: 0.01)
     atmosphericPressure = reader.readUInt16(resolution: 100)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt16(waterTemperature, resolution: 0.01)
     writer.appendUInt16(outsideAirTemperature, resolution: 0.01)

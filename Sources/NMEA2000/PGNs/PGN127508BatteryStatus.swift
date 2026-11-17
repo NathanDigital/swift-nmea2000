@@ -7,7 +7,7 @@
 /// PGN 127508, battery status.
 ///
 /// Ports `SetN2kPGN127508` / `ParseN2kPGN127508`.
-public struct BatteryStatus: ParameterGroup, Hashable {
+public struct BatteryStatus: ParameterGroup {
   public static let pgn: UInt32 = 127508
   public static let defaultPriority: UInt8 = 6
 
@@ -44,7 +44,7 @@ public struct BatteryStatus: ParameterGroup, Hashable {
     self.sequenceID = sequenceID
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     batteryInstance = reader.readUInt8()
     voltage = reader.readInt16(resolution: 0.01)
     current = reader.readInt16(resolution: 0.1)
@@ -52,7 +52,7 @@ public struct BatteryStatus: ParameterGroup, Hashable {
     sequenceID = reader.readOptionalUInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(batteryInstance)
     writer.appendInt16(voltage, resolution: 0.01)
     writer.appendInt16(current, resolution: 0.1)

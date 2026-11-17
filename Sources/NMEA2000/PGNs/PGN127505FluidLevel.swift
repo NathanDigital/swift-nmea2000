@@ -7,7 +7,7 @@
 /// PGN 127505, fluid level.
 ///
 /// Ports `SetN2kPGN127505` / `ParseN2kPGN127505`.
-public struct FluidLevel: ParameterGroup, Hashable {
+public struct FluidLevel: ParameterGroup {
   public static let pgn: UInt32 = 127505
   public static let defaultPriority: UInt8 = 6
 
@@ -36,7 +36,7 @@ public struct FluidLevel: ParameterGroup, Hashable {
     self.capacity = capacity
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let instanceAndType = reader.readUInt8()
     instance = instanceAndType & 0x0f
     fluidType = FluidType(rawValue: (instanceAndType >> 4) & 0x0f)
@@ -44,7 +44,7 @@ public struct FluidLevel: ParameterGroup, Hashable {
     capacity = reader.readUInt32(resolution: 0.1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance & 0x0f | (fluidType.rawValue & 0x0f) << 4)
     writer.appendInt16(level, resolution: 0.004)
     writer.appendUInt32(capacity, resolution: 0.1)

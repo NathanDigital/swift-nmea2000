@@ -7,7 +7,7 @@
 /// PGN 128267, water depth.
 ///
 /// Ports `SetN2kPGN128267` / `ParseN2kPGN128267`.
-public struct WaterDepth: ParameterGroup, Hashable {
+public struct WaterDepth: ParameterGroup {
   public static let pgn: UInt32 = 128267
   public static let defaultPriority: UInt8 = 3
 
@@ -40,14 +40,14 @@ public struct WaterDepth: ParameterGroup, Hashable {
     self.range = range
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     depthBelowTransducer = reader.readUInt32(resolution: 0.01)
     offset = reader.readInt16(resolution: 0.001)
     range = reader.readUInt8(resolution: 10)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt32(depthBelowTransducer, resolution: 0.01)
     writer.appendInt16(offset, resolution: 0.001)

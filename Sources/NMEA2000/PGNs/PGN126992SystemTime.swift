@@ -7,7 +7,7 @@
 /// PGN 126992, system time: the date and time from a time source.
 ///
 /// Ports `SetN2kPGN126992` / `ParseN2kPGN126992`.
-public struct SystemTime: ParameterGroup, Hashable {
+public struct SystemTime: ParameterGroup {
   public static let pgn: UInt32 = 126992
   public static let defaultPriority: UInt8 = 3
 
@@ -39,14 +39,14 @@ public struct SystemTime: ParameterGroup, Hashable {
     self.source = source
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     source = TimeSource(rawValue: reader.readUInt8() & 0x0f)
     daysSince1970 = reader.readOptionalUInt16()
     secondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(source.rawValue & 0x0f | 0xf0)
     writer.appendUInt16(daysSince1970)

@@ -7,7 +7,7 @@
 /// PGN 127497, trip parameters, engine.
 ///
 /// Ports `SetN2kPGN127497` / `ParseN2kPGN127497`.
-public struct EngineTripParameters: ParameterGroup, Hashable {
+public struct EngineTripParameters: ParameterGroup {
   public static let pgn: UInt32 = 127497
   public static let defaultPriority: UInt8 = 2
 
@@ -43,7 +43,7 @@ public struct EngineTripParameters: ParameterGroup, Hashable {
     self.instantaneousFuelEconomy = instantaneousFuelEconomy
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     instance = reader.readUInt8()
     tripFuelUsed = reader.readUInt16(resolution: 1)
     fuelRateAverage = reader.readInt16(resolution: 0.1)
@@ -51,7 +51,7 @@ public struct EngineTripParameters: ParameterGroup, Hashable {
     instantaneousFuelEconomy = reader.readInt16(resolution: 0.1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance)
     writer.appendUInt16(tripFuelUsed, resolution: 1)
     writer.appendInt16(fuelRateAverage, resolution: 0.1)

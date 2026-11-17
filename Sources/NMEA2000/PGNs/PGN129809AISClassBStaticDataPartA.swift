@@ -7,7 +7,7 @@
 /// PGN 129809, AIS class B static data, part A.
 ///
 /// Ports `SetN2kPGN129809` / `ParseN2kPGN129809`.
-public struct AISClassBStaticDataPartA: ParameterGroup, Hashable {
+public struct AISClassBStaticDataPartA: ParameterGroup {
   public static let pgn: UInt32 = 129809
   public static let defaultPriority: UInt8 = 6
 
@@ -48,7 +48,7 @@ public struct AISClassBStaticDataPartA: ParameterGroup, Hashable {
     self.sequenceID = sequenceID
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let header = reader.readUInt8()
     messageID = header & 0x3f
     repeatIndicator = AISRepeatIndicator(rawValue: (header >> 6) & 0x03)
@@ -58,7 +58,7 @@ public struct AISClassBStaticDataPartA: ParameterGroup, Hashable {
     sequenceID = reader.readOptionalUInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8((repeatIndicator.rawValue & 0x03) << 6 | messageID & 0x3f)
     writer.appendUInt32(userID)
     writer.appendAISString(name, count: 20)

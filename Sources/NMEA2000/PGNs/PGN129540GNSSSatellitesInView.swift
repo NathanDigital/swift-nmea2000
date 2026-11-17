@@ -9,7 +9,7 @@
 /// Ports `SetN2kPGN129540`, `AppendN2kPGN129540` and both
 /// `ParseN2kPGN129540` overloads. Upstream builds the list one satellite at a
 /// time; this type holds the whole list.
-public struct GNSSSatellitesInView: ParameterGroup, Hashable {
+public struct GNSSSatellitesInView: ParameterGroup {
   public static let pgn: UInt32 = 129540
   public static let defaultPriority: UInt8 = 6
 
@@ -19,7 +19,7 @@ public struct GNSSSatellitesInView: ParameterGroup, Hashable {
   /// One satellite in view.
   ///
   /// Ports upstream's `tSatelliteInfo`.
-  public struct Satellite: Sendable, Hashable {
+  public struct Satellite: Sendable, Codable, Hashable {
     /// The satellite's PRN number, or `nil` if not available.
     public var prn: UInt8?
 
@@ -83,7 +83,7 @@ public struct GNSSSatellitesInView: ParameterGroup, Hashable {
   /// per-satellite parser refuses all of them when more than
   /// ``maxSatelliteCount`` are declared, which a message sent by transport
   /// protocol can hold.
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     mode = RangeResidualMode(rawValue: reader.readUInt8() & 0x03)
     // A payload that ends before the count holds no satellites.
@@ -99,7 +99,7 @@ public struct GNSSSatellitesInView: ParameterGroup, Hashable {
     }
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(0xfc | mode.rawValue & 0x03)
     let sent = satellites.prefix(Self.maxSatelliteCount)

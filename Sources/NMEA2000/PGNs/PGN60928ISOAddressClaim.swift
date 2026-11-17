@@ -12,7 +12,7 @@
 ///
 /// Ports `SetN2kPGN60928` and the NAME read in
 /// `tNMEA2000::HandleISOAddressClaim`.
-public struct ISOAddressClaim: ParameterGroup, Hashable {
+public struct ISOAddressClaim: ParameterGroup {
   public static let pgn: UInt32 = 60928
   public static let defaultPriority: UInt8 = 6
 
@@ -25,11 +25,11 @@ public struct ISOAddressClaim: ParameterGroup, Hashable {
     self.name = name
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     name = DeviceName(rawValue: reader.readUInt64())
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt64(name.rawValue)
   }
 }

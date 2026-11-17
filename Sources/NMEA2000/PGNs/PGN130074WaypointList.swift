@@ -7,12 +7,12 @@
 /// PGN 130074, waypoint list: waypoints from a waypoint database.
 ///
 /// Ports `SetN2kPGN130074` / `AppendN2kPGN130074`. Upstream has no parser for
-/// this PGN; ``init(from:)`` decodes exactly what upstream's encoder writes.
+/// this PGN; ``init(decoding:)`` decodes exactly what upstream's encoder writes.
 ///
 /// Upstream writes each name's UTF-8 bytes as an ASCII variable-length string
 /// without a length limit, and writes an empty name as a single NUL character.
 /// This type does the same.
-public struct WaypointList: ParameterGroup, Hashable {
+public struct WaypointList: ParameterGroup {
   public static let pgn: UInt32 = 130074
   public static let defaultPriority: UInt8 = 7
 
@@ -41,7 +41,7 @@ public struct WaypointList: ParameterGroup, Hashable {
     self.waypoints = waypoints
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     startIndex = reader.readUInt16()
     let count = reader.readUInt16()
     waypointCount = reader.readUInt16()
@@ -58,7 +58,7 @@ public struct WaypointList: ParameterGroup, Hashable {
     }
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(startIndex)
     let countIndex = writer.count
     writer.appendUInt16(0)

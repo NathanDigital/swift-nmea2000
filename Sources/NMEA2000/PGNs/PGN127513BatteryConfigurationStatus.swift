@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN127513` / `ParseN2kPGN127513`. This port decodes the capacity as unsigned and a
 /// missing Peukert exponent as `nil`; see ``capacity`` and ``peukertExponent``.
-public struct BatteryConfigurationStatus: ParameterGroup, Hashable {
+public struct BatteryConfigurationStatus: ParameterGroup {
   public static let pgn: UInt32 = 127513
   public static let defaultPriority: UInt8 = 6
 
@@ -64,7 +64,7 @@ public struct BatteryConfigurationStatus: ParameterGroup, Hashable {
     self.chargeEfficiencyFactor = chargeEfficiencyFactor
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     batteryInstance = reader.readUInt8()
     let typeAndSupport = reader.readUInt8()
     type = BatteryType(rawValue: typeAndSupport & 0x0f)
@@ -79,7 +79,7 @@ public struct BatteryConfigurationStatus: ParameterGroup, Hashable {
     chargeEfficiencyFactor = reader.readOptionalInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(batteryInstance)
     writer.appendUInt8(0xc0 | (supportsEqualization.rawValue & 0x03) << 4 | type.rawValue & 0x0f)
     writer.appendUInt8((chemistry.rawValue & 0x0f) << 4 | nominalVoltage.rawValue & 0x0f)

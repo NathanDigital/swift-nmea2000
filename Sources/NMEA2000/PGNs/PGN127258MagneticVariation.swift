@@ -7,7 +7,7 @@
 /// PGN 127258, magnetic variation.
 ///
 /// Ports `SetN2kPGN127258` / `ParseN2kPGN127258`.
-public struct MagneticVariation: ParameterGroup, Hashable {
+public struct MagneticVariation: ParameterGroup {
   public static let pgn: UInt32 = 127258
   public static let defaultPriority: UInt8 = 6
 
@@ -37,14 +37,14 @@ public struct MagneticVariation: ParameterGroup, Hashable {
     self.variation = variation
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     source = MagneticVariationSource(rawValue: reader.readUInt8() & 0x0f)
     daysSince1970 = reader.readOptionalUInt16()
     variation = reader.readInt16(resolution: 0.0001)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(source.rawValue & 0x0f)
     writer.appendUInt16(daysSince1970)

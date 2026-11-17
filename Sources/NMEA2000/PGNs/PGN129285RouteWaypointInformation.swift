@@ -7,8 +7,8 @@
 /// PGN 129285, route and waypoint information: a route and its waypoints.
 ///
 /// Ports `SetN2kPGN129285` / `AppendN2kPGN129285`. Upstream has no parser for
-/// this PGN; ``init(from:)`` decodes exactly what upstream's encoder writes.
-public struct RouteWaypointInformation: ParameterGroup, Hashable {
+/// this PGN; ``init(decoding:)`` decodes exactly what upstream's encoder writes.
+public struct RouteWaypointInformation: ParameterGroup {
   public static let pgn: UInt32 = 129285
   public static let defaultPriority: UInt8 = 6
 
@@ -61,7 +61,7 @@ public struct RouteWaypointInformation: ParameterGroup, Hashable {
     self.waypoints = waypoints
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     startIndex = reader.readUInt16()
     let count = reader.readUInt16()
     database = reader.readUInt16()
@@ -82,7 +82,7 @@ public struct RouteWaypointInformation: ParameterGroup, Hashable {
     }
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(startIndex)
     let countIndex = writer.count
     writer.appendUInt16(0)

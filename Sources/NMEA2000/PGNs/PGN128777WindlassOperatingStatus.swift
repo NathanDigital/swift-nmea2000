@@ -7,7 +7,7 @@
 /// PGN 128777, windlass operating status: motion, rode and docking state.
 ///
 /// Ports `SetN2kPGN128777` / `ParseN2kPGN128777`.
-public struct WindlassOperatingStatus: ParameterGroup, Hashable {
+public struct WindlassOperatingStatus: ParameterGroup {
   public static let pgn: UInt32 = 128777
   public static let defaultPriority: UInt8 = 2
 
@@ -60,7 +60,7 @@ public struct WindlassOperatingStatus: ParameterGroup, Hashable {
     self.operatingEvents = operatingEvents
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     windlassID = reader.readUInt8()
     let states = reader.readUInt8()
@@ -73,7 +73,7 @@ public struct WindlassOperatingStatus: ParameterGroup, Hashable {
     operatingEvents = WindlassOperatingEvents(rawValue: (docking >> 2) & 0x1f)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(windlassID)
     writer.appendUInt8(0xf0 | (rodeType.rawValue & 0x03) << 2 | motionState.rawValue & 0x03)

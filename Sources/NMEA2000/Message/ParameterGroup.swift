@@ -7,8 +7,8 @@
 /// The decoded contents of a message with a particular PGN.
 ///
 /// Each conforming type ports one upstream `SetN2kPGN…` / `ParseN2kPGN…` pair.
-/// ``encode(to:)`` is a line-by-line translation of the `Set` body and
-/// ``init(from:)`` of the `Parse` body, in the same field order, using the
+/// ``encode(into:)`` is a line-by-line translation of the `Set` body and
+/// ``init(decoding:)`` of the `Parse` body, in the same field order, using the
 /// ``MessageWriter`` and ``MessageReader`` equivalents of upstream's helpers.
 ///
 /// Create a message to send with ``makeMessage(priority:destination:)``, and
@@ -18,7 +18,11 @@
 /// let message = PositionRapidUpdate(latitude: 60.15, longitude: 24.95).makeMessage()
 /// let position = try PositionRapidUpdate(message)
 /// ```
-public protocol ParameterGroup: Sendable {
+///
+/// Every parameter group is `Hashable` and `Codable`, so it can be compared,
+/// stored, or logged as JSON. `Codable` encodes the Swift properties, not the
+/// wire format; use ``makeMessage(priority:destination:)`` for that.
+public protocol ParameterGroup: Sendable, Hashable, Codable {
   /// The parameter group number this type encodes and decodes.
   static var pgn: UInt32 { get }
 
@@ -35,12 +39,12 @@ public protocol ParameterGroup: Sendable {
   /// - Parameter reader: A reader positioned at the start of the fields.
   /// - Throws: ``MessageDecodingError`` if the payload is invalid in a way
   ///   upstream also rejects.
-  init(from reader: inout MessageReader) throws(MessageDecodingError)
+  init(decoding reader: inout MessageReader) throws(MessageDecodingError)
 
   /// Encodes the fields into a payload.
   ///
   /// - Parameter writer: The writer to append the fields to.
-  func encode(to writer: inout MessageWriter)
+  func encode(into writer: inout MessageWriter)
 }
 
 extension ParameterGroup {
@@ -48,13 +52,13 @@ extension ParameterGroup {
   ///
   /// - Parameter message: The message to decode.
   /// - Throws: ``MessageDecodingError/unexpectedPGN(expected:actual:)`` if the
-  ///   message has a different PGN, or any error from ``init(from:)``.
+  ///   message has a different PGN, or any error from ``init(decoding:)``.
   public init(_ message: Message) throws(MessageDecodingError) {
     guard message.pgn == Self.pgn else {
       throw .unexpectedPGN(expected: Self.pgn, actual: message.pgn)
     }
     var reader = MessageReader(message)
-    try self.init(from: &reader)
+    try self.init(decoding: &reader)
   }
 
   /// Encodes the parameter group as a message ready to send.
@@ -72,7 +76,7 @@ extension ParameterGroup {
     destination: UInt8 = Message.broadcastAddress
   ) -> Message {
     var writer = MessageWriter()
-    encode(to: &writer)
+    encode(into: &writer)
     return Message(
       pgn: Self.pgn,
       priority: priority ?? Self.defaultPriority,

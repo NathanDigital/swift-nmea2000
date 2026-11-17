@@ -9,7 +9,7 @@
 /// Ports `SetN2kPGN127510` / `ParseN2kPGN127510`. This port sends the equalization time in minutes
 /// and decodes the battery temperature with all four bits; see ``equalizationTime`` and
 /// ``batteryTemperature``.
-public struct ChargerConfigurationStatus: ParameterGroup, Hashable {
+public struct ChargerConfigurationStatus: ParameterGroup {
   public static let pgn: UInt32 = 127510
   public static let defaultPriority: UInt8 = 6
 
@@ -73,7 +73,7 @@ public struct ChargerConfigurationStatus: ParameterGroup, Hashable {
     self.equalizationTime = equalizationTime
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     chargerInstance = reader.readUInt8()
     batteryInstance = reader.readUInt8()
     enabled = OnOffStatus(rawValue: reader.readUInt8() & 0x03)
@@ -89,7 +89,7 @@ public struct ChargerConfigurationStatus: ParameterGroup, Hashable {
     equalizationTime = reader.readUInt16(resolution: 60)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(chargerInstance)
     writer.appendUInt8(batteryInstance)
     writer.appendUInt8(enabled.rawValue & 0x03)

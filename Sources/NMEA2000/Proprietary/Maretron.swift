@@ -24,7 +24,7 @@ extension MessageReader {
 /// message without Maretron's header, as upstream rejects it.
 ///
 /// Ports `SetN2kMaretronPGN130823` / `ParseN2kMaretronPGN130823`.
-public struct MaretronTemperatureHighRange: ParameterGroup, Hashable {
+public struct MaretronTemperatureHighRange: ParameterGroup {
   public static let pgn: UInt32 = 130823
   public static let defaultPriority: UInt8 = 5
 
@@ -56,7 +56,7 @@ public struct MaretronTemperatureHighRange: ParameterGroup, Hashable {
     self.setTemperature = setTemperature
   }
 
-  public init(from reader: inout MessageReader) throws(MessageDecodingError) {
+  public init(decoding reader: inout MessageReader) throws(MessageDecodingError) {
     try reader.readMaretronHeader(pgn: Self.pgn)
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
@@ -65,7 +65,7 @@ public struct MaretronTemperatureHighRange: ParameterGroup, Hashable {
     setTemperature = reader.readUInt16(resolution: 0.1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(maretronHeader)
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
@@ -81,7 +81,7 @@ public struct MaretronTemperatureHighRange: ParameterGroup, Hashable {
 /// message without Maretron's header, as upstream rejects it.
 ///
 /// Ports `SetN2kMaretronPGN65286` / `ParseN2kMaretronPGN65286`.
-public struct MaretronFluidFlowRate: ParameterGroup, Hashable {
+public struct MaretronFluidFlowRate: ParameterGroup {
   public static let pgn: UInt32 = 65286
   public static let defaultPriority: UInt8 = 5
 
@@ -106,7 +106,7 @@ public struct MaretronFluidFlowRate: ParameterGroup, Hashable {
     self.flowRate = flowRate
   }
 
-  public init(from reader: inout MessageReader) throws(MessageDecodingError) {
+  public init(decoding reader: inout MessageReader) throws(MessageDecodingError) {
     try reader.readMaretronHeader(pgn: Self.pgn)
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
@@ -114,7 +114,7 @@ public struct MaretronFluidFlowRate: ParameterGroup, Hashable {
     flowRate = reader.readInt24(resolution: 0.1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(maretronHeader)
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
@@ -129,7 +129,7 @@ public struct MaretronFluidFlowRate: ParameterGroup, Hashable {
 /// message without Maretron's header, as upstream rejects it.
 ///
 /// Ports `SetN2kMaretronPGN65287` / `ParseN2kMaretronPGN65287`.
-public struct MaretronTripVolume: ParameterGroup, Hashable {
+public struct MaretronTripVolume: ParameterGroup {
   public static let pgn: UInt32 = 65287
   public static let defaultPriority: UInt8 = 5
 
@@ -154,7 +154,7 @@ public struct MaretronTripVolume: ParameterGroup, Hashable {
     self.volume = volume
   }
 
-  public init(from reader: inout MessageReader) throws(MessageDecodingError) {
+  public init(decoding reader: inout MessageReader) throws(MessageDecodingError) {
     try reader.readMaretronHeader(pgn: Self.pgn)
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
@@ -162,7 +162,7 @@ public struct MaretronTripVolume: ParameterGroup, Hashable {
     volume = reader.readInt24(resolution: 1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(maretronHeader)
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)

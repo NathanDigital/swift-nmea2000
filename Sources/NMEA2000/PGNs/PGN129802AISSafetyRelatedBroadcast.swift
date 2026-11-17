@@ -7,7 +7,7 @@
 /// PGN 129802, AIS safety related broadcast message.
 ///
 /// Ports `SetN2kPGN129802` / `ParseN2kPGN129802`.
-public struct AISSafetyRelatedBroadcast: ParameterGroup, Hashable {
+public struct AISSafetyRelatedBroadcast: ParameterGroup {
   public static let pgn: UInt32 = 129802
   public static let defaultPriority: UInt8 = 5
 
@@ -45,7 +45,7 @@ public struct AISSafetyRelatedBroadcast: ParameterGroup, Hashable {
     self.text = text
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let header = reader.readUInt8()
     messageID = header & 0x3f
     repeatIndicator = AISRepeatIndicator(rawValue: (header >> 6) & 0x03)
@@ -54,7 +54,7 @@ public struct AISSafetyRelatedBroadcast: ParameterGroup, Hashable {
     text = reader.readVariableString() ?? ""
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8((repeatIndicator.rawValue & 0x03) << 6 | messageID & 0x3f)
     writer.appendUInt32(sourceID & 0x3fff_ffff)
     writer.appendUInt8((transceiverInformation.rawValue & 0x1f) << 1 | 0x01)

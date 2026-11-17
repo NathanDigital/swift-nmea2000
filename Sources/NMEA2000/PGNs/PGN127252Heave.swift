@@ -7,7 +7,7 @@
 /// PGN 127252, heave: vertical displacement of the vessel.
 ///
 /// Ports `SetN2kPGN127252` / `ParseN2kPGN127252`.
-public struct Heave: ParameterGroup, Hashable {
+public struct Heave: ParameterGroup {
   public static let pgn: UInt32 = 127252
   public static let defaultPriority: UInt8 = 3
 
@@ -40,14 +40,14 @@ public struct Heave: ParameterGroup, Hashable {
     self.delaySource = delaySource
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     heave = reader.readInt16(resolution: 0.01)
     delay = reader.readUInt16(resolution: 0.01)
     delaySource = DelaySource(rawValue: reader.readUInt8() & 0x0f)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendInt16(heave, resolution: 0.01)
     writer.appendUInt16(delay, resolution: 0.01)

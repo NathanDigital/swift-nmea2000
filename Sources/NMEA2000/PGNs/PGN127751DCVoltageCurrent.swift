@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN127751` / `ParseN2kPGN127751`. Negative currents decode correctly here, unlike
 /// upstream; see `readInt24(resolution:)`.
-public struct DCVoltageCurrent: ParameterGroup, Hashable {
+public struct DCVoltageCurrent: ParameterGroup {
   public static let pgn: UInt32 = 127751
   public static let defaultPriority: UInt8 = 6
 
@@ -41,14 +41,14 @@ public struct DCVoltageCurrent: ParameterGroup, Hashable {
     self.sequenceID = sequenceID
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
     voltage = reader.readInt16(resolution: 0.1)
     current = reader.readInt24(resolution: 0.01)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
     writer.appendInt16(voltage, resolution: 0.1)

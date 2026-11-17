@@ -7,7 +7,7 @@
 /// PGN 127251, rate of turn.
 ///
 /// Ports `SetN2kPGN127251` / `ParseN2kPGN127251`.
-public struct RateOfTurn: ParameterGroup, Hashable {
+public struct RateOfTurn: ParameterGroup {
   public static let pgn: UInt32 = 127251
   public static let defaultPriority: UInt8 = 2
 
@@ -27,12 +27,12 @@ public struct RateOfTurn: ParameterGroup, Hashable {
     self.rate = rate
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     rate = reader.readInt32(resolution: 3.125e-08)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendInt32(rate, resolution: 3.125e-08)
     writer.appendUInt8(0xff)

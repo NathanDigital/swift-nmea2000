@@ -7,7 +7,7 @@
 /// PGN 127245, rudder: rudder position and angle order.
 ///
 /// Ports `SetN2kPGN127245` / `ParseN2kPGN127245`.
-public struct Rudder: ParameterGroup, Hashable {
+public struct Rudder: ParameterGroup {
   public static let pgn: UInt32 = 127245
   public static let defaultPriority: UInt8 = 2
 
@@ -38,14 +38,14 @@ public struct Rudder: ParameterGroup, Hashable {
     self.angleOrder = angleOrder
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     instance = reader.readUInt8()
     directionOrder = RudderDirectionOrder(rawValue: reader.readUInt8() & 0x07)
     angleOrder = reader.readInt16(resolution: 0.0001)
     position = reader.readInt16(resolution: 0.0001)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance)
     writer.appendUInt8(0xf8 | directionOrder.rawValue & 0x07)
     writer.appendInt16(angleOrder, resolution: 0.0001)

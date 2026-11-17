@@ -7,7 +7,7 @@
 /// PGN 127506, DC detailed status.
 ///
 /// Ports `SetN2kPGN127506` / `ParseN2kPGN127506`.
-public struct DCDetailedStatus: ParameterGroup, Hashable {
+public struct DCDetailedStatus: ParameterGroup {
   public static let pgn: UInt32 = 127506
   public static let defaultPriority: UInt8 = 6
 
@@ -59,7 +59,7 @@ public struct DCDetailedStatus: ParameterGroup, Hashable {
     self.capacity = capacity
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     dcInstance = reader.readUInt8()
     dcType = DCSourceType(rawValue: reader.readUInt8())
@@ -70,7 +70,7 @@ public struct DCDetailedStatus: ParameterGroup, Hashable {
     capacity = reader.readUInt16(resolution: 3600)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(dcInstance)
     writer.appendUInt8(dcType.rawValue)

@@ -7,7 +7,7 @@
 /// PGN 128275, distance log: total and trip distance through water.
 ///
 /// Ports `SetN2kPGN128275` / `ParseN2kPGN128275`.
-public struct DistanceLog: ParameterGroup, Hashable {
+public struct DistanceLog: ParameterGroup {
   public static let pgn: UInt32 = 128275
   public static let defaultPriority: UInt8 = 6
 
@@ -36,14 +36,14 @@ public struct DistanceLog: ParameterGroup, Hashable {
     self.tripLog = tripLog
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     daysSince1970 = reader.readOptionalUInt16()
     secondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
     log = reader.readOptionalUInt32()
     tripLog = reader.readOptionalUInt32()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(daysSince1970)
     writer.appendUInt32(secondsSinceMidnight, resolution: 0.0001)
     writer.appendUInt32(log)

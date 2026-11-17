@@ -7,7 +7,7 @@
 /// PGN 130316, temperature, extended range.
 ///
 /// Ports `SetN2kPGN130316` / `ParseN2kPGN130316`.
-public struct TemperatureExtendedRange: ParameterGroup, Hashable {
+public struct TemperatureExtendedRange: ParameterGroup {
   public static let pgn: UInt32 = 130316
   public static let defaultPriority: UInt8 = 5
 
@@ -44,7 +44,7 @@ public struct TemperatureExtendedRange: ParameterGroup, Hashable {
     self.setTemperature = setTemperature
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
     source = TemperatureSource(rawValue: reader.readUInt8())
@@ -52,7 +52,7 @@ public struct TemperatureExtendedRange: ParameterGroup, Hashable {
     setTemperature = reader.readUInt16(resolution: 0.1)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
     writer.appendUInt8(source.rawValue)

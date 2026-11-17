@@ -7,7 +7,7 @@
 /// PGN 127257, attitude: yaw, pitch and roll.
 ///
 /// Ports `SetN2kPGN127257` / `ParseN2kPGN127257`.
-public struct Attitude: ParameterGroup, Hashable {
+public struct Attitude: ParameterGroup {
   public static let pgn: UInt32 = 127257
   public static let defaultPriority: UInt8 = 3
 
@@ -37,14 +37,14 @@ public struct Attitude: ParameterGroup, Hashable {
     self.roll = roll
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     yaw = reader.readInt16(resolution: 0.0001)
     pitch = reader.readInt16(resolution: 0.0001)
     roll = reader.readInt16(resolution: 0.0001)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendInt16(yaw, resolution: 0.0001)
     writer.appendInt16(pitch, resolution: 0.0001)

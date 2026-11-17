@@ -7,7 +7,7 @@
 /// PGN 127489, engine parameters, dynamic.
 ///
 /// Ports `SetN2kPGN127489` / `ParseN2kPGN127489`.
-public struct EngineParametersDynamic: ParameterGroup, Hashable {
+public struct EngineParametersDynamic: ParameterGroup {
   public static let pgn: UInt32 = 127489
   public static let defaultPriority: UInt8 = 2
 
@@ -87,7 +87,7 @@ public struct EngineParametersDynamic: ParameterGroup, Hashable {
     self.status2 = status2
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     instance = reader.readUInt8()
     oilPressure = reader.readUInt16(resolution: 100)
     oilTemperature = reader.readUInt16(resolution: 0.1)
@@ -106,7 +106,7 @@ public struct EngineParametersDynamic: ParameterGroup, Hashable {
     torque = reader.readOptionalInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance)
     writer.appendUInt16(oilPressure, resolution: 100)
     writer.appendUInt16(oilTemperature, resolution: 0.1)

@@ -8,7 +8,7 @@
 ///
 /// Ports `tN2kDD473` (`tN2kThrusterDirectionControl`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct ThrusterDirectionControl: RawRepresentable, Hashable, Sendable,
+public struct ThrusterDirectionControl: RawRepresentable, Codable, Hashable, Sendable,
   CustomStringConvertible
 {
   /// The value as it appears on the wire.
@@ -46,7 +46,9 @@ public struct ThrusterDirectionControl: RawRepresentable, Hashable, Sendable,
 ///
 /// Ports `tN2kDD474` (`tN2kThrusterRetraction`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct ThrusterRetraction: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct ThrusterRetraction: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -78,7 +80,8 @@ public struct ThrusterRetraction: RawRepresentable, Hashable, Sendable, CustomSt
 ///
 /// Ports `tN2kDD487` (`tN2kMotorPowerType`). Values without a name here are kept in ``rawValue``,
 /// so they decode and re-encode unchanged.
-public struct MotorPowerType: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct MotorPowerType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -118,7 +121,8 @@ public struct MotorPowerType: RawRepresentable, Hashable, Sendable, CustomString
 ///
 /// Ports `tN2kDD488` (`tN2kSpeedType`). Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct MotorSpeedType: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct MotorSpeedType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -154,7 +158,9 @@ public struct MotorSpeedType: RawRepresentable, Hashable, Sendable, CustomString
 ///
 /// Ports `tN2kTransmissionGear`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct TransmissionGear: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct TransmissionGear: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -189,7 +195,7 @@ public struct TransmissionGear: RawRepresentable, Hashable, Sendable, CustomStri
 /// Engine warning flags, first set.
 ///
 /// Ports `tN2kDD206` (`tN2kEngineDiscreteStatus1`).
-public struct EngineDiscreteStatus1: OptionSet, Hashable, Sendable {
+public struct EngineDiscreteStatus1: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt16
 
@@ -253,7 +259,7 @@ public struct EngineDiscreteStatus1: OptionSet, Hashable, Sendable {
 ///
 /// Upstream's assignment operator for this type keeps only the low eight bits, dropping the
 /// manufacturer flags. PGN 127489 decodes through it, so its port must mask the same way.
-public struct EngineDiscreteStatus2: OptionSet, Hashable, Sendable {
+public struct EngineDiscreteStatus2: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt16
 
@@ -317,7 +323,7 @@ public struct EngineDiscreteStatus2: OptionSet, Hashable, Sendable {
 ///
 /// Bit 6 is reserved. Upstream's `SetEvents` clears it, and PGN ports that use `SetEvents` must do
 /// the same.
-public struct ThrusterMotorEvents: OptionSet, Hashable, Sendable {
+public struct ThrusterMotorEvents: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt8
 
@@ -351,7 +357,7 @@ public struct ThrusterMotorEvents: OptionSet, Hashable, Sendable {
 /// Thruster control event flags.
 ///
 /// Ports `tN2kDD475` (`tN2kThrusterControlEvents`).
-public struct ThrusterControlEvents: OptionSet, Hashable, Sendable {
+public struct ThrusterControlEvents: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt8
 
@@ -371,7 +377,7 @@ public struct ThrusterControlEvents: OptionSet, Hashable, Sendable {
 ///
 /// Ports the bits that upstream's `SetN2kTransmissionParameters` sets in PGN
 /// 127493's discrete status byte. Upstream has no named type for them.
-public struct TransmissionDiscreteStatus: OptionSet, Hashable, Sendable {
+public struct TransmissionDiscreteStatus: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt8
 

@@ -7,7 +7,7 @@
 /// PGN 127233, man overboard notification.
 ///
 /// Ports `SetN2kPGN127233` / `ParseN2kPGN127233`.
-public struct ManOverboardNotification: ParameterGroup, Hashable {
+public struct ManOverboardNotification: ParameterGroup {
   public static let pgn: UInt32 = 127233
   public static let defaultPriority: UInt8 = 3
 
@@ -87,7 +87,7 @@ public struct ManOverboardNotification: ParameterGroup, Hashable {
     self.emitterBatteryStatus = emitterBatteryStatus
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     emitterID = reader.readOptionalUInt32()
     status = MOBStatus(rawValue: reader.readUInt8() & 0x07)
@@ -104,7 +104,7 @@ public struct ManOverboardNotification: ParameterGroup, Hashable {
     emitterBatteryStatus = MOBEmitterBatteryStatus(rawValue: reader.readUInt8() & 0x07)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt32(emitterID)
     writer.appendUInt8(status.rawValue & 0x07 | 0xf8)

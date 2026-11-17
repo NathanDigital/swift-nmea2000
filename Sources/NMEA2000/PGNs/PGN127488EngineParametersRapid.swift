@@ -7,7 +7,7 @@
 /// PGN 127488, engine parameters, rapid update.
 ///
 /// Ports `SetN2kPGN127488` / `ParseN2kPGN127488`.
-public struct EngineParametersRapid: ParameterGroup, Hashable {
+public struct EngineParametersRapid: ParameterGroup {
   public static let pgn: UInt32 = 127488
   public static let defaultPriority: UInt8 = 2
 
@@ -38,14 +38,14 @@ public struct EngineParametersRapid: ParameterGroup, Hashable {
     self.tiltTrim = tiltTrim
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     instance = reader.readUInt8()
     speed = reader.readUInt16(resolution: 0.25)
     boostPressure = reader.readUInt16(resolution: 100)
     tiltTrim = reader.readOptionalInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance)
     writer.appendUInt16(speed, resolution: 0.25)
     writer.appendUInt16(boostPressure, resolution: 100)

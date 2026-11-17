@@ -11,7 +11,7 @@
 /// ISO request it can't answer.
 ///
 /// Ports `SetN2kPGN59392` / `SetN2kPGNISOAcknowledgement`.
-public struct ISOAcknowledgement: ParameterGroup, Hashable {
+public struct ISOAcknowledgement: ParameterGroup {
   public static let pgn: UInt32 = 59392
   public static let defaultPriority: UInt8 = 6
 
@@ -32,14 +32,14 @@ public struct ISOAcknowledgement: ParameterGroup, Hashable {
     self.pgn = pgn
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     control = reader.readUInt8()
     groupFunction = reader.readUInt8()
     reader.skip(3)
     pgn = reader.readUInt24()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(control)
     writer.appendUInt8(groupFunction)
     for _ in 0..<3 { writer.appendUInt8(0xff) }

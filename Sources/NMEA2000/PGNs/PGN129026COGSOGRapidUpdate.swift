@@ -7,7 +7,7 @@
 /// PGN 129026, COG and SOG rapid update: course and speed over ground.
 ///
 /// Ports `SetN2kPGN129026` / `ParseN2kPGN129026`.
-public struct COGSOGRapidUpdate: ParameterGroup, Hashable {
+public struct COGSOGRapidUpdate: ParameterGroup {
   public static let pgn: UInt32 = 129026
   public static let defaultPriority: UInt8 = 2
 
@@ -37,14 +37,14 @@ public struct COGSOGRapidUpdate: ParameterGroup, Hashable {
     self.speedOverGround = speedOverGround
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     reference = HeadingReference(rawValue: reader.readUInt8() & 0x03)
     courseOverGround = reader.readUInt16(resolution: 0.0001)
     speedOverGround = reader.readUInt16(resolution: 0.01)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(reference.rawValue & 0x03 | 0xfc)
     writer.appendUInt16(courseOverGround, resolution: 0.0001)

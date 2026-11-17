@@ -10,7 +10,7 @@
 /// ``Node`` sends its own when asked.
 ///
 /// Ports `SetN2kPGN126996` / `ParseN2kPGN126996`.
-public struct ProductInformation: ParameterGroup, Hashable {
+public struct ProductInformation: ParameterGroup {
   public static let pgn: UInt32 = 126996
   public static let defaultPriority: UInt8 = 6
 
@@ -71,7 +71,7 @@ public struct ProductInformation: ParameterGroup, Hashable {
     self.loadEquivalency = loadEquivalency
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     nmea2000Version = reader.readUInt16()
     productCode = reader.readUInt16()
     modelID = reader.readFixedString(count: Self.stringFieldCount) ?? ""
@@ -82,7 +82,7 @@ public struct ProductInformation: ParameterGroup, Hashable {
     loadEquivalency = reader.readUInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt16(nmea2000Version)
     writer.appendUInt16(productCode)
     writer.appendFixedString(modelID, count: Self.stringFieldCount)

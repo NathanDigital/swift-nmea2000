@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN130323` / `ParseN2kPGN130323`. Upstream's `tN2kMeteorlogicalStationData` becomes
 /// this type's properties.
-public struct MeteorologicalStationData: ParameterGroup, Hashable {
+public struct MeteorologicalStationData: ParameterGroup {
   public static let pgn: UInt32 = 130323
   public static let defaultPriority: UInt8 = 6
 
@@ -96,7 +96,7 @@ public struct MeteorologicalStationData: ParameterGroup, Hashable {
     self.stationName = stationName
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     mode = AISMode(rawValue: reader.readUInt8() & 0x0f)
     daysSince1970 = reader.readOptionalUInt16()
     secondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
@@ -112,7 +112,7 @@ public struct MeteorologicalStationData: ParameterGroup, Hashable {
     stationName = reader.readVariableString() ?? ""
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(mode.rawValue & 0x0f | 0xf0)
     writer.appendUInt16(daysSince1970)
     writer.appendUInt32(secondsSinceMidnight, resolution: 0.0001)

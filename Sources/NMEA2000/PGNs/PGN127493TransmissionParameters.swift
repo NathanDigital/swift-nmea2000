@@ -7,7 +7,7 @@
 /// PGN 127493, transmission parameters, dynamic.
 ///
 /// Ports `SetN2kPGN127493` / `ParseN2kPGN127493`.
-public struct TransmissionParameters: ParameterGroup, Hashable {
+public struct TransmissionParameters: ParameterGroup {
   public static let pgn: UInt32 = 127493
   public static let defaultPriority: UInt8 = 2
 
@@ -43,7 +43,7 @@ public struct TransmissionParameters: ParameterGroup, Hashable {
     self.discreteStatus = discreteStatus
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     instance = reader.readUInt8()
     gear = TransmissionGear(rawValue: reader.readUInt8() & 0x03)
     oilPressure = reader.readUInt16(resolution: 100)
@@ -51,7 +51,7 @@ public struct TransmissionParameters: ParameterGroup, Hashable {
     discreteStatus = TransmissionDiscreteStatus(rawValue: reader.readUInt8())
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance)
     writer.appendUInt8(gear.rawValue & 0x03 | 0xfc)
     writer.appendUInt16(oilPressure, resolution: 100)

@@ -8,7 +8,7 @@
 ///
 /// Ports `SetN2kPGN127750` / `ParseN2kPGN127750`. ``DCVoltageState/low`` and
 /// ``TemperatureState/high`` are sent as 2, not upstream's 3; see `docs/types.md`.
-public struct ConverterStatus: ParameterGroup, Hashable {
+public struct ConverterStatus: ParameterGroup {
   public static let pgn: UInt32 = 127750
   public static let defaultPriority: UInt8 = 6
 
@@ -53,7 +53,7 @@ public struct ConverterStatus: ParameterGroup, Hashable {
     self.rippleState = rippleState
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     connectionNumber = reader.readUInt8()
     operatingState = ConverterOperatingState(rawValue: reader.readUInt8())
@@ -64,7 +64,7 @@ public struct ConverterStatus: ParameterGroup, Hashable {
     temperatureState = TemperatureState(rawValue: states & 0x03)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(connectionNumber)
     writer.appendUInt8(operatingState.rawValue)

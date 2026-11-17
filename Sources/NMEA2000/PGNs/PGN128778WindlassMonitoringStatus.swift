@@ -7,7 +7,7 @@
 /// PGN 128778, windlass monitoring status: motor time, voltage and current.
 ///
 /// Ports `SetN2kPGN128778` / `ParseN2kPGN128778`.
-public struct WindlassMonitoringStatus: ParameterGroup, Hashable {
+public struct WindlassMonitoringStatus: ParameterGroup {
   public static let pgn: UInt32 = 128778
   public static let defaultPriority: UInt8 = 2
 
@@ -49,7 +49,7 @@ public struct WindlassMonitoringStatus: ParameterGroup, Hashable {
     self.monitoringEvents = monitoringEvents
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     windlassID = reader.readUInt8()
     monitoringEvents = WindlassMonitoringEvents(rawValue: reader.readUInt8() & 0x07)
@@ -58,7 +58,7 @@ public struct WindlassMonitoringStatus: ParameterGroup, Hashable {
     totalMotorTime = reader.readUInt16(resolution: 60.0)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(windlassID)
     writer.appendUInt8(monitoringEvents.rawValue)

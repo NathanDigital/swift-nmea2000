@@ -10,7 +10,7 @@
 /// ``Node`` sends its own when asked.
 ///
 /// Ports `SetN2kPGN126998` / `ParseN2kPGN126998`.
-public struct ConfigurationInformation: ParameterGroup, Hashable {
+public struct ConfigurationInformation: ParameterGroup {
   public static let pgn: UInt32 = 126998
   public static let defaultPriority: UInt8 = 6
 
@@ -46,13 +46,13 @@ public struct ConfigurationInformation: ParameterGroup, Hashable {
     self.installationDescription2 = installationDescription2
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     installationDescription1 = reader.readVariableString() ?? ""
     installationDescription2 = reader.readVariableString() ?? ""
     manufacturerInformation = reader.readVariableString() ?? ""
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendVariableString(installationDescription1, maxLength: Self.maxFieldLength)
     writer.appendVariableString(installationDescription2, maxLength: Self.maxFieldLength)
     writer.appendVariableString(manufacturerInformation, maxLength: Self.maxFieldLength)

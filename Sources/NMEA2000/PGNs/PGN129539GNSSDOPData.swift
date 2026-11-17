@@ -7,7 +7,7 @@
 /// PGN 129539, GNSS DOPs: dilution of precision.
 ///
 /// Ports `SetN2kPGN129539` / `ParseN2kPGN129539`. Upstream names the parser `ParseN2kPgn129539`.
-public struct GNSSDOPData: ParameterGroup, Hashable {
+public struct GNSSDOPData: ParameterGroup {
   public static let pgn: UInt32 = 129539
   public static let defaultPriority: UInt8 = 6
 
@@ -47,7 +47,7 @@ public struct GNSSDOPData: ParameterGroup, Hashable {
     self.timeDilution = timeDilution
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     let modes = reader.readUInt8()
     desiredMode = GNSSDOPMode(rawValue: modes & 0x07)
@@ -57,7 +57,7 @@ public struct GNSSDOPData: ParameterGroup, Hashable {
     timeDilution = reader.readInt16(resolution: 0.01)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(0xc0 | (actualMode.rawValue & 0x07) << 3 | desiredMode.rawValue & 0x07)
     writer.appendInt16(horizontalDilution, resolution: 0.01)

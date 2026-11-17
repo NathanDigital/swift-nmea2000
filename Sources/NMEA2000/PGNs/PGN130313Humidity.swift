@@ -7,7 +7,7 @@
 /// PGN 130313, humidity: an actual and set humidity.
 ///
 /// Ports `SetN2kPGN130313` / `ParseN2kPGN130313`.
-public struct Humidity: ParameterGroup, Hashable {
+public struct Humidity: ParameterGroup {
   public static let pgn: UInt32 = 130313
   public static let defaultPriority: UInt8 = 5
 
@@ -44,7 +44,7 @@ public struct Humidity: ParameterGroup, Hashable {
     self.setHumidity = setHumidity
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
     source = HumiditySource(rawValue: reader.readUInt8())
@@ -52,7 +52,7 @@ public struct Humidity: ParameterGroup, Hashable {
     setHumidity = reader.readInt16(resolution: 0.004)
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
     writer.appendUInt8(source.rawValue)

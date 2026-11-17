@@ -8,7 +8,9 @@
 ///
 /// Ports `tN2kDD480` (`tN2kWindlassMotionStates`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct WindlassMotionState: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct WindlassMotionState: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -44,7 +46,7 @@ public struct WindlassMotionState: RawRepresentable, Hashable, Sendable, CustomS
 ///
 /// Ports `tN2kDD481` (`tN2kRodeTypeStates`). Values without a name here are kept in ``rawValue``,
 /// so they decode and re-encode unchanged.
-public struct RodeType: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct RodeType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -80,7 +82,9 @@ public struct RodeType: RawRepresentable, Hashable, Sendable, CustomStringConver
 ///
 /// Ports `tN2kDD482` (`tN2kAnchorDockingStates`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct AnchorDockingState: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct AnchorDockingState: RawRepresentable, Codable, Hashable, Sendable,
+  CustomStringConvertible
+{
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -116,7 +120,7 @@ public struct AnchorDockingState: RawRepresentable, Hashable, Sendable, CustomSt
 ///
 /// Ports `tN2kDD484` (`tN2kWindlassDirectionControl`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct WindlassDirectionControl: RawRepresentable, Hashable, Sendable,
+public struct WindlassDirectionControl: RawRepresentable, Codable, Hashable, Sendable,
   CustomStringConvertible
 {
   /// The value as it appears on the wire.
@@ -149,7 +153,7 @@ public struct WindlassDirectionControl: RawRepresentable, Hashable, Sendable,
 /// Windlass monitoring event flags.
 ///
 /// Ports `tN2kDD477` (`tN2kWindlassMonitoringEvents`).
-public struct WindlassMonitoringEvents: OptionSet, Hashable, Sendable {
+public struct WindlassMonitoringEvents: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt8
 
@@ -171,7 +175,7 @@ public struct WindlassMonitoringEvents: OptionSet, Hashable, Sendable {
 /// Windlass control event flags.
 ///
 /// Ports `tN2kDD478` (`tN2kWindlassControlEvents`).
-public struct WindlassControlEvents: OptionSet, Hashable, Sendable {
+public struct WindlassControlEvents: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt8
 
@@ -187,7 +191,7 @@ public struct WindlassControlEvents: OptionSet, Hashable, Sendable {
 /// Windlass operating event flags.
 ///
 /// Ports `tN2kDD483` (`tN2kWindlassOperatingEvents`).
-public struct WindlassOperatingEvents: OptionSet, Hashable, Sendable {
+public struct WindlassOperatingEvents: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt8
 

@@ -13,7 +13,7 @@
 /// accepts intervals up to 655.32 s but sends one over 65.535 s cut to its
 /// low 16 bits (70 s goes out as 4.464 s). This port sends `0xfffe`, upstream's
 /// own value for an interval too long, instead.
-public struct Heartbeat: ParameterGroup, Hashable {
+public struct Heartbeat: ParameterGroup {
   public static let pgn: UInt32 = 126993
   public static let defaultPriority: UInt8 = 7
 
@@ -31,13 +31,13 @@ public struct Heartbeat: ParameterGroup, Hashable {
     self.sequenceCounter = sequenceCounter
   }
 
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     let milliseconds = reader.readUInt16()
     interval = milliseconds == 0xffff ? nil : Double(milliseconds) / 1000
     sequenceCounter = reader.readOptionalUInt8()
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     let milliseconds = interval.map { ($0 * 1000).rounded() }
     switch milliseconds {
     case nil: writer.appendUInt16(0xffff)

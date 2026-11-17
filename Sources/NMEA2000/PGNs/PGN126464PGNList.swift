@@ -9,12 +9,12 @@
 /// ``Node`` sends both lists when asked for this PGN.
 ///
 /// Ports `SetN2kPGN126464` and its transmit and receive variants.
-public struct PGNList: ParameterGroup, Hashable {
+public struct PGNList: ParameterGroup {
   public static let pgn: UInt32 = 126464
   public static let defaultPriority: UInt8 = 6
 
   /// Which of a device's lists a PGN list is (upstream's `tN2kPGNList`).
-  public struct Kind: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+  public struct Kind: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
     /// The value as it appears on the wire.
     public var rawValue: UInt8
 
@@ -51,13 +51,13 @@ public struct PGNList: ParameterGroup, Hashable {
   }
 
   /// Ignores a trailing partial PGN.
-  public init(from reader: inout MessageReader) {
+  public init(decoding reader: inout MessageReader) {
     kind = Kind(rawValue: reader.readUInt8())
     pgns = []
     while reader.remainingCount >= 3 { pgns.append(reader.readUInt24()) }
   }
 
-  public func encode(to writer: inout MessageWriter) {
+  public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(kind.rawValue)
     for pgn in pgns { writer.appendInt24(Int32(truncatingIfNeeded: pgn)) }
   }
