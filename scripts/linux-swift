@@ -8,15 +8,41 @@
 # The image is (re)built from docker/ when its inputs change (Docker layer cache).
 # Linux build products live in a named volume so they never clash with the
 # host's macOS .build directory.
+#
+# Each command normally starts a fresh container. A caller that runs many
+# commands (scripts/mutation-test) can keep one container running instead,
+# which saves the start-up time of each:
+#
+#   scripts/linux-swift --start-session NAME
+#   LINUX_SWIFT_SESSION=NAME scripts/linux-swift test
+#   scripts/linux-swift --stop-session NAME
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 image="nmea2000-swift-linux"
 
-docker build --quiet --tag "$image" "$repo/docker" >/dev/null
-
 tty_flags=()
 [[ -t 0 && -t 1 ]] && tty_flags=(-it)
+
+case "${1:-}" in
+  --start-session)
+    docker build --quiet --tag "$image" "$repo/docker" >/dev/null
+    exec docker run --detach --rm --init --name "$2" \
+      --volume "$repo:/src" \
+      --volume "$image-build:/src/.build" \
+      --workdir /src \
+      "$image" sleep infinity >/dev/null
+    ;;
+  --stop-session)
+    exec docker rm --force "$2" >/dev/null
+    ;;
+esac
+
+if [[ -n "${LINUX_SWIFT_SESSION:-}" ]]; then
+  exec docker exec "${tty_flags[@]}" "$LINUX_SWIFT_SESSION" swift "$@"
+fi
+
+docker build --quiet --tag "$image" "$repo/docker" >/dev/null
 
 exec docker run --rm --init "${tty_flags[@]}" \
   --volume "$repo:/src" \
