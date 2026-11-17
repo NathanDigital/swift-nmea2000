@@ -157,9 +157,23 @@ struct RouteWaypointInformationTests {
     expectEncodes(value, as: bytes, priority: 6)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(RouteWaypointInformation.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: RouteWaypointInformation] = [
+    // Waypoints that don't fit in the message are dropped, and names are
+    // truncated to fit their buffers.
+    1: with(vectors[1].0) { $0.waypoints = Array($0.waypoints.prefix(9)) },
+    2: with(vectors[2].0) {
+      $0.routeName = "Around the archipelago and bac"
+      $0.waypoints[0].name = "Ängsö northern anchorage, wes"
+    },
+    3: with(vectors[3].0) { $0.waypoints = Array($0.waypoints.prefix(9)) },
+    4: with(vectors[4].0) { $0.waypoints = Array($0.waypoints.prefix(9)) },
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

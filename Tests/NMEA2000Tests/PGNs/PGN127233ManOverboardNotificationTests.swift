@@ -62,9 +62,9 @@ struct ManOverboardNotificationTests {
     expectEncodes(value, as: bytes, priority: 3)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(ManOverboardNotification.self, from: bytes)
+  @Test("Decodes upstream bytes", arguments: vectors)
+  func decodes(_ value: ManOverboardNotification, bytes: [UInt8]) throws {
+    try expectDecodes(bytes, as: value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

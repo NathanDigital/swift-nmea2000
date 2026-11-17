@@ -49,9 +49,17 @@ struct AISClassBStaticDataPartATests {
     expectEncodes(value, as: bytes, priority: 6)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(AISClassBStaticDataPartA.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: AISClassBStaticDataPartA] = [
+    // AIS text is upper-cased and truncated.
+    0: with(vectors[0].0) { $0.name = "SAILING YACHT" },
+    1: with(vectors[1].0) { $0.name = "A NAME FAR LONGER TH" },
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

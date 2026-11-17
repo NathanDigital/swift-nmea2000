@@ -95,22 +95,19 @@ struct AISClassBPositionReportTests {
     expectEncodes(value, as: bytes, priority: 4)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(AISClassBPositionReport.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: AISClassBPositionReport] = [
+    // The unit type is a one-bit field.
+    3: with(vectors[3].0) { $0.unitType = AISUnitType(rawValue: 1) }
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
     expectTolerantDecoding(AISClassBPositionReport.self, from: Self.vectors[0].1)
-  }
-
-  @Test func decodesUnitTypeFromItsOwnBit() throws {
-    // The encoder masks the unit type to one bit, so a decoder that also picked up the
-    // neighbouring display flag would still re-encode identically. Check the value directly.
-    let bytes = try #require(
-      Self.vectors.first { $0.0.hasDisplay && $0.0.unitType == .classBSOTDMA }?.1)
-    let decoded = try AISClassBPositionReport(Message(pgn: 129039, data: bytes))
-    #expect(decoded.unitType == .classBSOTDMA)
-    #expect(decoded.hasDisplay)
   }
 }

@@ -87,9 +87,9 @@ struct GNSSPositionDataTests {
     expectEncodes(value, as: bytes, priority: 3)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(GNSSPositionData.self, from: bytes)
+  @Test("Decodes upstream bytes", arguments: vectors)
+  func decodes(_ value: GNSSPositionData, bytes: [UInt8]) throws {
+    try expectDecodes(bytes, as: value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

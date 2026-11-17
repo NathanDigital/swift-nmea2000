@@ -38,9 +38,9 @@ struct OutsideEnvironmentalParametersTests {
     expectEncodes(value, as: bytes, priority: 5)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(OutsideEnvironmentalParameters.self, from: bytes)
+  @Test("Decodes upstream bytes", arguments: vectors)
+  func decodes(_ value: OutsideEnvironmentalParameters, bytes: [UInt8]) throws {
+    try expectDecodes(bytes, as: value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

@@ -69,9 +69,21 @@ struct AISSafetyRelatedBroadcastTests {
     expectEncodes(value, as: bytes, priority: 5)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(AISSafetyRelatedBroadcast.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: AISSafetyRelatedBroadcast] = [
+    // The source ID is a 30-bit field, and non-ASCII bytes are sent as "?".
+    1: with(vectors[1].0) {
+      $0.sourceID = 0x3fff_ffff
+      $0.text = "Var? storm"
+    },
+    // Text past the field's limit is dropped.
+    3: with(vectors[3].0) { $0.text = String($0.text.prefix(163)) },
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

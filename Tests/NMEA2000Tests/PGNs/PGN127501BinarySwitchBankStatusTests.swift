@@ -36,9 +36,17 @@ struct BinarySwitchBankStatusTests {
     expectEncodes(value, as: bytes, priority: 3)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(BinarySwitchBankStatus.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: BinarySwitchBankStatus] = [
+    // Encoding pads the bank to 28 statuses with "unavailable".
+    0: with(vectors[0].0) { $0.statuses += repeatElement(.unavailable, count: 24) },
+    2: with(vectors[2].0) { $0.statuses = Array(repeating: .unavailable, count: 28) },
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

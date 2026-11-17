@@ -34,9 +34,9 @@ struct FluidLevelTests {
     expectEncodes(value, as: bytes, priority: 6)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(FluidLevel.self, from: bytes)
+  @Test("Decodes upstream bytes", arguments: vectors)
+  func decodes(_ value: FluidLevel, bytes: [UInt8]) throws {
+    try expectDecodes(bytes, as: value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

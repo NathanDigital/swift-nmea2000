@@ -56,9 +56,16 @@ struct BatteryConfigurationStatusTests {
     expectEncodes(value, as: bytes, priority: 6)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(BatteryConfigurationStatus.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: BatteryConfigurationStatus] = [
+    // The encoded Peukert code is 0xff, which decodes as not available.
+    1: with(vectors[1].0) { $0.peukertExponent = nil }
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

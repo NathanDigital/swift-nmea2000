@@ -109,9 +109,27 @@ struct AISClassAStaticDataTests {
     expectEncodes(value, as: bytes, priority: 6)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(AISClassAStaticData.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: AISClassAStaticData] = [
+    // AIS text is upper-cased and truncated, with non-ASCII bytes sent as "?".
+    0: with(vectors[0].0) {
+      $0.callsign = "OH2ABC"
+      $0.name = "M/S EXAMPLE VESSEL"
+      $0.destination = "HELSINKI"
+    },
+    1: with(vectors[1].0) {
+      $0.callsign = "CALLSIG"
+      $0.name = "N??ME LONGER THAN TW"
+      $0.destination = "DESTINATION NAME TOO"
+    },
+    // The DTE flag is a one-bit field.
+    4: with(vectors[4].0) { $0.dte = AISDTEStatus(rawValue: 1) },
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

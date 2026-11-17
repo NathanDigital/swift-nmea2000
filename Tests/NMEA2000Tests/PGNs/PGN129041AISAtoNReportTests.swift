@@ -62,9 +62,21 @@ struct AISAtoNReportTests {
     expectEncodes(value, as: bytes, priority: 4)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(AISAtoNReport.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: AISAtoNReport] = [
+    // The name is truncated to 34 bytes, with non-ASCII bytes sent as "?".
+    1: with(vectors[1].0) { $0.name = "Very long AtoN name ?bove the 34 " },
+    // The message ID and timestamp are six-bit fields.
+    2: with(vectors[2].0) {
+      $0.messageID = 63
+      $0.timestampSecond = 63
+    },
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {

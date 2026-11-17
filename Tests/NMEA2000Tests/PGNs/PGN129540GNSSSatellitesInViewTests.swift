@@ -8,11 +8,12 @@ import NMEA2000
 import Testing
 
 /// The satellites upstream's harness appends, more than fit in one message.
-private let manySatellites = (0..<20).map { i in
-  GNSSSatellitesInView.Satellite(
-    prn: UInt8(i + 1), elevation: 0.1 * Double(i), azimuth: 0.2 * Double(i),
-    signalToNoiseRatio: 30.0 + Double(i), rangeResiduals: 0.01 * Double(i),
-    usageStatus: .trackedNotUsed)
+private let manySatellites: [GNSSSatellitesInView.Satellite] = (0..<20).map { i in
+  // Spelled out with explicit types to keep type-checking fast on slower CI machines.
+  let x = Double(i)
+  return GNSSSatellitesInView.Satellite(
+    prn: UInt8(i + 1), elevation: 0.1 * x, azimuth: 0.2 * x, signalToNoiseRatio: 30.0 + x,
+    rangeResiduals: 0.01 * x, usageStatus: .trackedNotUsed)
 }
 
 @Suite("PGN 129540 GNSSSatellitesInView")
@@ -70,9 +71,16 @@ struct GNSSSatellitesInViewTests {
     expectEncodes(value, as: bytes, priority: 6)
   }
 
-  @Test("Decodes upstream bytes", arguments: vectors.map(\.1))
-  func decodes(bytes: [UInt8]) throws {
-    try expectDecodes(GNSSSatellitesInView.self, from: bytes)
+  /// What the vectors that encoding changes decode to, by index in `vectors`.
+  static let decodedValues: [Int: GNSSSatellitesInView] = [
+    // Satellites past the 18 that fit are dropped.
+    1: with(vectors[1].0) { $0.satellites = Array($0.satellites.prefix(18)) }
+  ]
+
+  @Test("Decodes upstream bytes", arguments: vectors.indices)
+  func decodes(index: Int) throws {
+    let (value, bytes) = Self.vectors[index]
+    try expectDecodes(bytes, as: Self.decodedValues[index] ?? value)
   }
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
