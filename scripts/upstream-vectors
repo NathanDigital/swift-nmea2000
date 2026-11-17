@@ -28,7 +28,7 @@ sources=(
   NMEA2000.h NMEA2000.cpp NMEA2000_CompilerDefns.h N2kCANMsg.h
   N2kGroupFunction.h N2kGroupFunction.cpp
   N2kGroupFunctionDefaultHandlers.h N2kGroupFunctionDefaultHandlers.cpp
-  N2kDeviceList.h N2kDeviceList.cpp
+  N2kDeviceList.h N2kDeviceList.cpp ActisenseReader.h ActisenseReader.cpp
 )
 upstream="$repo/.upstream/$commit"
 mkdir -p "$upstream"
@@ -61,7 +61,7 @@ exec docker run --rm --init \
       "$upstream/NMEA2000.cpp" "$upstream/N2kMsg.cpp" "$upstream/N2kStream.cpp" \
       "$upstream/N2kTimer.cpp" "$upstream/N2kGroupFunction.cpp" \
       "$upstream/N2kGroupFunctionDefaultHandlers.cpp" "$upstream/N2kDeviceList.cpp" \
-      "$upstream/N2kMessages.cpp"
+      "$upstream/N2kMessages.cpp" "$upstream/ActisenseReader.cpp"
     output="$(/tmp/vectors "$@"; /tmp/frames "$@")"
     if [[ -z "$output" ]]; then
       echo "no cases match" >&2

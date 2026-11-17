@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "ActisenseReader.h"
 #include "N2kDeviceList.h"
 #include "N2kMessages.h"
 #include "NMEA2000.h"
@@ -342,6 +343,67 @@ void dumpDevices(tN2kDeviceList &list) {
                      " installation2=" + text(d->GetInstallationDescription2()));
     events.push_back("  pgns transmit=" + pgns(d->GetTransmitPGNs()) + " receive=" + pgns(d->GetReceivePGNs()));
   }
+}
+
+// A stream over bytes, for upstream's Actisense reader and writer.
+class ByteStream : public N2kStream {
+ public:
+  std::vector<uint8_t> input;
+  size_t position = 0;
+  std::vector<uint8_t> output;
+  int read() override { return position < input.size() ? input[position++] : -1; }
+  int peek() override { return position < input.size() ? input[position] : -1; }
+  size_t write(const uint8_t *data, size_t size) override {
+    output.insert(output.end(), data, data + size);
+    return size;
+  }
+};
+
+// Records the Actisense bytes upstream writes for a message.
+void actisenseWrite(const tN2kMsg &m) {
+  ByteStream stream;
+  m.SendInActisenseFormat(&stream);
+  events.push_back("actisense " + bytes(stream.output.data(), stream.output.size()));
+}
+
+// A message with the given fields and payload.
+tN2kMsg makeMsg(unsigned long pgn, uint8_t priority, uint8_t source, uint8_t destination,
+                uint32_t time, std::vector<unsigned char> data) {
+  tN2kMsg m;
+  m.SetPGN(pgn);
+  m.Priority = priority;
+  m.Source = source;
+  m.Destination = destination;
+  for (unsigned char b : data) m.AddByte(b);
+  m.MsgTime = time;
+  return m;
+}
+
+// Records the messages upstream's Actisense reader finds in some bytes.
+void actisenseRead(std::vector<uint8_t> input) {
+  ByteStream stream;
+  stream.input = input;
+  tActisenseReader reader;
+  reader.SetReadStream(&stream);
+  tN2kMsg m;
+  while (stream.peek() != -1) {
+    if (!reader.GetMessageFromStream(m)) continue;
+    char line[96];
+    snprintf(line, sizeof line, "message pgn=%lu priority=%u source=%u destination=%u time=%lu data=",
+             m.PGN, m.Priority, m.Source, m.Destination, m.MsgTime == now ? 0xfffffffful : m.MsgTime);
+    events.push_back(line + bytes(m.Data, m.DataLen));
+  }
+}
+
+// The Actisense bytes of a typical message.
+std::vector<uint8_t> actisenseBytes(const tN2kMsg &m) {
+  ByteStream stream;
+  m.SendInActisenseFormat(&stream);
+  return stream.output;
+}
+
+std::vector<uint8_t> typicalActisense() {
+  return actisenseBytes(makeMsg(127250, 2, 1, 255, 0x01020304, {1, 2, 3, 4, 5, 6, 7, 8}));
 }
 
 // The node a case runs, for the ISO request handler.
@@ -1191,6 +1253,106 @@ const std::vector<Case> cases = {
       claim(n, 0x43, otherName(8));
       chatter(n, 0x43, 2000);
     }),
+    // Actisense gateway format. A decoded time of 4294967295 means the
+    // reader used the current time.
+    {"Actisense write typical", [](TestNode &) {
+       actisenseWrite(makeMsg(127250, 2, 1, 255, 0x01020304, {1, 2, 3, 4, 5, 6, 7, 8}));
+     }},
+    {"Actisense write escapes", [](TestNode &) {
+       actisenseWrite(makeMsg(0x1f010, 6, 0x10, 0x10, 0x10101010, {0x10, 0x02, 0x10, 0x03}));
+     }},
+    {"Actisense write checksum to escape", [](TestNode &) {
+       for (int b = 0; b < 256; b++) {
+         tN2kMsg m = makeMsg(130306, 2, 7, 255, 1234, {1, 2, uint8_t(b)});
+         std::vector<uint8_t> out = actisenseBytes(m);
+         if (out[out.size() - 3] == 0x10 && out[out.size() - 4] == 0x10) {
+           actisenseWrite(m);
+           break;
+         }
+       }
+     }},
+    {"Actisense write not valid", [](TestNode &) {
+       actisenseWrite(makeMsg(0, 2, 1, 255, 0, {1}));
+       actisenseWrite(makeMsg(127250, 2, 1, 255, 0, {}));
+     }},
+    {"Actisense write long", [](TestNode &) {
+       std::vector<unsigned char> data;
+       for (int i = 0; i < 223; i++) data.push_back(uint8_t(0x20 + i % 0x50));
+       actisenseWrite(makeMsg(126996, 6, 33, 255, 0xfffffffe, data));
+     }},
+    {"Actisense read typical", [](TestNode &) { actisenseRead(typicalActisense()); }},
+    {"Actisense read escapes", [](TestNode &) {
+       actisenseRead(actisenseBytes(makeMsg(0x1f010, 6, 0x10, 0x10, 0x10101010, {0x10, 0x02, 0x10, 0x03})));
+     }},
+    {"Actisense read two messages and noise", [](TestNode &) {
+       std::vector<uint8_t> input = {0x41, 0x10, 0x10, 0x03, 0x02, 0x10};
+       for (uint8_t b : typicalActisense()) input.push_back(b);
+       input.push_back(0x55);
+       for (uint8_t b : actisenseBytes(makeMsg(130306, 2, 7, 255, 1234, {1, 2, 3}))) input.push_back(b);
+       actisenseRead(input);
+     }},
+    {"Actisense read request", [](TestNode &) {
+       // A request to send: type, length, priority, PGN, destination, data length, data, checksum.
+       std::vector<uint8_t> body = {0x94, 8, 3, 0x12, 0xf1, 0x01, 0x17, 2, 0xaa, 0xbb};
+       int sum = 0;
+       for (uint8_t b : body) sum += b;
+       std::vector<uint8_t> input = {0x10, 0x02};
+       input.insert(input.end(), body.begin(), body.end());
+       input.push_back(uint8_t(256 - sum % 256));
+       input.push_back(0x10);
+       input.push_back(0x03);
+       actisenseRead(input);
+     }},
+    {"Actisense read bad checksum", [](TestNode &) {
+       std::vector<uint8_t> input = typicalActisense();
+       input[input.size() - 3] ^= 1;
+       actisenseRead(input);
+     }},
+    {"Actisense read wrong length", [](TestNode &) {
+       std::vector<uint8_t> input = typicalActisense();
+       input[3] += 1;
+       actisenseRead(input);
+       input = typicalActisense();
+       input[15] += 1;  // The data length byte.
+       actisenseRead(input);
+     }},
+    {"Actisense read unknown type", [](TestNode &) {
+       std::vector<uint8_t> input = typicalActisense();
+       input[2] = 0xa0;
+       actisenseRead(input);
+     }},
+    {"Actisense read restarted", [](TestNode &) {
+       std::vector<uint8_t> input = {0x10, 0x02, 0x93, 0x05, 0x01, 0x10, 0x02};
+       std::vector<uint8_t> rest = typicalActisense();
+       input.insert(input.end(), rest.begin() + 2, rest.end());
+       actisenseRead(input);
+     }},
+    {"Actisense read broken escape", [](TestNode &) {
+       std::vector<uint8_t> input = {0x10, 0x02, 0x93, 0x05, 0x10, 0x41};
+       std::vector<uint8_t> rest = typicalActisense();
+       input.insert(input.end(), rest.begin(), rest.end());
+       actisenseRead(input);
+     }},
+    {"Actisense read too long", [](TestNode &) {
+       std::vector<uint8_t> input = {0x10, 0x02, 0x93};
+       for (int i = 0; i < 300; i++) input.push_back(0x20);
+       std::vector<uint8_t> rest = typicalActisense();
+       input.insert(input.end(), rest.begin(), rest.end());
+       actisenseRead(input);
+     }},
+    {"Actisense read data longer than a message", [](TestNode &) {
+       // 224 data bytes.
+       std::vector<uint8_t> body = {0x93, 235, 2, 0x12, 0xf1, 0x01, 0xff, 0x01, 0, 0, 0, 0, 224};
+       for (int i = 0; i < 224; i++) body.push_back(0x20);
+       int sum = 0;
+       for (uint8_t b : body) sum += b;
+       std::vector<uint8_t> input = {0x10, 0x02};
+       input.insert(input.end(), body.begin(), body.end());
+       input.push_back(uint8_t(256 - sum % 256));
+       input.push_back(0x10);
+       input.push_back(0x03);
+       actisenseRead(input);
+     }},
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);
       until(n, 300);
