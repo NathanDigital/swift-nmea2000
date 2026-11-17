@@ -1167,6 +1167,25 @@ const std::vector<Case> cases = {
       claim(n, 0x17, ownName - 1);
       chatter(n, 0x42, 800);
     }),
+    DL_NODE("stops asking a silent device for its NAME", tNMEA2000::N2km_NodeOnly, {
+      // A device first heard by an ordinary message has never had a message
+      // time, so a minute after the node starts, upstream clears its count of
+      // NAME requests on the first one. Wait that minute, as on a real bus.
+      until(n, 61000);
+      chatter(n, 0x42, 63500);
+    }),
+    DL_NODE("asks for configuration information over a second after adding", tNMEA2000::N2km_NodeOnly, {
+      claim(n, 0x42, otherName(7));
+      tN2kMsg product;
+      SetN2kPGN126996(product, 2100, 1234, "Wind sensor", "2.0", "B", "SN7", 1, 2);
+      until(n, 600);
+      inject(n, product, 0x42);
+      chatter(n, 0x42, 1700);
+    }),
+    DL_NODE("keeps a device at address 253", tNMEA2000::N2km_NodeOnly, {
+      claim(n, 0xfd, otherName(9));
+      claim(n, 0xfe, otherName(10));
+    }),
     DL_NODE("in listen only mode", tNMEA2000::N2km_ListenOnly, {
       chatter(n, 0x42, 800);
       claim(n, 0x43, otherName(8));

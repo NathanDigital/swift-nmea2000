@@ -158,8 +158,8 @@ public struct DeviceList: Sendable {
   public func device(manufacturerCode: UInt16, productCode: UInt16, after source: UInt8? = nil)
     -> Device?
   {
+    // From the start when there's no address after `source` (upstream).
     let start = source.map { Int($0) < sourceLimit ? Int($0) + 1 : 0 } ?? 0
-    guard start < sourceLimit else { return nil }
     return sources[start..<sourceLimit].lazy.compactMap { $0 }.first {
       DeviceName(rawValue: $0.rawName).manufacturerCode == manufacturerCode
         && $0.productInformation?.productCode == productCode
