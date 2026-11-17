@@ -25,11 +25,13 @@ public struct SystemTime: ParameterGroup, Hashable {
   public var source: TimeSource
 
   /// Creates a system time message.
+  ///
+  /// The default matches upstream's `SetN2kPGN126992`.
   public init(
     sequenceID: UInt8?,
     daysSince1970: UInt16?,
     secondsSinceMidnight: Double?,
-    source: TimeSource
+    source: TimeSource = .gps
   ) {
     self.sequenceID = sequenceID
     self.daysSince1970 = daysSince1970

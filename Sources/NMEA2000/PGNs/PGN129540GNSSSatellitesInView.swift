@@ -67,7 +67,11 @@ public struct GNSSSatellitesInView: ParameterGroup, Hashable {
   public var satellites: [Satellite]
 
   /// Creates a GNSS satellites in view message.
-  public init(sequenceID: UInt8?, mode: RangeResidualMode, satellites: [Satellite]) {
+  ///
+  /// The defaults match upstream's `SetN2kPGN129540`.
+  public init(
+    sequenceID: UInt8? = nil, mode: RangeResidualMode = .unavailable, satellites: [Satellite] = []
+  ) {
     self.sequenceID = sequenceID
     self.mode = mode
     self.satellites = satellites

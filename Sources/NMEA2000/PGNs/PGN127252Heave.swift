@@ -26,11 +26,13 @@ public struct Heave: ParameterGroup, Hashable {
   public var delaySource: DelaySource
 
   /// Creates a heave message.
+  ///
+  /// The defaults match upstream's `SetN2kPGN127252`.
   public init(
     sequenceID: UInt8?,
     heave: Double?,
-    delay: Double?,
-    delaySource: DelaySource
+    delay: Double? = nil,
+    delaySource: DelaySource = .unavailable
   ) {
     self.sequenceID = sequenceID
     self.heave = heave

@@ -363,6 +363,28 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) {
      SetN2kPGN129284(m, 12, 1852.5, N2khr_error, true, true, N2kdct_RhumbLine, N2kDoubleNA, 0xffff, 0.5, 0.6, 100, 101, 60.15, 24.95, N2kDoubleNA);
    }},
+  {"PGN126992 defaults",
+   [](tN2kMsg &m) { SetN2kPGN126992(m, 1, 20000, 43200.5); }},
+  {"PGN127250 defaults",
+   [](tN2kMsg &m) { SetN2kMagneticHeading(m, 2, 1.5); }},
+  {"PGN127252 defaults",
+   [](tN2kMsg &m) { SetN2kHeave(m, 4, -1.25); }},
+  {"PGN128259 defaults",
+   [](tN2kMsg &m) { SetN2kBoatSpeed(m, 7, 3.5); }},
+  {"PGN128267 defaults",
+   [](tN2kMsg &m) { SetN2kWaterDepth(m, 8, 12.34, -0.5); }},
+  {"PGN129029 defaults",
+   [](tN2kMsg &m) {
+     SetN2kGNSS(m, 10, 19000, 43200.5, 60.1234567, -151.2093, 12.5, N2kGNSSt_GPS, N2kGNSSm_GNSSfix, 9, 0.8);
+   }},
+  {"PGN129285 defaults",
+   [](tN2kMsg &m) { SetN2kPGN129285(m, 0, 1, 2, N2kdir_forward, "Harbour run"); }},
+  {"PGN129540 defaults",
+   [](tN2kMsg &m) { SetN2kPGN129540(m); }},
+  {"PGN130074 defaults",
+   [](tN2kMsg &m) { SetN2kPGN130074(m, 0, 42, 3); }},
+  {"PGN127245 defaults",
+   [](tN2kMsg &m) { SetN2kRudder(m, 0.1); }},
 };
 
 void print(const Case &c) {

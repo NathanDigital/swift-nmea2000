@@ -15,14 +15,19 @@ struct VesselHeadingTests {
     // typical
     (
       VesselHeading(
-        sequenceID: 2, heading: 1.5, deviation: -0.01, variation: 0.12, reference: .magnetic),
+        sequenceID: 2, heading: 1.5, reference: .magnetic, deviation: -0.01, variation: 0.12),
       [0x02, 0x98, 0x3a, 0x9c, 0xff, 0xb0, 0x04, 0xfd]
     ),
     // not available
     (
       VesselHeading(
-        sequenceID: nil, heading: nil, deviation: nil, variation: nil, reference: .unavailable),
+        sequenceID: nil, heading: nil, reference: .unavailable, deviation: nil, variation: nil),
       [0xff, 0xff, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff]
+    ),
+    // defaults
+    (
+      VesselHeading(sequenceID: 2, heading: 1.5, reference: .magnetic),
+      [0x02, 0x98, 0x3a, 0xff, 0x7f, 0xff, 0x7f, 0xfd]
     ),
   ]
 

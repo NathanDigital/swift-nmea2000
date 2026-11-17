@@ -22,6 +22,11 @@ struct HeaveTests {
       Heave(sequenceID: nil, heave: nil, delay: nil, delaySource: .unavailable),
       [0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
+    // defaults
+    (
+      Heave(sequenceID: 4, heave: -1.25),
+      [0x04, 0x83, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

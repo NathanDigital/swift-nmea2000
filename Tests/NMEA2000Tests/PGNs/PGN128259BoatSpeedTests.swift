@@ -36,6 +36,11 @@ struct BoatSpeedTests {
       BoatSpeed(sequenceID: 7, waterReferenced: nil, groundReferenced: 3.62, referenceType: .error),
       [0x07, 0xff, 0xff, 0x6a, 0x01, 0xfe, 0xff, 0xff]
     ),
+    // defaults
+    (
+      BoatSpeed(sequenceID: 7, waterReferenced: 3.5),
+      [0x07, 0x5e, 0x01, 0xff, 0xff, 0x00, 0xff, 0xff]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

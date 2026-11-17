@@ -41,14 +41,16 @@ public struct RouteWaypointInformation: ParameterGroup, Hashable {
   public var waypoints: [Waypoint]
 
   /// Creates a route and waypoint information message.
+  ///
+  /// The default supplementary data matches upstream's `SetN2kPGN129285`.
   public init(
     startIndex: UInt16,
     database: UInt16,
     route: UInt16,
     navigationDirection: NavigationDirection,
     routeName: String,
-    supplementaryData: BinaryStatus,
-    waypoints: [Waypoint]
+    supplementaryData: BinaryStatus = .no,
+    waypoints: [Waypoint] = []
   ) {
     self.startIndex = startIndex
     self.database = database

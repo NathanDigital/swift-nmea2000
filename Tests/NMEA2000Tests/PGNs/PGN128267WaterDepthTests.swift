@@ -22,6 +22,11 @@ struct WaterDepthTests {
       WaterDepth(sequenceID: nil, depthBelowTransducer: nil, offset: nil, range: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xff]
     ),
+    // defaults
+    (
+      WaterDepth(sequenceID: 8, depthBelowTransducer: 12.34, offset: -0.5),
+      [0x08, 0xd2, 0x04, 0x00, 0x00, 0x0c, 0xfe, 0xff]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

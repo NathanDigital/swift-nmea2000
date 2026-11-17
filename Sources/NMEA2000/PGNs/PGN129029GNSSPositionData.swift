@@ -81,6 +81,9 @@ public struct GNSSPositionData: ParameterGroup, Hashable {
   public var referenceStations: [ReferenceStation]?
 
   /// Creates a GNSS position data message.
+  ///
+  /// The defaults match upstream's `SetN2kPGN129029`, which sends 0 rather than "not available" for
+  /// the positional dilution and geoidal separation.
   public init(
     sequenceID: UInt8?,
     daysSince1970: UInt16?,
@@ -92,9 +95,9 @@ public struct GNSSPositionData: ParameterGroup, Hashable {
     method: GNSSMethod,
     satelliteCount: UInt8?,
     horizontalDilution: Double?,
-    positionDilution: Double?,
-    geoidalSeparation: Double?,
-    referenceStations: [ReferenceStation]?
+    positionDilution: Double? = 0,
+    geoidalSeparation: Double? = 0,
+    referenceStations: [ReferenceStation]? = []
   ) {
     self.sequenceID = sequenceID
     self.daysSince1970 = daysSince1970

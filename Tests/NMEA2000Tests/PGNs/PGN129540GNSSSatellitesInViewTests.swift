@@ -58,6 +58,11 @@ struct GNSSSatellitesInViewTests {
         0xd0, 0x84, 0x5c, 0x12, 0x68, 0x42, 0x00, 0x00, 0xf1,
       ]
     ),
+    // defaults
+    (
+      GNSSSatellitesInView(),
+      [0xff, 0xff, 0x00]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

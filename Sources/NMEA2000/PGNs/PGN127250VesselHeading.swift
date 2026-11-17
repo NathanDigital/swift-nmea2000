@@ -28,12 +28,14 @@ public struct VesselHeading: ParameterGroup, Hashable {
   public var reference: HeadingReference
 
   /// Creates a vessel heading message.
+  ///
+  /// The defaults match upstream's `SetN2kMagneticHeading`.
   public init(
     sequenceID: UInt8?,
     heading: Double?,
-    deviation: Double?,
-    variation: Double?,
-    reference: HeadingReference
+    reference: HeadingReference,
+    deviation: Double? = nil,
+    variation: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.heading = heading

@@ -24,11 +24,13 @@ public struct Rudder: ParameterGroup, Hashable {
   public var angleOrder: Double?
 
   /// Creates a rudder message.
+  ///
+  /// The defaults match upstream's `SetN2kPGN127245`.
   public init(
     position: Double?,
-    instance: UInt8,
-    directionOrder: RudderDirectionOrder,
-    angleOrder: Double?
+    instance: UInt8 = 0,
+    directionOrder: RudderDirectionOrder = .none,
+    angleOrder: Double? = nil
   ) {
     self.position = position
     self.instance = instance

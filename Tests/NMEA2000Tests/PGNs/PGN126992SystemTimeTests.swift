@@ -30,6 +30,11 @@ struct SystemTimeTests {
         source: TimeSource(rawValue: 10)),
       [0x01, 0xfa, 0x20, 0x4e, 0x88, 0xdf, 0xbf, 0x19]
     ),
+    // defaults
+    (
+      SystemTime(sequenceID: 1, daysSince1970: 20000, secondsSinceMidnight: 43200.5),
+      [0x01, 0xf0, 0x20, 0x4e, 0x88, 0xdf, 0xbf, 0x19]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

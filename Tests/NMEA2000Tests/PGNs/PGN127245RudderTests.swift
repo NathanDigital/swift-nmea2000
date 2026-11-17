@@ -29,6 +29,11 @@ struct RudderTests {
       Rudder(position: nil, instance: 0xff, directionOrder: .unavailable, angleOrder: nil),
       [0xff, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff, 0xff]
     ),
+    // defaults
+    (
+      Rudder(position: 0.1),
+      [0x00, 0xf8, 0xff, 0x7f, 0xe8, 0x03, 0xff, 0xff]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

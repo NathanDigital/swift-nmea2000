@@ -26,11 +26,13 @@ public struct WaterDepth: ParameterGroup, Hashable {
   public var range: Double?
 
   /// Creates a water depth message.
+  ///
+  /// The default matches upstream's `SetN2kPGN128267`.
   public init(
     sequenceID: UInt8?,
     depthBelowTransducer: Double?,
     offset: Double?,
-    range: Double?
+    range: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.depthBelowTransducer = depthBelowTransducer

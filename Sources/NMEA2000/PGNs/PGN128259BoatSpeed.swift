@@ -30,11 +30,13 @@ public struct BoatSpeed: ParameterGroup, Hashable {
   public var referenceType: SpeedWaterReferenceType
 
   /// Creates a speed message.
+  ///
+  /// The defaults match upstream's `SetN2kPGN128259`.
   public init(
     sequenceID: UInt8?,
     waterReferenced: Double?,
-    groundReferenced: Double?,
-    referenceType: SpeedWaterReferenceType
+    groundReferenced: Double? = nil,
+    referenceType: SpeedWaterReferenceType = .paddleWheel
   ) {
     self.sequenceID = sequenceID
     self.waterReferenced = waterReferenced

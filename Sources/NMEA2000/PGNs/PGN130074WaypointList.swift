@@ -32,7 +32,9 @@ public struct WaypointList: ParameterGroup, Hashable {
   public var waypoints: [Waypoint]
 
   /// Creates a waypoint list message.
-  public init(startIndex: UInt16, waypointCount: UInt16, database: UInt16, waypoints: [Waypoint]) {
+  public init(
+    startIndex: UInt16, waypointCount: UInt16, database: UInt16, waypoints: [Waypoint] = []
+  ) {
     self.startIndex = startIndex
     self.waypointCount = waypointCount
     self.database = database
