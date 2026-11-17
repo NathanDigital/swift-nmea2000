@@ -107,6 +107,8 @@ const std::vector<Case> cases = {
    }},
   {"PGN126993 typical",
    [](tN2kMsg &m) { SetN2kPGN126993(m, 60000, 3); }},
+  {"PGN126993 zero",
+   [](tN2kMsg &m) { SetN2kPGN126993(m, 0, 1); }},
   {"PGN126993 widest field",
    [](tN2kMsg &m) { SetN2kPGN126993(m, 65535, 0); }},
   {"PGN126993 over the field",

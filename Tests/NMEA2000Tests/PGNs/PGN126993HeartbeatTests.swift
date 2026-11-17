@@ -22,6 +22,11 @@ struct HeartbeatTests {
       Heartbeat(interval: 65.535, sequenceCounter: 0),
       [0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
+    // zero
+    (
+      Heartbeat(interval: 0, sequenceCounter: 1),
+      [0x00, 0x00, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff]
+    ),
     // over the limit
     (
       Heartbeat(interval: 655.321, sequenceCounter: nil),
@@ -38,7 +43,7 @@ struct HeartbeatTests {
     // 0xffff is not available.
     1: with(vectors[1].0) { $0.interval = nil },
     // 0xfffe decodes as the interval it encodes.
-    2: with(vectors[2].0) { $0.interval = 65.534 },
+    3: with(vectors[3].0) { $0.interval = 65.534 },
   ]
 
   @Test("Decodes upstream bytes", arguments: vectors.indices)
