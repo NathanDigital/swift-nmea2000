@@ -351,6 +351,18 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) {
      SetN2kPGN127237(m, N2kOnOff_Off, N2kOnOff_On, N2kOnOff_Off, N2kOnOff_On, N2kSM_MainSteering, N2kTM_RudderLimitControlled, N2khr_true, N2kRDO_NoDirectionOrder, 0, 0, 0, 0, 0, 0, 0, 0, 0);
    }},
+  {"PGN128259 unavailable sensor type",
+   [](tN2kMsg &m) { SetN2kPGN128259(m, 7, 3.5, N2kDoubleNA, N2kSWRT_Unavailable); }},
+  {"PGN128259 sensor error",
+   [](tN2kMsg &m) { SetN2kPGN128259(m, 7, N2kDoubleNA, 3.62, N2kSWRT_Error); }},
+  {"PGN129284 bearing reference unavailable",
+   [](tN2kMsg &m) {
+     SetN2kPGN129284(m, 12, 1852.5, N2khr_Unavailable, false, false, N2kdct_GreatCircle, N2kDoubleNA, 0xffff, 0.5, 0.6, 100, 101, 60.15, 24.95, N2kDoubleNA);
+   }},
+  {"PGN129284 bearing reference error",
+   [](tN2kMsg &m) {
+     SetN2kPGN129284(m, 12, 1852.5, N2khr_error, true, true, N2kdct_RhumbLine, N2kDoubleNA, 0xffff, 0.5, 0.6, 100, 101, 60.15, 24.95, N2kDoubleNA);
+   }},
 };
 
 void print(const Case &c) {

@@ -25,6 +25,17 @@ struct BoatSpeedTests {
         referenceType: .electromagnetic),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0x04, 0xff, 0xff]
     ),
+    // unavailable sensor type
+    (
+      BoatSpeed(
+        sequenceID: 7, waterReferenced: 3.5, groundReferenced: nil, referenceType: .unavailable),
+      [0x07, 0x5e, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff]
+    ),
+    // sensor error
+    (
+      BoatSpeed(sequenceID: 7, waterReferenced: nil, groundReferenced: 3.62, referenceType: .error),
+      [0x07, 0xff, 0xff, 0x6a, 0x01, 0xfe, 0xff, 0xff]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)
@@ -41,12 +52,21 @@ struct BoatSpeedTests {
     expectTolerantDecoding(BoatSpeed.self, from: Self.vectors[0].1)
   }
 
-  @Test func decodesOnlyLowNibbleOfReferenceType() throws {
-    // Upstream writes the whole byte but masks it to four bits when parsing.
-    let message = BoatSpeed(
-      sequenceID: 1, waterReferenced: nil, groundReferenced: nil, referenceType: .unavailable
-    ).makeMessage()
-    #expect(message.data[5] == 0xff)
-    #expect(try BoatSpeed(message).referenceType.rawValue == 0x0f)
+  @Test(
+    "Decodes the four-bit error and unavailable codes",
+    arguments: [
+      (UInt8(0xff), SpeedWaterReferenceType.unavailable),
+      (0x0f, .unavailable),
+      (0xfe, .error),
+      (0x0e, .error),
+      (0x04, .electromagnetic),
+      (0xf4, .electromagnetic),
+    ])
+  func decodesReferenceTypeCodes(byte: UInt8, expected: SpeedWaterReferenceType) throws {
+    // Deliberate divergence: upstream decodes 14 and 15 as raw values that don't equal
+    // its own N2kSWRT_Error and N2kSWRT_Unavailable constants.
+    var bytes = Self.vectors[0].1
+    bytes[5] = byte
+    #expect(try BoatSpeed(Message(pgn: 128259, data: bytes)).referenceType == expected)
   }
 }

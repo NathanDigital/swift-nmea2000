@@ -18,8 +18,11 @@ public struct NavigationInfo: ParameterGroup, Hashable {
   /// The distance to the destination waypoint, in meters, or `nil` if not available.
   public var distanceToWaypoint: Double?
 
-  /// Whether the bearings are true or magnetic. Upstream decodes only bit 0, so any value other
-  /// than ``HeadingReference/true`` decodes as ``HeadingReference/magnetic``.
+  /// Whether the bearings are true or magnetic.
+  ///
+  /// The field is two bits wide. Upstream decodes only bit 0, so it reads
+  /// ``HeadingReference/error`` and ``HeadingReference/unavailable`` as
+  /// ``HeadingReference/magnetic``. This type decodes both bits.
   public var bearingReference: HeadingReference
 
   /// A Boolean value that indicates whether the perpendicular through the destination waypoint has
@@ -102,7 +105,7 @@ public struct NavigationInfo: ParameterGroup, Hashable {
     sequenceID = reader.readOptionalUInt8()
     distanceToWaypoint = reader.readUInt32(resolution: 0.01)
     let flags = reader.readUInt8()
-    bearingReference = flags & 0x01 != 0 ? .magnetic : .true
+    bearingReference = HeadingReference(rawValue: flags & 0x03)
     isPerpendicularCrossed = flags & 0x04 != 0
     isArrivalCircleEntered = flags & 0x10 != 0
     calculationType = flags & 0x40 != 0 ? .rhumbLine : .greatCircle

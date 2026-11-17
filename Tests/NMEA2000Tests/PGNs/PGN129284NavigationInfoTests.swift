@@ -43,6 +43,36 @@ struct NavigationInfoTests {
         0xff, 0x7f, 0xff, 0x7f,
       ]
     ),
+    // bearing reference unavailable
+    (
+      NavigationInfo(
+        sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .unavailable,
+        isPerpendicularCrossed: false, isArrivalCircleEntered: false, calculationType: .greatCircle,
+        etaTime: nil, etaDate: nil, bearingOriginToDestination: 0.5,
+        bearingPositionToDestination: 0.6,
+        originWaypointNumber: 100, destinationWaypointNumber: 101, destinationLatitude: 60.15,
+        destinationLongitude: 24.95, waypointClosingVelocity: nil),
+      [
+        0x0c, 0xa2, 0xd3, 0x02, 0x00, 0x03, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x88, 0x13, 0x70,
+        0x17, 0x64, 0x00, 0x00, 0x00, 0x65, 0x00, 0x00, 0x00, 0x60, 0x29, 0xda, 0x23, 0x60, 0x11,
+        0xdf, 0x0e, 0xff, 0x7f,
+      ]
+    ),
+    // bearing reference error
+    (
+      NavigationInfo(
+        sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .error,
+        isPerpendicularCrossed: true, isArrivalCircleEntered: true, calculationType: .rhumbLine,
+        etaTime: nil, etaDate: nil, bearingOriginToDestination: 0.5,
+        bearingPositionToDestination: 0.6,
+        originWaypointNumber: 100, destinationWaypointNumber: 101, destinationLatitude: 60.15,
+        destinationLongitude: 24.95, waypointClosingVelocity: nil),
+      [
+        0x0c, 0xa2, 0xd3, 0x02, 0x00, 0x56, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x88, 0x13, 0x70,
+        0x17, 0x64, 0x00, 0x00, 0x00, 0x65, 0x00, 0x00, 0x00, 0x60, 0x29, 0xda, 0x23, 0x60, 0x11,
+        0xdf, 0x0e, 0xff, 0x7f,
+      ]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)
@@ -59,11 +89,19 @@ struct NavigationInfoTests {
     expectTolerantDecoding(NavigationInfo.self, from: Self.vectors[0].1)
   }
 
-  @Test func decodesBearingReferenceFromBitZeroOnly() throws {
+  @Test(
+    "Decodes both bits of the bearing reference",
+    arguments: [
+      (UInt8(0x00), HeadingReference.true),
+      (0x01, .magnetic),
+      (0x02, .error),
+      (0x03, .unavailable),
+    ])
+  func decodesBearingReference(bits: UInt8, expected: HeadingReference) throws {
+    // Deliberate divergence: upstream decodes only bit 0, reading error and unavailable
+    // as magnetic.
     var bytes = Self.vectors[0].1
-    bytes[5] = 0x03  // HeadingReference.unavailable, as upstream would send it.
-    #expect(try NavigationInfo(Message(pgn: 129284, data: bytes)).bearingReference == .magnetic)
-    bytes[5] = 0x02  // HeadingReference.error: bit 0 is clear.
-    #expect(try NavigationInfo(Message(pgn: 129284, data: bytes)).bearingReference == .true)
+    bytes[5] = bytes[5] & ~0x03 | bits
+    #expect(try NavigationInfo(Message(pgn: 129284, data: bytes)).bearingReference == expected)
   }
 }

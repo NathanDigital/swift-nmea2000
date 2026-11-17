@@ -21,9 +21,12 @@ public struct BoatSpeed: ParameterGroup, Hashable {
   /// The speed over ground, in meters per second, or `nil` if not available.
   public var groundReferenced: Double?
 
-  /// The kind of sensor that measures speed through water. Upstream writes the whole byte but reads
-  /// back only the low four bits, so ``SpeedWaterReferenceType/error`` and
-  /// ``SpeedWaterReferenceType/unavailable`` decode as 14 and 15.
+  /// The kind of sensor that measures speed through water.
+  ///
+  /// The field is four bits wide. ``SpeedWaterReferenceType/error`` (254) and
+  /// ``SpeedWaterReferenceType/unavailable`` (255) are sent as the whole byte, as upstream sends
+  /// them, so the reserved upper bits are set. On decode, the four-bit codes 14 and 15 map back to
+  /// those values. Upstream decodes them as 14 and 15, which no longer equal its own constants.
   public var referenceType: SpeedWaterReferenceType
 
   /// Creates a speed message.
@@ -43,7 +46,11 @@ public struct BoatSpeed: ParameterGroup, Hashable {
     sequenceID = reader.readOptionalUInt8()
     waterReferenced = reader.readUInt16(resolution: 0.01)
     groundReferenced = reader.readUInt16(resolution: 0.01)
-    referenceType = SpeedWaterReferenceType(rawValue: reader.readUInt8() & 0x0f)
+    switch reader.readUInt8() & 0x0f {
+    case 0x0e: referenceType = .error
+    case 0x0f: referenceType = .unavailable
+    case let code: referenceType = SpeedWaterReferenceType(rawValue: code)
+    }
   }
 
   public func encode(to writer: inout MessageWriter) {

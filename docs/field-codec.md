@@ -106,7 +106,7 @@ A fixed-width read that runs past the end leaves `index` unchanged, as upstream 
 
 ## Deliberate divergences from upstream
 
-All of these are cases where upstream's behaviour is a bug or undefined. None of them changes what upstream itself writes for a valid input.
+All of these are cases where upstream's behaviour is a bug or undefined. None of them changes the bytes sent for a valid input; the PGN rows only change how received bytes are decoded.
 
 | Upstream | Swift | Why |
 |---|---|---|
@@ -114,6 +114,8 @@ All of these are cases where upstream's behaviour is a bug or undefined. None of
 | `GetBuf` doesn't advance `Index` when it copies into a buffer | `readBytes(count:)` always advances | Later fields would otherwise be read from the wrong offset. |
 | `Add8ByteDouble` with a value that doesn't fit in `int64_t` is undefined behaviour | `appendInt64` writes `0x7ffffffffffffffe` | By analogy with the narrower fields' out-of-range pattern. |
 | A value equal to the `N2kDoubleNA` sentinel (`-1e9`) is written as NA | Only `nil` is written as NA | Optionals replace the sentinel. |
+| `ParseN2kPGN128259` masks the speed-sensor type to four bits, so `N2kSWRT_Error` and `N2kSWRT_Unavailable` (sent as `0xfe`/`0xff`) decode as 14 and 15, which don't equal those constants | `BoatSpeed` decodes codes 14 and 15 as `.error` and `.unavailable` | Lets the value round-trip and compare equal to its constant. The bytes sent are unchanged. |
+| `ParseN2kPGN129284` decodes only bit 0 of the two-bit bearing reference, so error and unavailable read as magnetic | `NavigationInfo` decodes both bits | The field is two bits wide. The bytes sent are unchanged. |
 | Fixed-width `Add…` past `MaxDataLen` overflows the buffer | Traps (`precondition`) | It's a programming error in an encoder. |
 
 ## Not ported
