@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Print the payload bytes that upstream's encoders produce for the cases in
-# Tools/UpstreamVectors/vectors.cpp, for use as expected values in Swift tests.
+# Print what upstream produces for the cases in Tools/UpstreamVectors/, for use
+# as expected values in Swift tests: the payload bytes of its PGN encoders
+# (vectors.cpp) and the CAN frames and messages of its node (frames.cpp).
 #
 #   scripts/upstream-vectors            # every case
 #   scripts/upstream-vectors 129029     # cases whose name contains "129029"
+#   scripts/upstream-vectors "Frames send"
 #
 # Upstream sources are fetched once, at the commit recorded last in
 # docs/upstream-sync.md, into .upstream/<commit>/ (git-ignored). The harness is
@@ -23,16 +25,19 @@ fi
 sources=(
   N2kDef.h N2kMsg.h N2kMsg.cpp N2kMessages.h N2kMessages.cpp N2kStream.h N2kStream.cpp
   N2kTimer.h N2kTimer.cpp N2kTypes.h NMEA2000StdTypes.h
+  NMEA2000.h NMEA2000.cpp NMEA2000_CompilerDefns.h N2kCANMsg.h
+  N2kGroupFunction.h N2kGroupFunction.cpp
+  N2kGroupFunctionDefaultHandlers.h N2kGroupFunctionDefaultHandlers.cpp
 )
 upstream="$repo/.upstream/$commit"
-if [[ ! -f "$upstream/.complete" ]]; then
-  mkdir -p "$upstream"
-  for file in "${sources[@]}"; do
+mkdir -p "$upstream"
+for file in "${sources[@]}"; do
+  if [[ ! -f "$upstream/$file" ]]; then
     curl -fsSL "https://raw.githubusercontent.com/ttlappalainen/NMEA2000/$commit/src/$file" \
-      -o "$upstream/$file"
-  done
-  touch "$upstream/.complete"
-fi
+      -o "$upstream/$file.download"
+    mv "$upstream/$file.download" "$upstream/$file"
+  fi
+done
 
 docker build --quiet --tag "$image" "$repo/docker" >/dev/null
 
@@ -47,5 +52,17 @@ exec docker run --rm \
       Tools/UpstreamVectors/vectors.cpp \
       "$upstream/N2kMsg.cpp" "$upstream/N2kMessages.cpp" \
       "$upstream/N2kStream.cpp" "$upstream/N2kTimer.cpp"
-    /tmp/vectors "$@"
+    # Without the Linux macros, upstream reads time from millis(), which the
+    # frame harness defines so its cases control the clock.
+    clang++ -std=c++17 -w -U__linux__ -U__linux -Ulinux -I"$upstream" -o /tmp/frames \
+      Tools/UpstreamVectors/frames.cpp \
+      "$upstream/NMEA2000.cpp" "$upstream/N2kMsg.cpp" "$upstream/N2kStream.cpp" \
+      "$upstream/N2kTimer.cpp" "$upstream/N2kGroupFunction.cpp" \
+      "$upstream/N2kGroupFunctionDefaultHandlers.cpp"
+    output="$(/tmp/vectors "$@"; /tmp/frames "$@")"
+    if [[ -z "$output" ]]; then
+      echo "no cases match" >&2
+      exit 1
+    fi
+    printf "%s\n" "$output"
   ' _ "$commit" "$@"

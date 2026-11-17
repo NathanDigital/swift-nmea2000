@@ -808,20 +808,12 @@ void print(const Case &c) {
 }  // namespace
 
 int main(int argc, char **argv) {
-  int printed = 0;
   for (const Case &c : cases) {
     bool selected = argc < 2;
     for (int i = 1; i < argc && !selected; i++) {
       selected = strstr(c.name, argv[i]) != nullptr;
     }
-    if (selected) {
-      print(c);
-      printed++;
-    }
-  }
-  if (printed == 0) {
-    fprintf(stderr, "no cases match\n");
-    return 1;
+    if (selected) print(c);
   }
   return 0;
 }
