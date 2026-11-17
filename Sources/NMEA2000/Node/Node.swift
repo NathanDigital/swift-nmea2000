@@ -113,6 +113,17 @@ public actor Node {
   public typealias ISORequestHandler =
     @Sendable (_ requestedPGN: UInt32, _ requester: UInt8, _ device: Int) -> [Message]?
 
+  /// Answers group functions (PGN 126208) for a PGN, as an upstream
+  /// `tN2kGroupFunctionHandler` subclass does.
+  ///
+  /// The handler gets the request and returns the messages its device sends
+  /// in reply, usually a ``GroupFunction/Acknowledgement`` or a read or
+  /// write reply, or `nil` to let the node answer as it does without a
+  /// handler, which upstream's subclasses get by calling the base class.
+  /// The handler sees broadcast commands, reads and writes too, which
+  /// upstream ignores. It runs on the node, so it must be quick.
+  public typealias GroupFunctionHandler = @Sendable (GroupFunction.Request) -> [Message]?
+
   /// Something that happened to the node, from ``events()``.
   ///
   /// Replaces upstream's `SetOnOpen` callback and its `ReadResetAddressChanged`,
@@ -283,6 +294,22 @@ public actor Node {
   /// The devices on the bus, if the node was created with
   /// `discoversDevices: true`.
   public var deviceList: DeviceList? { engine.deviceList }
+
+  /// Sets the handler that answers group functions for a PGN, or for every
+  /// PGN without a handler of its own, or removes it.
+  ///
+  /// Handlers come before the node's own answers, including those for the
+  /// network management PGNs, so a handler can extend or replace them.
+  ///
+  /// Replaces upstream's `AddGroupFunctionHandler` and
+  /// `RemoveGroupFunctionHandler`.
+  ///
+  /// - Parameters:
+  ///   - handler: The handler, or `nil` to remove it.
+  ///   - pgn: The PGN it handles, or `nil` for every PGN.
+  public func setGroupFunctionHandler(_ handler: GroupFunctionHandler?, for pgn: UInt32? = nil) {
+    engine.groupFunctionHandlers[pgn] = handler
+  }
 
   /// Sets the handler that answers ISO requests the node doesn't answer
   /// itself, or removes it.

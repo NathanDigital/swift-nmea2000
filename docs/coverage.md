@@ -14,7 +14,7 @@ Status: **done**, **to do**, or **by design** where the Swift API covers the nee
 | `SendMsg(msg, DeviceIndex)` | `Node.send(_:from:)` | done |
 | `SetMsgHandler`, `AttachMsgHandler`, `DetachMsgHandler` | `Node.messages()` | done; by design for per-PGN handlers: filter the sequence |
 | `SetISORqstHandler` | `Node.setISORequestHandler(_:)` | done |
-| `AddGroupFunctionHandler`, `RemoveGroupFunctionHandler`, `tN2kGroupFunctionHandler` | | to do |
+| `AddGroupFunctionHandler`, `RemoveGroupFunctionHandler`, `tN2kGroupFunctionHandler` | `Node.setGroupFunctionHandler(_:for:)`, `GroupFunction` | done |
 | `SendIsoAddressClaim`, `SendProductInformation`, `SendConfigurationInformation`, `SendTxPGNList`, `SendRxPGNList`, `SendHeartbeat` (on demand) | `Node.sendAddressClaim`, `sendProductInformation`, `sendConfigurationInformation`, `sendPGNList`, `sendHeartbeat` | done; by design for `SendIsoAddressClaim`'s delay: wait before calling |
 | `SetHeartbeatIntervalAndOffset`, `GetHeartbeatInterval`, `GetHeartbeatOffset` (at run time) | `Node.setHeartbeatInterval(_:offset:for:)`, `Node.devices` | done |
 | `SetDeviceInformationInstances`, `SetInstallationDescription1/2`, `SetProductInformation`, `SetConfigurationInformation` (at run time) | `Node.setInstances`, `setProductInformation`, `setConfigurationInformation` | done |
@@ -42,7 +42,7 @@ Status: **done**, **to do**, or **by design** where the Swift API covers the nee
 | `N2kMessages.h/.cpp` | `Sources/NMEA2000/PGNs/` | done |
 | `N2kTypes.h` | `Sources/NMEA2000/Types/` | done |
 | `N2kMessagesEnumToStr.h` | `CustomStringConvertible` on every type | by design: the port's descriptions cover every value, where upstream's tables have gaps and errors (see `docs/types.md`) |
-| `N2kGroupFunction.h`, `N2kGroupFunctionDefaultHandlers.h` | `NodeEngine+GroupFunctions.swift` | defaults done; the public handler API to do |
+| `N2kGroupFunction.h`, `N2kGroupFunctionDefaultHandlers.h` | `GroupFunction` (codes, `Request` parsers, `Acknowledgement`, `startReply`), `NodeEngine+GroupFunctions.swift` (default handlers) | done; by design for `MatchRequestField`: compare values directly |
 | `N2kDeviceList.h` | `DeviceList` | done |
 | `N2kMaretron.h`, `N2kCZone.h` | `Sources/NMEA2000/Proprietary/` | done |
 | `N2kTimer.h`: `tN2kScheduler`, `tN2kSyncScheduler`, `N2kIsTimeBefore`, `N2kHasElapsed` | | by design: Swift's `Clock` and `Task.sleep` schedule work; the node keeps upstream's timing internally |

@@ -470,6 +470,31 @@ void czone(unsigned long pgn, std::vector<unsigned char> data) {
   events.push_back(line + bytes(status.RawData, status.RawLen));
 }
 
+// An application's group function handler for PGN 130310: it acknowledges
+// requests itself, answers reads with one field, and leaves commands to the
+// base class.
+class AppGroupFunctionHandler : public tN2kGroupFunctionHandler {
+ public:
+  AppGroupFunctionHandler(tNMEA2000 *node) : tN2kGroupFunctionHandler(node, 130310) {}
+
+ protected:
+  bool HandleRequest(const tN2kMsg &m, uint32_t, uint16_t, uint8_t pairs, int device) override {
+    SendAcknowledge(pNMEA2000, m.Source, device, 130310, N2kgfPGNec_Acknowledge,
+                    N2kgfTPec_Acknowledge, pairs, N2kgfpec_RequestOrCommandParameterOutOfRange);
+    return true;
+  }
+  bool HandleReadFields(const tN2kMsg &m, uint16_t manufacturer, uint8_t industry, uint8_t uniqueID,
+                        uint8_t selections, uint8_t parameters, int device) override {
+    tN2kMsg reply;
+    SetStartReadReply(reply, m.Source, 130310, manufacturer, industry, uniqueID, selections, parameters,
+                      Proprietary);
+    reply.AddByte(1);
+    reply.AddByte(0x2a);
+    pNMEA2000->SendMsg(reply, device);
+    return true;
+  }
+};
+
 // The node a case runs, for the ISO request handler.
 TestNode *current = nullptr;
 
@@ -1247,6 +1272,15 @@ const std::vector<Case> cases = {
       groupFunction(n, 0x17, gfCommand(126998, 8, 1, std::vector<unsigned char>{1} + varStr("0123456789012345678901234567890123456789012345678901234567890123456789XYZ")));
       groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 1, std::vector<unsigned char>{1} + varStr("0123456789012345678901234567890123456789012345678901234567890123456789")));
     }),
+    NODE("group function handled by the application", {
+      n.AddGroupFunctionHandler(new AppGroupFunctionHandler(&n));
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      groupFunction(n, 0x17, gfRequest(130310, 0xffffffff, 0xffff, 1, {1, 2}));
+      groupFunction(n, 0x17, gf(3, 130310, {5, 0, 1, 1}));
+      groupFunction(n, 0x17, gfCommand(130310, 8, 0));
+      groupFunction(n, 0x17, gfRequest(130311, 0xffffffff, 0xffff, 0));
+    }),
     NODE("group function during the address claim", {
       start(n, tNMEA2000::N2km_NodeOnly);
       until(n, 300);
@@ -1344,6 +1378,14 @@ const std::vector<Case> cases = {
       claim(n, 0x43, otherName(8));
       chatter(n, 0x43, 2000);
     }),
+    // Group function reply builders.
+    {"Group function reply starts", [](TestNode &) {
+       tN2kMsg read, write;
+       tN2kGroupFunctionHandler::SetStartReadReply(read, 0x42, 130816, 0x2a5, 4, 7, 1, 2, true);
+       tN2kGroupFunctionHandler::SetStartWriteReply(write, 0x42, 130310, 0xffff, 0xff, 7, 1, 2, false);
+       encoded(read);
+       encoded(write);
+     }},
     // tN2kMsg::Print, through upstream's own N2kStream.
     {"Print message", [](TestNode &) {
        ByteStream stream;

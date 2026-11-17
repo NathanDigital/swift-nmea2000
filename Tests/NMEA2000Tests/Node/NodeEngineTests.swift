@@ -91,6 +91,7 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
   var receivePGNs: [UInt32] = []
   var configuration: ConfigurationInformation? = .default
   var isoRequestHandler: Node.ISORequestHandler?
+  var groupFunctionHandlers: [UInt32?: Node.GroupFunctionHandler] = [:]
   var discoversDevices = false
   var steps: [Step]
   var upstream: [String]
@@ -332,6 +333,35 @@ private let requestHandler: Node.ISORequestHandler = { pgn, requester, _ in
 private let deviceRequestHandler: Node.ISORequestHandler = { pgn, requester, device in
   guard pgn == 130306, device == 1 else { return nil }
   return [Message(pgn: 130306, destination: requester, data: [UInt8(device)])]
+}
+
+/// Handles group functions for 130310 as frames.cpp's
+/// `AppGroupFunctionHandler` does: acknowledges requests itself, answers
+/// reads with one field, and leaves the rest to the node.
+private let appGroupFunctionHandler: Node.GroupFunctionHandler = { request in
+  switch request.code {
+  case .request:
+    return [
+      GroupFunction.Acknowledgement.uniform(
+        pgn: 130310, pgnError: .acknowledge, transmissionError: .acknowledge,
+        pairCount: request.requestParameters.pairCount, parameterError: .outOfRange
+      ).message(to: request.requester)
+    ]
+  case .read:
+    let read = request.readOrWriteParameters
+    var reply = GroupFunction.startReply(
+      .readReply, pgn: 130310, uniqueID: read.uniqueID,
+      selectionPairCount: read.selectionPairCount, parameterPairCount: read.parameterPairCount)
+    reply.appendUInt8(1)
+    reply.appendUInt8(0x2a)
+    return [
+      Message(
+        pgn: GroupFunction.pgn, priority: GroupFunction.priority, destination: request.requester,
+        data: reply.data)
+    ]
+  default:
+    return nil
+  }
 }
 
 /// The GNSS position frames.cpp's "devices send from each" case sends.
@@ -1655,6 +1685,28 @@ struct NodeEngineTests {
         "t=500 rx pgn=126208 priority=3 source=66 destination=23 data=[0x00, 0x16, 0xf0, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01, 0x01, 0x48, 0x01, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39]",
       ]),
     NodeCase(
+      name: "group function handled by the application", mode: .node,
+      groupFunctionHandlers: [130310: appGroupFunctionHandler],
+      steps: [
+        .until(500), .groupFunction(to: 0x17, gfRequest(130310, 0xffff_ffff, 0xffff, 1, [1, 2])),
+        .groupFunction(to: 0x17, gf(3, 130310, [5, 0, 1, 1])),
+        .groupFunction(to: 0x17, gfCommand(130310, 8, 0)),
+        .groupFunction(to: 0x17, gfRequest(130311, 0xffff_ffff, 0xffff, 0)),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x0ded4217 data=[0x00, 0x07, 0x02, 0x06, 0xfd, 0x01, 0x00, 0x01]",
+        "t=500 tx id=0x0ded4217 data=[0x01, 0xf3, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 rx pgn=126208 priority=3 source=66 destination=23 data=[0x00, 0x06, 0xfd, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01, 0x01, 0x02]",
+        "t=500 tx id=0x0ded4217 data=[0x20, 0x09, 0x04, 0x06, 0xfd, 0x01, 0x05, 0x00]",
+        "t=500 tx id=0x0ded4217 data=[0x21, 0x01, 0x01, 0x2a, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 rx pgn=126208 priority=3 source=66 destination=23 data=[0x03, 0x06, 0xfd, 0x01, 0x05, 0x00, 0x01, 0x01]",
+        "t=500 tx id=0x0ded4217 data=[0x40, 0x06, 0x02, 0x06, 0xfd, 0x01, 0x01, 0x00]",
+        "t=500 rx pgn=126208 priority=3 source=66 destination=23 data=[0x01, 0x06, 0xfd, 0x01, 0xf8, 0x00]",
+        "t=500 tx id=0x0ded4217 data=[0x60, 0x06, 0x02, 0x07, 0xfd, 0x01, 0x01, 0x00]",
+        "t=500 rx pgn=126208 priority=3 source=66 destination=23 data=[0x00, 0x07, 0xfd, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00]",
+      ]),
+    NodeCase(
       name: "group function during the address claim", mode: .node,
       steps: [
         .until(300), .groupFunction(to: 0x17, gfRequest(130310, 0xffff_ffff, 0xffff, 0)),
@@ -2565,6 +2617,7 @@ struct NodeEngineTests {
       receivePGNs: testCase.receivePGNs, configuration: testCase.configuration,
       isoRequestHandler: testCase.isoRequestHandler)
     if testCase.discoversDevices { driver.engine.deviceList = DeviceList() }
+    driver.engine.groupFunctionHandlers = testCase.groupFunctionHandlers
     driver.poll()
     for step in testCase.steps { driver.run(step) }
     driver.dumpDevices()

@@ -185,6 +185,10 @@ struct NodeEngine: Sendable {
   /// Answers ISO requests the node doesn't answer itself.
   var isoRequestHandler: Node.ISORequestHandler?
 
+  /// The application's group function handlers, by PGN; the one for `nil`
+  /// is tried for every PGN.
+  var groupFunctionHandlers: [UInt32?: Node.GroupFunctionHandler] = [:]
+
   /// The devices on the bus, if the node keeps track of them.
   var deviceList: DeviceList?
 

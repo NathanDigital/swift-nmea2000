@@ -162,8 +162,11 @@ A node can host several devices, as upstream's `SetDeviceCount` allows. Each has
 
 | Upstream | Swift |
 |---|---|
-| `tN2kGroupFunctionCode`, `tN2kGroupFunctionPGNErrorCode`, `tN2kGroupFunctionTransmissionOrPriorityErrorCode`, `tN2kGroupFunctionParameterErrorCode` | `GroupFunction.Code`, `.PGNError`, `.TransmissionError`, `.ParameterError` (internal) |
-| `SetStartAcknowledge`, `AddAcknowledgeParameter`, `SendAcknowledge` | `GroupFunction.Acknowledgement` (internal) |
+| `tN2kGroupFunctionCode`, `tN2kGroupFunctionPGNErrorCode`, `tN2kGroupFunctionTransmissionOrPriorityErrorCode`, `tN2kGroupFunctionParameterErrorCode` | `GroupFunction.Code`, `.PGNError`, `.TransmissionError`, `.ParameterError` |
+| `SetStartAcknowledge`, `AddAcknowledgeParameter`, `ChangePNGErrorCode`, `ChangeTransmissionOrPriorityErrorCode`, `SendAcknowledge` | `GroupFunction.Acknowledgement` |
+| `SetStartReadReply`, `SetStartWriteReply` | `GroupFunction.startReply(_:pgn:proprietary:uniqueID:selectionPairCount:parameterPairCount:)` |
+| `Parse`, `ParseRequestParams`, `ParseCommandParams`, `ParseAcknowledgeParams`, `ParseReadOrWriteParams`, `StartParse…Parameters` | `GroupFunction.Request` and its `requestParameters`, `commandParameters`, `acknowledgementParameters`, `readOrWriteParameters`, `pairs` |
+| `AddGroupFunctionHandler`, `RemoveGroupFunctionHandler`, subclasses of `tN2kGroupFunctionHandler` | `Node.setGroupFunctionHandler(_:for:)` with a `Node.GroupFunctionHandler` closure, which returns `nil` where a subclass calls the base class |
 | `GetRequestGroupFunctionTransmissionOrPriorityErrorCode` | `GroupFunction.transmissionError(interval:offset:intervalLimits:maxOffset:)` |
 | `tNMEA2000::HandleGroupFunction`, `RespondGroupFunction`, `tN2kGroupFunctionHandler` | `NodeEngine.handleGroupFunction(_:at:)` |
 | `tN2kGroupFunctionHandlerForPGN60928`, `…126464`, `…126993`, `…126996`, `…126998` | `NodeEngine+GroupFunctions.swift` |
@@ -184,9 +187,9 @@ A node can host several devices, as upstream's `SetDeviceCount` allows. Each has
 |---|---|---|
 | The 126996 handler compares the software version, model version and serial code filters with the model ID | Compares each with its own field | Upstream answers "out of range" to a matching filter. **Changes the frames sent** for those requests. |
 
-### Not ported
+### Application handlers
 
-- Application group function handlers (`AddGroupFunctionHandler`, subclasses of `tN2kGroupFunctionHandler`). Requests for other PGNs get the default answers.
+An application answers group functions for its own PGNs with `Node.setGroupFunctionHandler(_:for:)`. Handlers for a PGN come first, then one for every PGN, then the node's own answers; a handler returns `nil` to leave a function to them. Upstream tries its handlers in the order they were added, with its built-in handlers added when the node opens, so this matches upstream for handlers added before opening.
 
 ## Device list
 

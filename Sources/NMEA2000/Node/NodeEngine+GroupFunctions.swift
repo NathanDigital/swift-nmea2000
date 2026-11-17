@@ -56,6 +56,15 @@ extension NodeEngine {
   private mutating func handleGroupFunction(_ request: GroupFunctionRequest, at now: UInt64)
     -> [CANFrame]
   {
+    // The application's handlers come first: one for the PGN, then one for
+    // every PGN. A handler that returns nil leaves the function to the
+    // node's own answers.
+    let applicationRequest = GroupFunction.Request(request.message, device: request.device)
+    for handler in [groupFunctionHandlers[request.pgn], groupFunctionHandlers[nil]] {
+      if let replies = handler?(applicationRequest) {
+        return sendAll(replies, from: request.device, at: now)
+      }
+    }
     // The handlers for network management PGNs know those aren't
     // proprietary; the default handler checks the requested PGN.
     let isProprietary =
