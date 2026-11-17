@@ -218,13 +218,11 @@ extension NodeEngine {
       for index in lists.indices { lists[index].isTransportProtocol = usesTransportProtocol }
       return sendAll(lists, from: request.device, at: now)
     case ProductInformation.pgn:
-      var reply = productInformation(of: request.device).makeMessage(destination: destination)
-      reply.isTransportProtocol = usesTransportProtocol
-      return sendAll([reply], from: request.device, at: now)
+      return sendProductInformation(
+        from: request.device, to: destination, transportProtocol: usesTransportProtocol, at: now)
     default:
-      var reply = configurationReply(to: destination)
-      reply.isTransportProtocol = usesTransportProtocol
-      return sendAll([reply], from: request.device, at: now)
+      return sendConfigurationInformation(
+        from: request.device, to: destination, transportProtocol: usesTransportProtocol, at: now)
     }
   }
 

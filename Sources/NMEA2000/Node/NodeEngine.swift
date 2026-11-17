@@ -94,6 +94,12 @@ struct NodeEngine: Sendable {
     /// When to send an address claim that was put off for a moment, if any
     /// (upstream's `PendingIsoAddressClaim`).
     var pendingClaim: UInt64?
+    /// When to try again to send product information that couldn't be sent
+    /// (upstream's `PendingProductInformation`).
+    var pendingProductInformation: UInt64?
+    /// When to try again to send configuration information that couldn't be
+    /// sent (upstream's `PendingConfigurationInformation`).
+    var pendingConfigurationInformation: UInt64?
 
     init(_ device: Node.Device, catalog: PGNCatalog) {
       address = device.address
@@ -248,6 +254,8 @@ struct NodeEngine: Sendable {
       devices[index].transfer = nil
       devices[index].heartbeat = nil
       devices[index].pendingClaim = nil
+      devices[index].pendingProductInformation = nil
+      devices[index].pendingConfigurationInformation = nil
     }
   }
 
@@ -260,6 +268,7 @@ struct NodeEngine: Sendable {
       devices.flatMap {
         [
           $0.claimDeadline, $0.transfer?.deadline, $0.pendingClaim,
+          $0.pendingProductInformation, $0.pendingConfigurationInformation,
           $0.heartbeat.map { $0.next + 1 },
         ]
       }.compactMap { $0 }.min()
@@ -305,6 +314,12 @@ struct NodeEngine: Sendable {
         if let time = devices[index].pendingClaim, now >= time {
           devices[index].pendingClaim = nil
           frames += addressClaimFrames(index)
+        }
+        if let time = devices[index].pendingProductInformation, now >= time {
+          frames += sendProductInformation(from: index, to: Message.broadcastAddress, at: now)
+        }
+        if let time = devices[index].pendingConfigurationInformation, now >= time {
+          frames += sendConfigurationInformation(from: index, to: Message.broadcastAddress, at: now)
         }
       }
       return frames
@@ -482,9 +497,9 @@ struct NodeEngine: Sendable {
         [transmitList(of: device, to: requester), receiveList(of: device, to: requester)],
         from: device, at: now)
     case ProductInformation.pgn:
-      return sendAll([productInformation(of: device).makeMessage()], from: device, at: now)
+      return sendProductInformation(from: device, to: Message.broadcastAddress, at: now)
     case ConfigurationInformation.pgn:
-      return sendAll([configurationReply(to: Message.broadcastAddress)], from: device, at: now)
+      return sendConfigurationInformation(from: device, to: Message.broadcastAddress, at: now)
     default:
       if let handler = isoRequestHandler {
         if !isAddressed && Self.ignoredBroadcastRequests.contains(requested) { return [] }
@@ -497,6 +512,44 @@ struct NodeEngine: Sendable {
         [ISOAcknowledgement(control: 1, pgn: requested).makeMessage(destination: requester)],
         from: device, at: now)
     }
+  }
+
+  /// Sends a device's product information, or tries again later if it
+  /// can't be sent now, broadcast and without transport protocol: 187 ms
+  /// plus 8 ms for each unit of the device's address, so devices don't all
+  /// retry at once.
+  ///
+  /// Ports `SendProductInformation` and `SetPendingProductInformation`.
+  mutating func sendProductInformation(
+    from device: Int, to destination: UInt8, transportProtocol: Bool = false, at now: UInt64
+  ) -> [CANFrame] {
+    var message = productInformation(of: device).makeMessage(destination: destination)
+    message.isTransportProtocol = transportProtocol
+    if let frames = try? send(message, from: device, at: now) {
+      devices[device].pendingProductInformation = nil
+      return frames
+    }
+    devices[device].pendingProductInformation = now + 187 + UInt64(devices[device].address) * 8
+    return []
+  }
+
+  /// Sends the configuration information, or tries again later if it can't
+  /// be sent now: 187 ms plus 10 ms for each unit of the device's address.
+  ///
+  /// Ports `SendConfigurationInformation` and
+  /// `SetPendingConfigurationInformation`.
+  mutating func sendConfigurationInformation(
+    from device: Int, to destination: UInt8, transportProtocol: Bool = false, at now: UInt64
+  ) -> [CANFrame] {
+    var message = configurationReply(to: destination)
+    message.isTransportProtocol = transportProtocol
+    if let frames = try? send(message, from: device, at: now) {
+      devices[device].pendingConfigurationInformation = nil
+      return frames
+    }
+    devices[device].pendingConfigurationInformation =
+      now + 187 + UInt64(devices[device].address) * 10
+    return []
   }
 
   // MARK: - Transport protocol

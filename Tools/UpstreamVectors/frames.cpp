@@ -1251,6 +1251,18 @@ const std::vector<Case> cases = {
       groupFunction(n, 0x17, gfCommand(60928, 8, 1, {3, 5}));
       until(n, 320);
     }),
+    NODE("group function for product information during the address claim", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 300);
+      groupFunction(n, 0x17, gfRequest(126996, 0xffffffff, 0xffff, 0));
+      groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 0));
+      until(n, 800);
+    }),
+    GF_NODE("product information by transport protocol during a transfer", {
+      sendTP(n, 126464, 20, 0x42);
+      groupFunction(n, 0xff, gfRequest(126996, 0xffffffff, 0xffff, 0), true);
+      until(n, 1000);
+    }),
     NODE("group function needs a full node", {
       start(n, tNMEA2000::N2km_ListenAndSend);
       until(n, 500);

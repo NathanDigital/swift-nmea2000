@@ -142,6 +142,7 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 - A request shorter than three bytes asks for PGN 0, because upstream ignores the parse failure.
 - The first heartbeat is due 10 s after the node opens and later ones every interval after that. Upstream's 64-bit timer sends each once its time has passed, at the first poll after it. Heartbeats wait for an address claim to end, are only sent in `.node` mode, and carry a sequence number that wraps from 252 to 0.
 - A commanded address (PGN 65240) moves the node to a new address and claims it, if it names the node's NAME and an address from 0 to 251 other than the current one. Upstream only accepts it by transport protocol with exactly nine bytes, and only in `.node` mode, including during an address claim.
+- Product or configuration information that can't be sent when asked for (a group function request during the address claim, or a transport protocol reply while another transfer is going) is sent again later, broadcast and without transport protocol: 187 ms plus 8 ms (product) or 10 ms (configuration) for each unit of the device's address, so devices don't retry together.
 - `ParseMessages` sends pending messages, then handles received frames, then the heartbeat; `NodeEngine.receive(_:at:)` keeps that order.
 
 ### Several devices
@@ -150,7 +151,6 @@ A node can host several devices, as upstream's `SetDeviceCount` allows. Each has
 
 ### Not ported
 
-- Pending product and configuration information (`SetPendingProductInformation`, `SetPendingConfigurationInformation`): upstream retries them only when sending fails, which can't happen in `NodeEngine`.
 - `ReadResetAddressChanged`, `ReadResetDeviceInformationChanged`: read `Node.address` and `Node.name` instead.
 
 ## Group functions
