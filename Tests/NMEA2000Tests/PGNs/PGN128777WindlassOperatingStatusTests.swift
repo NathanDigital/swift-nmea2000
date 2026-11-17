@@ -35,6 +35,11 @@ struct WindlassOperatingStatusTests {
         rodeType: .chain, anchorDockingState: .unavailable, operatingEvents: []),
       [0xff, 0xff, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x03]
     ),
+    // defaults
+    (
+      WindlassOperatingStatus(sequenceID: 6, windlassID: 1, rodeCounter: 45.6),
+      [0x06, 0x01, 0xff, 0xc8, 0x01, 0xff, 0xff, 0x03]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

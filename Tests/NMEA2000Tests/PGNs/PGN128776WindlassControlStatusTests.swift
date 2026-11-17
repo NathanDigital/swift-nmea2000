@@ -41,6 +41,12 @@ struct WindlassControlStatusTests {
         deckAndAnchorWash: .no, anchorLight: .no, commandTimeout: nil, controlEvents: []),
       [0xff, 0xff, 0xc0, 0xff, 0x00, 0xff, 0x00]
     ),
+    // defaults
+    (
+      WindlassControlStatus(
+        sequenceID: 4, windlassID: 1, directionControl: .down, speedControl: 30),
+      [0x04, 0x01, 0xfd, 0x1e, 0xff, 0x50, 0x00]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

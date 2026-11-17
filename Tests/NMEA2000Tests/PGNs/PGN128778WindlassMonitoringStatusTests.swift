@@ -33,6 +33,11 @@ struct WindlassMonitoringStatusTests {
         motorCurrent: nil, monitoringEvents: []),
       [0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
+    // defaults
+    (
+      WindlassMonitoringStatus(sequenceID: 8, windlassID: 1, totalMotorTime: 3600),
+      [0x08, 0x01, 0x00, 0xff, 0xff, 0x3c, 0x00, 0xff]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

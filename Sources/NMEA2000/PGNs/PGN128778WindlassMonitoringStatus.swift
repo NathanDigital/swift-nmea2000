@@ -31,13 +31,15 @@ public struct WindlassMonitoringStatus: ParameterGroup, Hashable {
   public var monitoringEvents: WindlassMonitoringEvents
 
   /// Creates a windlass monitoring status message.
+  ///
+  /// The defaults match upstream's `SetN2kPGN128778`.
   public init(
     sequenceID: UInt8?,
     windlassID: UInt8,
     totalMotorTime: Double?,
-    controllerVoltage: Double?,
-    motorCurrent: Double?,
-    monitoringEvents: WindlassMonitoringEvents
+    controllerVoltage: Double? = nil,
+    motorCurrent: Double? = nil,
+    monitoringEvents: WindlassMonitoringEvents = []
   ) {
     self.sequenceID = sequenceID
     self.windlassID = windlassID

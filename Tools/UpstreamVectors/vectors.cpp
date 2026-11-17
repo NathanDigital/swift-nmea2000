@@ -385,6 +385,8 @@ const std::vector<Case> cases = {
      tN2kWindlassControlEvents ev;
      SetN2kPGN128776(m, 0xff, 0xff, N2kDD484_Off, 0xff, N2kDD488_SingleSpeed, N2kDD002_No, N2kDD002_No, N2kDD002_No, N2kDD002_No, N2kDD002_No, N2kDoubleNA, ev);
    }},
+  {"PGN128776 defaults",
+   [](tN2kMsg &m) { SetN2kPGN128776(m, 4, 1, N2kDD484_Down, 30); }},
   {"PGN128777 typical",
    [](tN2kMsg &m) {
      tN2kWindlassOperatingEvents ev;
@@ -402,6 +404,8 @@ const std::vector<Case> cases = {
      tN2kWindlassOperatingEvents ev;
      SetN2kPGN128777(m, 0xff, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDD480_WindlassStopped, N2kDD481_ChainPresentlyDetected, N2kDD482_DataNotAvailable, ev);
    }},
+  {"PGN128777 defaults",
+   [](tN2kMsg &m) { SetN2kPGN128777(m, 6, 1, 45.6); }},
   {"PGN128778 typical",
    [](tN2kMsg &m) {
      tN2kWindlassMonitoringEvents ev;
@@ -419,6 +423,8 @@ const std::vector<Case> cases = {
      tN2kWindlassMonitoringEvents ev;
      SetN2kPGN128778(m, 0xff, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, ev);
    }},
+  {"PGN128778 defaults",
+   [](tN2kMsg &m) { SetN2kPGN128778(m, 8, 1, 3600); }},
   {"PGN127237 alternating limit flags",
    [](tN2kMsg &m) {
      SetN2kPGN127237(m, N2kOnOff_Off, N2kOnOff_On, N2kOnOff_Off, N2kOnOff_On, N2kSM_MainSteering, N2kTM_RudderLimitControlled, N2khr_true, N2kRDO_NoDirectionOrder, 0, 0, 0, 0, 0, 0, 0, 0, 0);

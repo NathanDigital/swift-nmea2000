@@ -38,15 +38,17 @@ public struct WindlassOperatingStatus: ParameterGroup, Hashable {
   public var operatingEvents: WindlassOperatingEvents
 
   /// Creates a windlass operating status message.
+  ///
+  /// The defaults match upstream's `SetN2kPGN128777`.
   public init(
     sequenceID: UInt8?,
     windlassID: UInt8,
     rodeCounter: Double?,
-    lineSpeed: Double?,
-    motionState: WindlassMotionState,
-    rodeType: RodeType,
-    anchorDockingState: AnchorDockingState,
-    operatingEvents: WindlassOperatingEvents
+    lineSpeed: Double? = nil,
+    motionState: WindlassMotionState = .unavailable,
+    rodeType: RodeType = .unavailable,
+    anchorDockingState: AnchorDockingState = .unavailable,
+    operatingEvents: WindlassOperatingEvents = []
   ) {
     self.sequenceID = sequenceID
     self.windlassID = windlassID

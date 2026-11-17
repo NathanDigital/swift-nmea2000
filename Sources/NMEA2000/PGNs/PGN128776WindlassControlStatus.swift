@@ -49,19 +49,21 @@ public struct WindlassControlStatus: ParameterGroup, Hashable {
   public var controlEvents: WindlassControlEvents
 
   /// Creates a windlass control status message.
+  ///
+  /// The defaults match upstream's `SetN2kPGN128776`.
   public init(
     sequenceID: UInt8?,
     windlassID: UInt8,
     directionControl: WindlassDirectionControl,
     speedControl: UInt8,
-    speedControlType: MotorSpeedType,
-    anchorDockingControl: BinaryStatus,
-    powerEnable: BinaryStatus,
-    mechanicalLock: BinaryStatus,
-    deckAndAnchorWash: BinaryStatus,
-    anchorLight: BinaryStatus,
-    commandTimeout: Double?,
-    controlEvents: WindlassControlEvents
+    speedControlType: MotorSpeedType = .unavailable,
+    anchorDockingControl: BinaryStatus = .unavailable,
+    powerEnable: BinaryStatus = .unavailable,
+    mechanicalLock: BinaryStatus = .unavailable,
+    deckAndAnchorWash: BinaryStatus = .unavailable,
+    anchorLight: BinaryStatus = .unavailable,
+    commandTimeout: Double? = 0.4,
+    controlEvents: WindlassControlEvents = []
   ) {
     self.sequenceID = sequenceID
     self.windlassID = windlassID
