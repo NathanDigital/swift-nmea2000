@@ -186,6 +186,15 @@ final class FakeTransport: CANTransport {
   /// How many times the node tried to open the transport.
   var openCount: Int { opens.withLock { $0 } }
 
+  private let closes = Mutex(0)
+
+  /// How many times the node closed the transport.
+  var closeCount: Int { closes.withLock { $0 } }
+
+  func close() async {
+    closes.withLock { $0 += 1 }
+  }
+
   func open() async throws -> AsyncStream<CANFrame> {
     opens.withLock { $0 += 1 }
     let fails = failures.withLock { failures in
@@ -301,6 +310,19 @@ struct NodeTests {
 
     transport.receive.finish()
     try await finish(run)
+  }
+
+  @Test func closesTheTransportAndRunsOnceAtATime() async throws {
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let node = makeNode(transport, clock: clock)
+    let run = Task { try await node.run() }
+    try await clock.waitForSleepers()
+    await #expect(throws: NodeError.alreadyRunning) { try await node.run() }
+    #expect(transport.closeCount == 0)
+    transport.receive.finish()
+    try await finish(run)
+    #expect(transport.closeCount == 1)
   }
 
   @Test func stopsOpeningWhenCancelled() async throws {

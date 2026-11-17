@@ -222,6 +222,7 @@ public actor Node {
   private let clock: NodeClock
   private let openTransport: @Sendable () async throws -> FrameSource
   private let sendFrame: @Sendable (CANFrame) async throws -> Void
+  private let closeTransport: @Sendable () async -> Void
   private var subscribers:
     [Int: (continuation: AsyncStream<Message>.Continuation, includesSent: Bool)] =
       [:]
@@ -357,6 +358,7 @@ public actor Node {
       }
     }
     sendFrame = { try await transport.send($0) }
+    closeTransport = { await transport.close() }
   }
 
   /// The first device's address: the one it holds or is claiming, or 254 if
@@ -413,22 +415,44 @@ public actor Node {
   }
 
   /// Opens the transport and runs the node until the transport's frames end
-  /// or the task is cancelled.
+  /// or the task is cancelled, then closes the transport.
+  ///
+  /// Run it in a task whose errors are handled, alongside the code that
+  /// uses the node:
+  ///
+  /// ```swift
+  /// try await withThrowingTaskGroup(of: Void.self) { group in
+  ///   group.addTask { try await node.run() }
+  ///   group.addTask {
+  ///     try await node.waitUntilReady()
+  ///     try await node.send(PositionRapidUpdate(latitude: 60.17, longitude: 24.94))
+  ///   }
+  ///   try await group.next()
+  ///   group.cancelAll()
+  /// }
+  /// ```
   ///
   /// If the transport fails to open, the node tries again every second.
   /// When `run()` returns, every ``messages()`` sequence finishes, and the
   /// node can be run again.
   ///
-  /// - Throws: `CancellationError` if the task is cancelled while the
-  ///   transport is opening, or an error from the transport's frames.
+  /// - Throws: ``NodeError/alreadyRunning`` if the node is already running,
+  ///   `CancellationError` if the task is cancelled while the transport is
+  ///   opening, or an error from the transport's frames.
   public func run() async throws {
-    precondition(!isRunning, "Node.run() is already running")
+    guard !isRunning else { throw NodeError.alreadyRunning }
     isRunning = true
     hasStopped = false
     defer { stop() }
     let frames = try await openWithRetries()
     scheduleTimer()
-    try await frames.deliver { frame in await self.handle(frame) }
+    do {
+      try await frames.deliver { frame in await self.handle(frame) }
+    } catch {
+      await closeTransport()
+      throw error
+    }
+    await closeTransport()
   }
 
   /// Returns a sequence of the messages the node receives from now on,
@@ -584,6 +608,10 @@ public actor Node {
   /// - Parameters:
   ///   - message: The message to send.
   ///   - device: The node's device to send from.
+  /// The message's frames are queued in order with every other message's.
+  /// Cancelling the calling task doesn't take them back: a message is sent
+  /// whole once it's queued.
+  ///
   /// - Throws: ``NodeError`` if the device can't send the message now, or an
   ///   error from the transport.
   public func send(_ message: Message, from device: DeviceID = .first) async throws {
@@ -942,6 +970,8 @@ public actor Node {
 public enum NodeError: Error, Sendable, Hashable {
   /// The node isn't running, or is still opening its transport.
   case notOpen
+  /// ``Node/run()`` was called while the node was already running.
+  case alreadyRunning
   /// The node is in ``Node/Mode/listenOnly`` mode.
   case listenOnly
   /// The node is claiming its address. Try again once the claim is done,

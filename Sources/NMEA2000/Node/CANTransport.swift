@@ -32,4 +32,17 @@ public protocol CANTransport: Sendable {
   ///
   /// - Throws: Any error that stopped the frame being sent.
   func send(_ frame: CANFrame) async throws
+
+  /// Closes the connection. The node calls this when ``Node/run()``
+  /// returns, whether the frames ended, the task was cancelled or an error
+  /// was thrown.
+  ///
+  /// The frame sequence ``open()`` returns should end when the task reading
+  /// it is cancelled, so that cancelling ``Node/run()`` stops it. The default
+  /// implementation does nothing.
+  func close() async
+}
+
+extension CANTransport {
+  public func close() async {}
 }
