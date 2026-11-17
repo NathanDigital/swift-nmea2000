@@ -51,10 +51,16 @@ public struct MeteorologicalStationData: ParameterGroup, Hashable {
   /// The outside air temperature, in kelvins, or `nil` if not available.
   public var outsideAirTemperature: Double?
 
-  /// The station identifier. Up to ``maxStationIDLength`` characters are sent.
+  /// The station identifier.
+  ///
+  /// Upstream stores it in a buffer of ``maxStationIDLength`` UTF-8 bytes, so at most that many bytes
+  /// are sent.
   public var stationID: String
 
-  /// The station name. Up to ``maxStationNameLength`` characters are sent.
+  /// The station name.
+  ///
+  /// Upstream stores it in a buffer of ``maxStationNameLength`` UTF-8 bytes, so at most that many bytes
+  /// are sent.
   public var stationName: String
 
   /// Creates a meteorological station data message.
@@ -118,10 +124,12 @@ public struct MeteorologicalStationData: ParameterGroup, Hashable {
     writer.appendUInt16(windGusts, resolution: 0.01)
     writer.appendUInt16(atmosphericPressure, resolution: 100)
     writer.appendUInt16(outsideAirTemperature, resolution: 0.01)
+    // Upstream holds both strings in fixed byte buffers before encoding them.
     writer.appendVariableString(
-      stationID, maxLength: Self.maxStationIDLength, encoding: .unicode, lengthUnit: .characters)
+      stationID.prefix(utf8ByteCount: Self.maxStationIDLength),
+      maxLength: Self.maxStationIDLength, encoding: .unicode, lengthUnit: .characters)
     writer.appendVariableString(
-      stationName, maxLength: Self.maxStationNameLength, encoding: .unicode, lengthUnit: .characters
-    )
+      stationName.prefix(utf8ByteCount: Self.maxStationNameLength),
+      maxLength: Self.maxStationNameLength, encoding: .unicode, lengthUnit: .characters)
   }
 }

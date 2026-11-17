@@ -637,6 +637,146 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) { SetN2kPGN130576(m, 25, -10); }},
   {"PGN130576 not available",
    [](tN2kMsg &m) { SetN2kPGN130576(m, N2kInt8NA, N2kInt8NA); }},
+  {"PGN130323 non-ASCII names at the buffer limit",
+   [](tN2kMsg &m) {
+     tN2kMeteorlogicalStationData d;
+     d.SetStationID("\xc3\x96rebro-\xc3\x96st-7");
+     d.SetStationName("V\xc3\xa4" "der\xc3\xb6station p\xc3\xa5 \xc3\x85land, n\xc3\xa4ra Mariehamn hamn och fyr");
+     SetN2kPGN130323(m, d);
+   }},
+  {"PGN129038 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN129038(m, 1, N2kaisr_Initial, 230123456, 60.1234567, -24.9876543, true, false, 42, 1.5, 6.25, N2kaischannel_B_VDL_transmission, 1.55, -0.01, N2kaisns_Under_Way_Motoring, 7);
+   }},
+  {"PGN129038 high field values",
+   [](tN2kMsg &m) {
+     SetN2kPGN129038(m, 63, N2kaisr_Final, 0xffffffff, -33.8688, 151.2093, false, true, 63, 0, 0, (tN2kAISTransceiverInformation)31, 0, 0.02, (tN2kAISNavStatus)13, 0xfe);
+   }},
+  {"PGN129038 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN129038(m, 3, N2kaisr_First, 0, N2kDoubleNA, N2kDoubleNA, false, false, 60, N2kDoubleNA, N2kDoubleNA, N2kaischannel_A_VDL_reception, N2kDoubleNA, N2kDoubleNA, N2kaisns_AIS_SART, 0xff);
+   }},
+  {"PGN129039 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN129039(m, 18, N2kaisr_Second, 211234567, 54.321, 10.123, true, true, 30, 3.0, 2.5, N2kaischannel_A_VDL_reception, 3.05, N2kaisunit_ClassB_CS, true, false, true, false, N2kaismode_Assigned, false, 9);
+   }},
+  {"PGN129039 other flags",
+   [](tN2kMsg &m) {
+     SetN2kPGN129039(m, 63, N2kaisr_Final, 1, -1.5, -2.5, false, false, 63, 0, 0, (tN2kAISTransceiverInformation)31, 0, N2kaisunit_ClassB_SOTDMA, false, true, false, true, N2kaismode_Autonomous, true, 0xff);
+   }},
+  {"PGN129039 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN129039(m, 19, N2kaisr_Initial, 0, N2kDoubleNA, N2kDoubleNA, false, false, 60, N2kDoubleNA, N2kDoubleNA, N2kaischannel_B_VDL_reception, N2kDoubleNA, N2kaisunit_ClassB_SOTDMA, false, false, false, false, N2kaismode_Autonomous, false, 0xff);
+   }},
+  {"PGN129041 typical",
+   [](tN2kMsg &m) {
+     tN2kAISAtoNReportData d;
+     d.MessageID = 21;
+     d.Repeat = N2kaisr_Initial;
+     d.UserID = 992761234;
+     d.Longitude = 24.9512;
+     d.Latitude = 60.1695;
+     d.Accuracy = true;
+     d.RAIM = false;
+     d.Seconds = 15;
+     d.Length = 5.5;
+     d.Beam = 2.5;
+     d.PositionReferenceStarboard = 1.2;
+     d.PositionReferenceTrueNorth = 2.75;
+     d.AtoNType = N2kAISAtoN_beacon_cardinal_N;
+     d.OffPositionIndicator = false;
+     d.VirtualAtoNFlag = true;
+     d.AssignedModeFlag = false;
+     d.GNSSType = N2kGNSSt_GPSGLONASS;
+     d.AtoNStatus = 0;
+     d.AISTransceiverInformation = N2kaischannel_A_VDL_transmission;
+     d.SetAtoNName("Harmaja light");
+     SetN2kPGN129041(m, d);
+   }},
+  {"PGN129041 high field values and long name",
+   [](tN2kMsg &m) {
+     tN2kAISAtoNReportData d;
+     d.MessageID = 63;
+     d.Repeat = N2kaisr_Final;
+     d.UserID = 1;
+     d.Longitude = -151.2093;
+     d.Latitude = -33.8688;
+     d.Accuracy = false;
+     d.RAIM = true;
+     d.Seconds = 63;
+     d.Length = 6553.0;
+     d.Beam = 0;
+     d.PositionReferenceStarboard = 0;
+     d.PositionReferenceTrueNorth = 0;
+     d.AtoNType = N2kAISAtoN_light_vessel_lanby_rigs;
+     d.OffPositionIndicator = true;
+     d.VirtualAtoNFlag = false;
+     d.AssignedModeFlag = true;
+     d.GNSSType = N2kGNSSt_Galileo;
+     d.AtoNStatus = 165;
+     d.AISTransceiverInformation = (tN2kAISTransceiverInformation)31;
+     d.SetAtoNName("Very long AtoN name \xc3\xa4" "bove the 34 character limit");
+     SetN2kPGN129041(m, d);
+   }},
+  {"PGN129041 defaults",
+   [](tN2kMsg &m) {
+     tN2kAISAtoNReportData d;
+     SetN2kPGN129041(m, d);
+   }},
+  {"PGN129794 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN129794(m, 5, N2kaisr_Initial, 230123456, 9876543, "oh2abc", "m/s Example Vessel", 70, 188.5, 30.25, 15.5, 140.0, 19001, 50400, 10.75, "Helsinki", N2kaisv_ITU_R_M_1371_3, N2kGNSSt_GPS, N2kaisdte_Ready, N2kaischannel_A_VDL_reception, 11);
+   }},
+  {"PGN129794 long and non-ASCII text, high field values",
+   [](tN2kMsg &m) {
+     SetN2kPGN129794(m, 63, N2kaisr_Final, 1, 0, "CALLSIGN9", "N\xc3\xa4me longer than twenty chars", 255, 0, 0, 0, 0, 0, 0, -1.5, "Destination name too long~", (tN2kAISVersion)3, N2kGNSSt_Galileo, N2kaisdte_NotReady, (tN2kAISTransceiverInformation)31, 0xfe);
+   }},
+  {"PGN129794 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN129794(m, 5, N2kaisr_Initial, 0, 0, "", "", 0, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, 0xffff, N2kDoubleNA, N2kDoubleNA, "", N2kaisv_ITU_R_M_1371_1, N2kGNSSt_GPS, N2kaisdte_Ready, N2kaischannel_A_VDL_reception, 0xff);
+   }},
+  {"PGN129794 defaults",
+   [](tN2kMsg &m) {
+     SetN2kPGN129794(m, 5, N2kaisr_Initial, 230000001, 0, "AB", "SHIP", 30, 10, 3, 1, 5, 19000, 0, 1, "PORT", N2kaisv_ITU_R_M_1371_1, N2kGNSSt_GPS, N2kaisdte_Ready);
+   }},
+  {"PGN129802 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN129802(m, 14, N2kaisr_Initial, 230123456, N2kaischannel_A_VDL_transmission, "MOB ALERT near buoy 5");
+   }},
+  {"PGN129802 high field values and non-ASCII text",
+   [](tN2kMsg &m) {
+     SetN2kPGN129802(m, 63, N2kaisr_Final, 0xffffffff, (tN2kAISTransceiverInformation)31, "Var\xc3\xa5 storm");
+   }},
+  {"PGN129802 empty text",
+   [](tN2kMsg &m) {
+     SetN2kPGN129802(m, 14, N2kaisr_Second, 1, N2kaischannel_B_VDL_reception, "");
+   }},
+  {"PGN129809 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN129809(m, 24, N2kaisr_Initial, 230123456, "sailing yacht", N2kaischannel_B_VDL_transmission, 3);
+   }},
+  {"PGN129809 high field values and long name",
+   [](tN2kMsg &m) {
+     SetN2kPGN129809(m, 63, N2kaisr_Final, 0xffffffff, "A name far longer than twenty", (tN2kAISTransceiverInformation)31, 0xfe);
+   }},
+  {"PGN129809 defaults",
+   [](tN2kMsg &m) { SetN2kPGN129809(m, 24, N2kaisr_Initial, 230000002, "BOAT"); }},
+  {"PGN129810 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN129810(m, 24, N2kaisr_Initial, 230123456, 36, "acme01", "oh2xyz", 12.5, 4.25, 2.0, 9.5, 0, N2kaischannel_A_VDL_transmission, 4);
+   }},
+  {"PGN129810 high field values",
+   [](tN2kMsg &m) {
+     SetN2kPGN129810(m, 63, N2kaisr_Final, 0xffffffff, 255, "VENDOR12", "C\xc3\xa4LL", 0, 0, 0, 0, 0xffffffff, (tN2kAISTransceiverInformation)31, 0xfe);
+   }},
+  {"PGN129810 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN129810(m, 24, N2kaisr_Initial, 0, 0, "", "", N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, 0, N2kaischannel_A_VDL_reception, 0xff);
+   }},
+  {"PGN129810 defaults",
+   [](tN2kMsg &m) {
+     SetN2kPGN129810(m, 24, N2kaisr_Initial, 230000003, 37, "V", "C", 8, 3, 1, 4, 0);
+   }},
 };
 
 void print(const Case &c) {
