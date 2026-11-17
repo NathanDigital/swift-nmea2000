@@ -347,7 +347,7 @@ struct NodeTests {
     clock.advance(to: 450)
 
     try await node.send(
-      Message(pgn: 126464, data: Array(0..<10), isTransportProtocol: true))
+      Message(pgn: 126464, data: Array(0..<10), framing: .transportProtocol))
     #expect(try await sent.next()?.id == 0x18ec_ff17)
     // The node wakes itself for each data packet.
     try await clock.waitForSleepers()

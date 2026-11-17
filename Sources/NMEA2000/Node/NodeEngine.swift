@@ -476,7 +476,7 @@ struct NodeEngine: Sendable {
   /// devices.
   ///
   /// The message's source is replaced with the device's address. A message
-  /// marked ``Message/isTransportProtocol`` that doesn't fit a single frame
+  /// with ``Message/Framing-swift.enum/transportProtocol`` framing that doesn't fit a single frame
   /// starts a transport protocol session, which sends its data packets
   /// later; the frames returned announce it.
   ///
@@ -497,7 +497,7 @@ struct NodeEngine: Sendable {
     } catch {
       throw .invalidMessage(error)
     }
-    if message.isTransportProtocol
+    if message.framing == .transportProtocol
       && !MessageFramer.fitsSingleFrame(message, catalog: devices[device].framer.catalog)
     {
       let frames = try startTransfer(message, from: device, at: now)
@@ -584,7 +584,7 @@ struct NodeEngine: Sendable {
     from device: Int, to destination: UInt8, transportProtocol: Bool = false, at now: UInt64
   ) -> [CANFrame] {
     var message = productInformation(of: device).makeMessage(destination: destination)
-    message.isTransportProtocol = transportProtocol
+    message.framing = transportProtocol ? .transportProtocol : .automatic
     if let frames = try? send(message, from: device, at: now) {
       devices[device].pendingProductInformation = nil
       return frames
@@ -602,7 +602,7 @@ struct NodeEngine: Sendable {
     from device: Int, to destination: UInt8, transportProtocol: Bool = false, at now: UInt64
   ) -> [CANFrame] {
     var message = configurationReply(to: destination)
-    message.isTransportProtocol = transportProtocol
+    message.framing = transportProtocol ? .transportProtocol : .automatic
     if let frames = try? send(message, from: device, at: now) {
       devices[device].pendingConfigurationInformation = nil
       return frames
@@ -797,7 +797,7 @@ struct NodeEngine: Sendable {
   ///
   /// Ports `HandleCommandedAddress`.
   private mutating func handleCommandedAddress(_ message: Message, at now: UInt64) -> [CANFrame] {
-    guard message.isTransportProtocol, message.data.count == 9 else { return [] }
+    guard message.framing == .transportProtocol, message.data.count == 9 else { return [] }
     var reader = MessageReader(message)
     let commandedName = DeviceName(rawValue: reader.readUInt64())
     let newAddress = reader.readUInt8()
@@ -878,7 +878,7 @@ struct NodeEngine: Sendable {
     var message =
       kind == .receive
       ? receiveList(of: device, to: destination) : transmitList(of: device, to: destination)
-    message.isTransportProtocol = transportProtocol
+    message.framing = transportProtocol ? .transportProtocol : .automatic
     return try send(message, from: device, at: now)
   }
 

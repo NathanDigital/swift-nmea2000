@@ -15,7 +15,7 @@ Every upstream helper has exactly one Swift equivalent with the same width, reso
 | `Priority`, `PGN`, `Source`, `Destination` | `priority`, `pgn`, `source`, `destination` |
 | `Data`, `DataLen` | `data` (`[UInt8]`) |
 | `MsgTime` | `timestamp` (milliseconds) |
-| `IsTPMessage()` / `SetIsTPMessage()` | `isTransportProtocol` |
+| `IsTPMessage()` / `SetIsTPMessage()` | `framing == .transportProtocol` |
 | `MaxDataLen` (223) | `Message.maxDataCount` |
 | `IsValid()` | `isValid` |
 | `Print`, `PrintBuf` | `description` (`CustomStringConvertible`), which also prints an invalid message, where `Print` prints nothing |

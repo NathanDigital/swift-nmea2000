@@ -397,10 +397,10 @@ public actor Node {
   ///
   /// The message's source is replaced with the device's address. A message of
   /// up to eight bytes is sent in one frame unless its PGN is a fast-packet
-  /// PGN (see ``Message/forcesSingleFrame``); anything longer is sent as a
+  /// PGN (see ``Message/Framing-swift.enum/singleFrame``); anything longer is sent as a
   /// fast packet.
   ///
-  /// A message marked ``Message/isTransportProtocol`` that doesn't fit in
+  /// A message with ``Message/Framing-swift.enum/transportProtocol`` framing that doesn't fit in
   /// one frame is sent by ISO transport protocol instead, which only a full
   /// node can do, one message at a time. This method returns once the
   /// session is announced; the node sends the data packets afterwards, every
@@ -430,15 +430,18 @@ public actor Node {
   ///   - priority: The priority, or `nil` for the parameter group's default.
   ///   - destination: The destination address. Most parameter groups are
   ///     broadcast.
+  ///   - device: The index of the node's device to send from.
+  ///   - framing: How to split the message into CAN frames.
   /// - Throws: ``NodeError`` if the node can't send the message now, or an
   ///   error from the transport.
-  ///   - device: The index of the node's device to send from.
   public func send(
     _ parameterGroup: some ParameterGroup, priority: UInt8? = nil,
-    to destination: UInt8 = Message.broadcastAddress, from device: Int = 0
+    to destination: UInt8 = Message.broadcastAddress, from device: Int = 0,
+    framing: Message.Framing = .automatic
   ) async throws {
-    try await send(
-      parameterGroup.makeMessage(priority: priority, destination: destination), from: device)
+    var message = parameterGroup.makeMessage(priority: priority, destination: destination)
+    message.framing = framing
+    try await send(message, from: device)
   }
 
   // MARK: - Running

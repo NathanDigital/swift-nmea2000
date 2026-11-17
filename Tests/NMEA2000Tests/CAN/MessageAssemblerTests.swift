@@ -363,7 +363,7 @@ struct MessageAssemblerTests {
       assembled.message
         == Message(
           pgn: 126464, priority: 7, source: 0x42, data: Array(0..<10), timestamp: 1100,
-          isTransportProtocol: true))
+          framing: .transportProtocol))
     #expect(!assembled.isSystemMessage)
   }
 

@@ -288,9 +288,9 @@ struct MessageFramerTests {
     FramerCase(
       "forced single frame",
       messages: [
-        with(message(129029, count: 6, priority: 3)) { $0.forcesSingleFrame = true },
-        with(message(129029, count: 8, priority: 3)) { $0.forcesSingleFrame = true },
-        with(message(129029, count: 9, priority: 3)) { $0.forcesSingleFrame = true },
+        with(message(129029, count: 6, priority: 3)) { $0.framing = .singleFrame },
+        with(message(129029, count: 8, priority: 3)) { $0.framing = .singleFrame },
+        with(message(129029, count: 9, priority: 3)) { $0.framing = .singleFrame },
       ],
       frames: [
         CANFrame(id: 0x0df8_0517, data: [0x00, 0x01, 0x02, 0x03, 0x04, 0x05]),

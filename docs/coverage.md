@@ -27,7 +27,7 @@ Status: **done**, **to do**, or **by design** where the Swift API covers the nee
 | `SetHandleOnlyKnownMessages`, `SetSingleFrameMessages`, `SetFastPacketMessages`, `Extend…Messages` | `Node(handlesOnlyKnownMessages:catalog:)`, `PGNCatalog` | done |
 | `SetN2kCANMsgBufSize` | `Node(bufferCount:)` | done |
 | `SetN2kCANSendFrameBufSize`, `SetN2kCANReceiveFrameBufSize` | `CANTransport`, `Node` | by design: the transport buffers and suspends `send` when full; the node queues up to upstream's default 40 frames and handles a dropped or failed frame as upstream handles a failed send (`docs/node.md`) |
-| Priority `0x80` and up sends a fast-packet PGN in one frame | `Message.forcesSingleFrame` | done |
+| Priority `0x80` and up sends a fast-packet PGN in one frame | `Message.Framing.singleFrame` | done |
 | `IsBroadcast`, `IsProprietaryMessage` and the other PGN classifiers | `Message.broadcastAddress`, `PGNCatalog` | done |
 | Address claim, ISO requests, heartbeat, transport protocol, commanded address, group function defaults, pending resends | `NodeEngine` | done |
 

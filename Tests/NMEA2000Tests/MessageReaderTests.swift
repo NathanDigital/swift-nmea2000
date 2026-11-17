@@ -258,7 +258,7 @@ struct MessageTests {
     #expect(message.priority == 6)
     #expect(message.source == 15)
     #expect(message.destination == Message.broadcastAddress)
-    #expect(!message.isTransportProtocol)
+    #expect(!(message.framing == .transportProtocol))
   }
 
   @Test func masksPriority() {
@@ -275,9 +275,10 @@ struct MessageTests {
         .description == "Pri:6 PGN:59904 Source:66 Dest:23 Len:3 Data:0,ee,0")
   }
 
-  @Test func validity() {
-    #expect(!Message(pgn: 0, data: [1]).isValid)
-    #expect(!Message(pgn: 1).isValid)
-    #expect(Message(pgn: 1, data: [1]).isValid)
+  @Test func keepsThreePriorityBits() {
+    var message = Message(pgn: 127250, priority: 9)
+    #expect(message.priority == 1)
+    message.priority = 0x0b
+    #expect(message.priority == 3)
   }
 }

@@ -137,7 +137,7 @@ public struct MessageAssembler: Sendable {
         guard
           let found = buffers.firstIndex(where: {
             $0.message.pgn == header.pgn && $0.message.source == header.source
-              && !$0.message.isTransportProtocol
+              && $0.message.framing != .transportProtocol
           })
         else { return nil }
         guard buffers[found].lastFrame &+ 1 == counter else {
@@ -214,7 +214,7 @@ public struct MessageAssembler: Sendable {
         return Reception(replies: busy)
       }
       buffers[index].start(messageHeader, kind: kind, at: time)
-      buffers[index].message.isTransportProtocol = true
+      buffers[index].message.framing = .transportProtocol
       buffers[index].expectedCount = byteCount
       buffers[index].lastFrame = 0
       guard mustReply else { return Reception() }
@@ -239,7 +239,7 @@ public struct MessageAssembler: Sendable {
   ) -> Reception {
     guard let sequence = data.first,
       let index = buffers.firstIndex(where: {
-        !$0.isFree && $0.message.isTransportProtocol
+        !$0.isFree && $0.message.framing == .transportProtocol
           && $0.message.destination == header.destination && $0.message.source == header.source
       })
     else { return Reception() }
@@ -290,7 +290,7 @@ public struct MessageAssembler: Sendable {
       if buffer.isFree
         || (buffer.message.pgn == header.pgn && buffer.message.source == header.source
           && buffer.message.destination == header.destination
-          && buffer.message.isTransportProtocol == transport)
+          && (buffer.message.framing == .transportProtocol) == transport)
       {
         return index
       }

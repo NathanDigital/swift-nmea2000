@@ -18,13 +18,18 @@ public struct Message: Sendable, Hashable {
   /// The broadcast destination address.
   public static let broadcastAddress: UInt8 = 0xff
 
-  /// The message priority, from 0 (highest) to 7 (lowest).
-  public var priority: UInt8
+  /// The message priority, from 0 (highest) to 7 (lowest). Only the low
+  /// three bits are kept.
+  public var priority: UInt8 {
+    didSet { if priority > 7 { priority &= 0x7 } }
+  }
 
   /// The parameter group number that identifies the message's contents.
   public var pgn: UInt32
 
   /// The source address of the sending device.
+  ///
+  /// ``Node`` replaces it with the sending device's address.
   public var source: UInt8
 
   /// The destination address, or ``broadcastAddress`` for a broadcast.
@@ -39,28 +44,41 @@ public struct Message: Sendable, Hashable {
   /// Gateway formats such as Actisense carry this value on the wire.
   public var timestamp: UInt32
 
-  /// A Boolean value that indicates whether the message is sent or was
-  /// received using the ISO transport protocol rather than fast packet.
-  public var isTransportProtocol: Bool
+  /// How the message is split into CAN frames when it's sent, or how a
+  /// received message arrived.
+  public var framing: Framing
 
-  /// A Boolean value that indicates whether a message of up to eight bytes
-  /// is sent in a single frame even if its PGN is a fast-packet PGN, as some
-  /// devices expect. Longer messages are sent as fast packets regardless.
-  ///
-  /// Upstream asks for this with a priority of `0x80` or more.
-  public var forcesSingleFrame: Bool = false
+  /// How a message is split into CAN frames.
+  public enum Framing: Sendable, Hashable, Codable {
+    /// One frame for up to eight bytes, unless the PGN is a fast-packet
+    /// PGN; otherwise a fast packet.
+    case automatic
+
+    /// One frame for up to eight bytes even if the PGN is a fast-packet
+    /// PGN, as some devices expect; a fast packet for anything longer.
+    ///
+    /// Upstream asks for this with a priority of `0x80` or more.
+    case singleFrame
+
+    /// The ISO transport protocol for anything that doesn't fit in one
+    /// frame, which only a full node can send. A received message that
+    /// arrived by transport protocol has this framing.
+    ///
+    /// Ports `tN2kMsg::SetIsTPMessage` and `IsTPMessage`.
+    case transportProtocol
+  }
 
   /// Creates a message.
   ///
   /// - Parameters:
   ///   - pgn: The parameter group number.
   ///   - priority: The priority. Only the low three bits are kept.
-  ///   - source: The source address.
+  ///   - source: The source address. Upstream's default is 15; ``Node``
+  ///     replaces it with the sending device's address.
   ///   - destination: The destination address.
   ///   - data: The payload bytes.
   ///   - timestamp: The time stamp, in milliseconds.
-  ///   - isTransportProtocol: Whether the message uses the ISO transport
-  ///     protocol.
+  ///   - framing: How the message is split into CAN frames.
   public init(
     pgn: UInt32,
     priority: UInt8 = 6,
@@ -68,7 +86,7 @@ public struct Message: Sendable, Hashable {
     destination: UInt8 = Message.broadcastAddress,
     data: [UInt8] = [],
     timestamp: UInt32 = 0,
-    isTransportProtocol: Bool = false
+    framing: Framing = .automatic
   ) {
     self.pgn = pgn
     self.priority = priority & 0x7
@@ -76,12 +94,12 @@ public struct Message: Sendable, Hashable {
     self.destination = destination
     self.data = data
     self.timestamp = timestamp
-    self.isTransportProtocol = isTransportProtocol
+    self.framing = framing
   }
 
-  /// A Boolean value that indicates whether the message has a PGN and a
-  /// non-empty payload.
-  public var isValid: Bool {
+  /// Whether the message has a PGN and a non-empty payload, which upstream
+  /// requires of a message it writes in a gateway format (`IsValid`).
+  var isValid: Bool {
     pgn != 0 && !data.isEmpty
   }
 }

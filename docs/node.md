@@ -47,7 +47,7 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 | `SendMsg` copies six bytes into a fast packet's first frame even when the payload is shorter, sending stale buffer bytes | `MessageFramer` pads with `0xff` | Upstream's bytes are undefined, so there's nothing to match. `0xff` matches its padding of later frames. |
 | `SetN2kCANBufMsg` reads the frame counter and length from leftover buffer bytes when a fast-packet frame is too short to hold them | `MessageAssembler` ignores the frame | Upstream's result is undefined. |
 | `N2ktoCanID` shifts PGNs wider than 18 bits into the priority bits | `CANIdentifier.frameID` returns `nil` | No valid PGN is that wide. |
-| `IsFastPacket` sends a message as a single frame when its priority is `0x80` or more | `Message.forcesSingleFrame` | `Message.priority` holds three bits, so the option is explicit rather than an out-of-range priority. |
+| `IsFastPacket` sends a message as a single frame when its priority is `0x80` or more | `Message.Framing.singleFrame` | `Message.priority` holds three bits, so the option is explicit rather than an out-of-range priority. |
 
 ### Testing
 
@@ -117,7 +117,7 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 | `SendTPCM_BAM`, `SendTPCM_RTS`, `SendTPCM_CTS`, `SendTPCM_EndAck`, `SendTPCM_Abort`, `SendTPDT` | `TransportProtocol.start`, `.clearToSend`, `.endOfMessage`, `.abort`, `.dataPacket` |
 | `TestHandleTPMessage` (receiving) | `MessageAssembler.receive(_:at:)`, which shares its buffers between fast packets and sessions |
 | `TestHandleTPMessage` (CTS, ACK, abort for our session), `StartSendTPMessage`, `SendPendingTPMessage`, `EndSendTPMessage` | `NodeEngine`'s transfer |
-| `tN2kMsg::SetIsTPMessage` | `Message.isTransportProtocol` |
+| `tN2kMsg::SetIsTPMessage` | `Message.Framing.transportProtocol` |
 
 ### Kept upstream behaviour
 

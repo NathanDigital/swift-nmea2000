@@ -201,7 +201,7 @@ struct EngineDriver {
       send(
         Message(
           pgn: pgn, destination: destination, data: (0..<count).map(UInt8.init),
-          isTransportProtocol: true))
+          framing: .transportProtocol))
     case .dataPackets(let destination, let sequences, let count):
       for sequence in sequences {
         receive(CANFrame(id: tpDT(to: destination), data: dataPacket(sequence, of: count)))
@@ -2723,7 +2723,7 @@ struct NodeEngineTests {
 
   @Test func refusesTransportProtocolSendsWithAReason() {
     let long = Message(
-      pgn: 126464, destination: 0x42, data: Array(0..<20), isTransportProtocol: true)
+      pgn: 126464, destination: 0x42, data: Array(0..<20), framing: .transportProtocol)
     var driver = EngineDriver(mode: .node, address: 23)
     driver.poll()
     driver.until(450)
@@ -2735,7 +2735,7 @@ struct NodeEngineTests {
     sender.until(200)
     #expect(sender.send(long) == .notAFullNode)
     #expect(
-      sender.send(Message(pgn: 126464, data: Array(0..<224), isTransportProtocol: true))
+      sender.send(Message(pgn: 126464, data: Array(0..<224), framing: .transportProtocol))
         == .invalidMessage(.payloadTooLong(224)))
   }
 
@@ -2746,7 +2746,7 @@ struct NodeEngineTests {
     driver.until(450)
     driver.events = []
     driver.send(
-      Message(pgn: 130820, destination: 0x42, data: Array(0..<10), isTransportProtocol: true))
+      Message(pgn: 130820, destination: 0x42, data: Array(0..<10), framing: .transportProtocol))
     #expect(
       driver.events.first
         == .tx(at: 450, id: 0x18ec_ff17, data: [0x20, 10, 0, 2, 0xff, 0x04, 0xff, 0x01]))
@@ -2756,7 +2756,7 @@ struct NodeEngineTests {
     var driver = EngineDriver(mode: .node, address: 23)
     driver.poll()
     driver.until(450)
-    driver.send(Message(pgn: 126464, data: Array(0..<20), isTransportProtocol: true))
+    driver.send(Message(pgn: 126464, data: Array(0..<20), framing: .transportProtocol))
     #expect(driver.engine.nextDeadline == 500)
     driver.until(650)
     #expect(driver.engine.nextDeadline == 10201)
@@ -2850,7 +2850,7 @@ struct NodeEngineTests {
     var driver = EngineDriver(mode: .node, address: 23)
     driver.until(500)
     let message = Message(
-      pgn: 126464, destination: 0x42, data: Array(0..<20), isTransportProtocol: true)
+      pgn: 126464, destination: 0x42, data: Array(0..<20), framing: .transportProtocol)
     let frames = try driver.engine.send(message, at: 500)
     driver.engine.transmissionFailed(frames, retriesInformation: false, at: 510)
     #expect(driver.engine.devices[0].transfer == nil)
@@ -2860,7 +2860,7 @@ struct NodeEngineTests {
     // Upstream sends the next broadcast packet regardless.
     var driver = EngineDriver(mode: .node, address: 23)
     driver.until(500)
-    let message = Message(pgn: 126464, data: Array(0..<20), isTransportProtocol: true)
+    let message = Message(pgn: 126464, data: Array(0..<20), framing: .transportProtocol)
     _ = try driver.engine.send(message, at: 500)
     let packet = driver.engine.poll(at: 550)
     #expect(packet.first?.id == 0x18eb_ff17)
@@ -2872,7 +2872,7 @@ struct NodeEngineTests {
     var driver = EngineDriver(mode: .node, address: 23)
     driver.until(500)
     let message = Message(
-      pgn: 126464, destination: 0x42, data: Array(0..<20), isTransportProtocol: true)
+      pgn: 126464, destination: 0x42, data: Array(0..<20), framing: .transportProtocol)
     _ = try driver.engine.send(message, at: 500)
     let packets = driver.engine.receive(
       CANFrame(id: 0x18ec_1742, data: [17, 3, 1, 0xff, 0xff, 0x00, 0xee, 0x01]), at: 510

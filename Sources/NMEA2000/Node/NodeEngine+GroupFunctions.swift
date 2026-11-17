@@ -32,7 +32,7 @@ extension NodeEngine {
     /// Where a reply that sends the PGN's data goes: back to the requester,
     /// or to everyone if the request was broadcast by transport protocol.
     var replyDestination: UInt8 {
-      message.isTransportProtocol && isBroadcast ? Message.broadcastAddress : requester
+      message.framing == .transportProtocol && isBroadcast ? Message.broadcastAddress : requester
     }
   }
 
@@ -213,7 +213,7 @@ extension NodeEngine {
         : sendAcknowledgement(acknowledgement, to: request.requester, from: request.device, at: now)
     }
     let destination = request.replyDestination
-    let usesTransportProtocol = request.message.isTransportProtocol
+    let usesTransportProtocol = request.message.framing == .transportProtocol
     switch request.pgn {
     case ISOAddressClaim.pgn:
       // Upstream puts the claim off by 2 ms, as some test tools couldn't
@@ -224,7 +224,9 @@ extension NodeEngine {
       var lists: [Message] = []
       if listKind != .receive { lists.append(transmitList(of: request.device, to: destination)) }
       if listKind != .transmit { lists.append(receiveList(of: request.device, to: destination)) }
-      for index in lists.indices { lists[index].isTransportProtocol = usesTransportProtocol }
+      for index in lists.indices {
+        lists[index].framing = usesTransportProtocol ? .transportProtocol : .automatic
+      }
       return sendAll(lists, from: request.device, at: now)
     case ProductInformation.pgn:
       return sendProductInformation(
