@@ -26,7 +26,9 @@ public enum Actisense {
   /// source or time stamp.
   static let sendType: UInt8 = 0x94
 
-  /// Encodes a message, or returns `nil` if it has no PGN or no payload.
+  /// Encodes a message, or returns `nil` if it has no PGN, no payload, or a
+  /// payload longer than ``Message/maxDataCount``, which upstream's message
+  /// can't hold and readers reject.
   ///
   /// The message's ``Message/timestamp`` is the time stamp.
   ///
@@ -35,7 +37,7 @@ public enum Actisense {
   /// needs more than 255 bytes once escaped comes out corrupted. This port
   /// writes the whole message.
   public static func encode(_ message: Message) -> [UInt8]? {
-    guard message.isValid else { return nil }
+    guard message.isValid, message.data.count <= Message.maxDataCount else { return nil }
     let count = message.data.count
     let time = message.timestamp
     let body: [UInt8] =

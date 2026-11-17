@@ -15,11 +15,14 @@
 ///
 /// Ports `N2kToSeasmart` and `SeasmartToN2k`.
 public enum Seasmart {
-  /// Encodes a message as a sentence, without a line ending. The message's
+  /// Encodes a message as a sentence, without a line ending, or returns
+  /// `nil` if its payload is longer than ``Message/maxDataCount``, which
+  /// upstream's message can't hold and ``decode(_:)`` rejects. The message's
   /// ``Message/timestamp`` is the time stamp.
   ///
   /// Ports `N2kToSeasmart`.
-  public static func encode(_ message: Message) -> String {
+  public static func encode(_ message: Message) -> String? {
+    guard message.data.count <= Message.maxDataCount else { return nil }
     var sentence = "$PCDIN,"
     sentence += hex(UInt8(truncatingIfNeeded: message.pgn >> 16))
     sentence += hex(UInt8(truncatingIfNeeded: message.pgn >> 8))

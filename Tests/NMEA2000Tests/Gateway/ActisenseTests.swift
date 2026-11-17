@@ -91,6 +91,9 @@ struct ActisenseTests {
   @Test func doesNotEncodeInvalidMessages() {
     #expect(Actisense.encode(Message(pgn: 0, data: [1])) == nil)
     #expect(Actisense.encode(Message(pgn: 127250, data: [])) == nil)
+    // Upstream's message holds at most 223 bytes, and readers reject more.
+    #expect(Actisense.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 224))) == nil)
+    #expect(Actisense.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 245))) == nil)
   }
 
   @Test func decodesWhatUpstreamWrites() {

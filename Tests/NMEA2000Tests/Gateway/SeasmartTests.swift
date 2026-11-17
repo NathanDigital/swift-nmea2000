@@ -34,7 +34,7 @@ struct SeasmartTests {
         == "$PCDIN,00EA00,00000000,00,*54")
   }
 
-  @Test func decodesWhatUpstreamReads() {
+  @Test func decodesWhatUpstreamReads() throws {
     // upstream-vectors "Seasmart read"; the sentence carries no priority or
     // destination.
     let expected = Message(
@@ -49,7 +49,15 @@ struct SeasmartTests {
     #expect(
       Seasmart.decode(sentence("PCDIN,01F112,01020304,01,"))
         == Message(pgn: 127250, source: 1, timestamp: 0x0102_0304))
-    #expect(Seasmart.decode(Seasmart.encode(typical))?.data == typical.data)
+    #expect(Seasmart.decode(try #require(Seasmart.encode(typical)))?.data == typical.data)
+  }
+
+  @Test func doesNotEncodePayloadsLongerThanAMessage() throws {
+    // Upstream's message holds at most 223 bytes, and decode rejects more.
+    let longest = try #require(
+      Seasmart.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 223))))
+    #expect(Seasmart.decode(longest)?.data.count == 223)
+    #expect(Seasmart.encode(Message(pgn: 127250, data: Array(repeating: 1, count: 224))) == nil)
   }
 
   @Test(arguments: [
