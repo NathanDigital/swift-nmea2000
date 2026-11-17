@@ -347,6 +347,10 @@ const std::vector<Case> cases = {
      tN2kWindlassMonitoringEvents ev;
      SetN2kPGN128778(m, 0xff, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, ev);
    }},
+  {"PGN127237 alternating limit flags",
+   [](tN2kMsg &m) {
+     SetN2kPGN127237(m, N2kOnOff_Off, N2kOnOff_On, N2kOnOff_Off, N2kOnOff_On, N2kSM_MainSteering, N2kTM_RudderLimitControlled, N2khr_true, N2kRDO_NoDirectionOrder, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+   }},
 };
 
 void print(const Case &c) {

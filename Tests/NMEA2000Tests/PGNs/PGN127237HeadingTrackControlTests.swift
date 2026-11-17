@@ -59,6 +59,20 @@ struct HeadingTrackControlTests {
         0xff, 0x7f, 0xff, 0x7f, 0xff, 0xff,
       ]
     ),
+    // alternating limit flags
+    (
+      HeadingTrackControl(
+        rudderLimitExceeded: .off, offHeadingLimitExceeded: .on, offTrackLimitExceeded: .off,
+        override: .on, steeringMode: .mainSteering, turnMode: .rudderLimitControlled,
+        headingReference: .true,
+        commandedRudderDirection: .none, commandedRudderAngle: 0, headingToSteer: 0, track: 0,
+        rudderLimit: 0, offHeadingLimit: 0, radiusOfTurnOrder: 0, rateOfTurnOrder: 0,
+        offTrackLimit: 0, vesselHeading: 0),
+      [
+        0x44, 0x00, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      ]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)
