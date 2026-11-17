@@ -74,8 +74,13 @@ final class ManualClock: Clock {
   }
 
   /// Waits until a number of tasks are sleeping on the clock.
-  func waitForSleepers(_ count: Int = 1) async {
-    while sleeperCount < count { await Task.yield() }
+  ///
+  /// - Throws: `CancellationError` if the test times out first.
+  func waitForSleepers(_ count: Int = 1) async throws {
+    while sleeperCount < count {
+      try Task.checkCancellation()
+      await Task.yield()
+    }
   }
 }
 
@@ -120,7 +125,9 @@ final class FakeTransport: CANTransport {
 private let claim: CANFrame = CANFrame(
   id: 0x18ee_ff17, data: [0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0])
 
-@Suite("Node")
+// A broken node can leave a test waiting for a frame that never comes, so
+// stop any test that runs for a minute.
+@Suite("Node", .timeLimit(.minutes(1)))
 struct NodeTests {
   @Test func claimsSendsAndReceives() async throws {
     let clock = ManualClock()
@@ -130,7 +137,7 @@ struct NodeTests {
     let run = Task { try await node.run() }
     var sent = transport.sent.makeAsyncIterator()
 
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     clock.advance(to: 200)
     #expect(await sent.next() == claim)
 
@@ -161,7 +168,7 @@ struct NodeTests {
     let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
     var sent = transport.sent.makeAsyncIterator()
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     clock.advance(to: 500)
     #expect(await sent.next() == claim)
 
@@ -183,13 +190,13 @@ struct NodeTests {
     let run = Task { try await node.run() }
     var sent = transport.sent.makeAsyncIterator()
 
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     #expect(transport.openCount == 1)
     clock.advance(to: 1000)
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     #expect(transport.openCount == 2)
     clock.advance(to: 2000)
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     #expect(transport.openCount == 3)
     clock.advance(to: 2200)
     #expect(await sent.next() == claim)
@@ -203,7 +210,7 @@ struct NodeTests {
     let transport = FakeTransport(failingOpens: .max)
     let node = Node(transport: transport, clock: clock)
     let run = Task { try await node.run() }
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     run.cancel()
     await #expect(throws: CancellationError.self) { try await run.value }
   }
@@ -220,7 +227,7 @@ struct NodeTests {
     let transport = FakeTransport()
     let node = Node(transport: transport, mode: .listenAndSend, address: 23, clock: clock)
     let run = Task { try await node.run() }
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     clock.advance(to: 200)
 
     // Two fast packets of the same PGN, sent at once.
@@ -253,7 +260,7 @@ struct NodeTests {
     let first = await node.messages()
     let second = await node.messages()
     let run = Task { try await node.run() }
-    await clock.waitForSleepers()
+    try await clock.waitForSleepers()
     clock.advance(to: 200)
     transport.receive.yield(CANFrame(id: 0x09f8_0142, data: [1, 2, 3, 4, 5, 6, 7, 8]))
     transport.receive.finish()

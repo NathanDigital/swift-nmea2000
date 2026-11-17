@@ -102,14 +102,28 @@ def find_mutants(paths):
     return mutants
 
 
+# A mutant can leave an async test waiting forever. Test time limits catch
+# most of those; this catches the rest.
+TEST_TIMEOUT = 600
+
+
 def run_tests():
-    result = subprocess.run(
+    process = subprocess.Popen(
         [os.path.join(REPO, "scripts", "linux-swift"), "test"],
         cwd=REPO,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
     )
-    output = result.stdout + result.stderr
+    try:
+        output, _ = process.communicate(timeout=TEST_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        # SIGTERM, not SIGKILL: docker run passes it on to the container, which
+        # would otherwise keep running.
+        process.terminate()
+        output, _ = process.communicate()
+        return "killed", output  # The mutant hung the tests.
+    result = process
     if re.search(r"\.swift:\d+:\d+: error:", output) or (
         "error: Build failed" in output and "Test run started" not in output
     ):
