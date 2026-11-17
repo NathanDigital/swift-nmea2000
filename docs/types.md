@@ -10,9 +10,12 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 - **Aliases:** upstream's alternative names for a single value (`N2kDD002_Off`, `N2kWind_Apprent`, …) are dropped, except `BinaryStatus.off` / `.on`.
 - **Descriptions:** every type is `CustomStringConvertible`. The strings are written for this port, not copied from `N2kMessagesEnumToStr.h`, whose tables are incomplete and in places wrong (for example, `tN2kMagneticVariation` uses the speed-sensor table). Unknown values print as `unknown (<raw value>)`.
 
+## Deliberate divergences
+
+- `tN2kDCVolgateState::N2kDCVS_Low` and `tN2kTemperatureState::N2kTS_High` are 3 upstream, the same value as `NotAvailable`, so sending them puts "not available" on the bus. Canboat defines all four converter state fields of PGN 127750 with one lookup (`GOOD_WARNING_ERROR`: 0 good, 1 warning, 2 error), and upstream's own `N2kOS_Overload` and `N2kRP_High` are 2. This port defines `DCVoltageState.low` and `TemperatureState.high` as 2.
+
 ## Upstream quirks kept
 
-- `tN2kDCVolgateState::N2kDCVS_Low` and `tN2kTemperatureState::N2kTS_High` are 3, the same as `NotAvailable`, so `DCVoltageState.low == .unavailable` and `TemperatureState.high == .unavailable`. They're kept for wire parity with upstream senders.
 - `tN2kDD223` (`EngineDiscreteStatus2`) keeps only the low eight bits when assigned in upstream, and `tN2kDD471`'s `SetEvents` clears bit 6. These are applied in the PGN ports that use them, not in the types.
 
 ## Mapping

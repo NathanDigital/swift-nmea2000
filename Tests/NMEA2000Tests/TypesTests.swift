@@ -31,7 +31,8 @@ struct TypesTests {
       (DelaySource.outOfRange.rawValue, 14),
       (AISAtoNType.lightVessel.rawValue, 31),
       (BinaryStatus.on.rawValue, 1),
-      (DCVoltageState.low.rawValue, 3),
+      (DCVoltageState.low.rawValue, 2),
+      (TemperatureState.high.rawValue, 2),
     ] as [(UInt8, UInt8)])
   func rawValues(actual: UInt8, expected: UInt8) {
     #expect(actual == expected)

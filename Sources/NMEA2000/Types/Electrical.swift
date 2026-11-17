@@ -442,9 +442,11 @@ public struct DCVoltageState: RawRepresentable, Hashable, Sendable, CustomString
   /// Warning.
   public static let warning = Self(rawValue: 1)
 
-  /// Upstream defines this as 3, the same value as ``unavailable``, so the two are
-  /// equal.
-  public static let low = Self(rawValue: 3)
+  /// Low.
+  ///
+  /// Upstream defines `N2kDCVS_Low` as 3, the same value as not available. Canboat and upstream's
+  /// sibling enums use 2 for this state, so this port sends 2.
+  public static let low = Self(rawValue: 2)
 
   /// Not available.
   public static let unavailable = Self(rawValue: 3)
@@ -453,6 +455,7 @@ public struct DCVoltageState: RawRepresentable, Hashable, Sendable, CustomString
     switch self {
     case .ok: "OK"
     case .warning: "warning"
+    case .low: "low"
     case .unavailable: "unavailable"
     default: "unknown (\(rawValue))"
     }
@@ -514,9 +517,11 @@ public struct TemperatureState: RawRepresentable, Hashable, Sendable, CustomStri
   /// Warning.
   public static let warning = Self(rawValue: 1)
 
-  /// Upstream defines this as 3, the same value as ``unavailable``, so the two are
-  /// equal.
-  public static let high = Self(rawValue: 3)
+  /// High.
+  ///
+  /// Upstream defines `N2kTS_High` as 3, the same value as not available. Canboat and upstream's
+  /// sibling enums use 2 for this state, so this port sends 2.
+  public static let high = Self(rawValue: 2)
 
   /// Not available.
   public static let unavailable = Self(rawValue: 3)
@@ -525,6 +530,7 @@ public struct TemperatureState: RawRepresentable, Hashable, Sendable, CustomStri
     switch self {
     case .ok: "OK"
     case .warning: "warning"
+    case .high: "high"
     case .unavailable: "unavailable"
     default: "unknown (\(rawValue))"
     }
