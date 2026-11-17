@@ -128,6 +128,7 @@ def run_tests():
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        errors="replace",  # A mutant can make a test print bytes that aren't UTF-8.
     )
     try:
         output, _ = process.communicate(timeout=TEST_TIMEOUT)
