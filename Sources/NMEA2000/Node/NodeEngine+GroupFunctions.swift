@@ -14,7 +14,7 @@ extension NodeEngine {
   /// The parts of a group function every handler reads.
   struct GroupFunctionRequest {
     var message: Message
-    var code: UInt8
+    var code: GroupFunction.Code
     var pgn: UInt32
     /// The node's device the request is for.
     var device: Int
@@ -42,7 +42,7 @@ extension NodeEngine {
   /// Ports `tNMEA2000::HandleGroupFunction` and `RespondGroupFunction`.
   mutating func handleGroupFunction(_ message: Message, at now: UInt64) -> [CANFrame] {
     var reader = MessageReader(message)
-    let code = reader.readUInt8()
+    let code = GroupFunction.Code(rawValue: reader.readUInt8())
     let pgn = reader.readUInt24()
     return recipients(of: message).flatMap {
       handleGroupFunction(
@@ -71,7 +71,7 @@ extension NodeEngine {
       !Self.networkManagementPGNs.contains(request.pgn)
       && PGNCatalog.isProprietary(request.pgn)
 
-    switch GroupFunction.Code(rawValue: request.code) {
+    switch request.code {
     case .request:
       var params = request.reader(at: 4)
       let interval = params.readUInt32()
@@ -100,7 +100,7 @@ extension NodeEngine {
             ? .readOrWriteNotSupported : .pgnNotSupported,
           transmissionError: .acknowledge, pairCount: pairCount),
         to: request.requester, from: request.device, at: now)
-    case .acknowledge, .readReply, .writeReply, nil:
+    default:
       return []
     }
   }
@@ -117,7 +117,7 @@ extension NodeEngine {
     _ acknowledgement: GroupFunction.Acknowledgement, to destination: UInt8, from device: Int,
     at now: UInt64
   ) -> [CANFrame] {
-    sendAll([acknowledgement.message(to: destination)], from: device, at: now)
+    sendAll([acknowledgement.makeMessage(destination: destination)], from: device, at: now)
   }
 
   // MARK: - Requests

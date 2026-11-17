@@ -11,7 +11,7 @@
 /// do. To answer them for your own PGNs, set a handler with
 /// ``Node/setGroupFunctionHandler(_:for:)``; it gets a ``Request`` and
 /// returns the messages to send, which it builds with ``Acknowledgement``
-/// and ``startReply(_:pgn:proprietary:uniqueID:selectionPairCount:parameterPairCount:)``.
+/// and ``Reply``.
 ///
 /// Ports the codes, error codes, parsers and message builders of
 /// `N2kGroupFunction.h/.cpp`.
@@ -22,75 +22,211 @@ public enum GroupFunction {
   /// The priority upstream sends group functions with.
   public static let priority: UInt8 = 3
 
-  /// The function a group function message performs (`tN2kGroupFunctionCode`).
-  public enum Code: UInt8, Sendable {
-    /// Asks the device to send the PGN, possibly filtered by field values,
-    /// or to change its transmission interval.
-    case request = 0
+  /// The function a group function message performs.
+  ///
+  /// Ports `tN2kGroupFunctionCode`. Values without a name here are kept in ``rawValue``.
+  public struct Code: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+    /// The value as it appears on the wire.
+    public var rawValue: UInt8
+
+    /// Creates a value from its wire representation.
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
+    }
+
+    /// Asks the device to send the PGN, possibly filtered by field values, or to change its transmission interval.
+    public static let request = Self(rawValue: 0)
+
     /// Sets fields of the PGN.
-    case command = 1
+    public static let command = Self(rawValue: 1)
+
     /// Answers a request or command.
-    case acknowledge = 2
+    public static let acknowledge = Self(rawValue: 2)
+
     /// Asks for field values.
-    case read = 3
+    public static let read = Self(rawValue: 3)
+
     /// Answers a read.
-    case readReply = 4
+    public static let readReply = Self(rawValue: 4)
+
     /// Writes field values.
-    case write = 5
+    public static let write = Self(rawValue: 5)
+
     /// Answers a write.
-    case writeReply = 6
-  }
+    public static let writeReply = Self(rawValue: 6)
 
-  /// How an acknowledgement answers the PGN (`tN2kGroupFunctionPGNErrorCode`).
-  public enum PGNError: UInt8, Sendable {
+    public var description: String {
+      switch self {
+      case .request: "request"
+      case .command: "command"
+      case .acknowledge: "acknowledge"
+      case .read: "read"
+      case .readReply: "read reply"
+      case .write: "write"
+      case .writeReply: "write reply"
+      default: "unknown (\(rawValue))"
+      }
+    }
+  }
+  /// How an acknowledgement answers the PGN.
+  ///
+  /// Ports `tN2kGroupFunctionPGNErrorCode`. Values without a name here are kept in ``rawValue``.
+  public struct PGNError: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+    /// The value as it appears on the wire.
+    public var rawValue: UInt8
+
+    /// Creates a value from its wire representation.
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
+    }
+
     /// The PGN is supported.
-    case acknowledge = 0
+    public static let acknowledge = Self(rawValue: 0)
+
     /// The device doesn't support the PGN.
-    case pgnNotSupported = 1
+    public static let pgnNotSupported = Self(rawValue: 1)
+
     /// The device supports the PGN but can't send it now.
-    case pgnTemporarilyNotAvailable = 2
+    public static let pgnTemporarilyNotAvailable = Self(rawValue: 2)
+
     /// The device refuses access.
-    case accessDenied = 3
+    public static let accessDenied = Self(rawValue: 3)
+
     /// The device doesn't support the request or command.
-    case requestOrCommandNotSupported = 4
+    public static let requestOrCommandNotSupported = Self(rawValue: 4)
+
     /// The device doesn't support the definer tag.
-    case definerTagNotSupported = 5
+    public static let definerTagNotSupported = Self(rawValue: 5)
+
     /// The device doesn't support reading or writing the PGN's fields.
-    case readOrWriteNotSupported = 6
-  }
+    public static let readOrWriteNotSupported = Self(rawValue: 6)
 
-  /// How an acknowledgement answers the transmission interval or priority
-  /// (`tN2kGroupFunctionTransmissionOrPriorityErrorCode`).
-  public enum TransmissionError: UInt8, Sendable {
+    public var description: String {
+      switch self {
+      case .acknowledge: "acknowledge"
+      case .pgnNotSupported: "PGN not supported"
+      case .pgnTemporarilyNotAvailable: "PGN temporarily not available"
+      case .accessDenied: "access denied"
+      case .requestOrCommandNotSupported: "request or command not supported"
+      case .definerTagNotSupported: "definer tag not supported"
+      case .readOrWriteNotSupported: "read or write not supported"
+      default: "unknown (\(rawValue))"
+      }
+    }
+  }
+  /// How an acknowledgement answers the transmission interval or priority.
+  ///
+  /// Ports `tN2kGroupFunctionTransmissionOrPriorityErrorCode`. Values without a name here are kept in ``rawValue``.
+  public struct TransmissionError: RawRepresentable, Codable, Hashable, Sendable,
+    CustomStringConvertible
+  {
+    /// The value as it appears on the wire.
+    public var rawValue: UInt8
+
+    /// Creates a value from its wire representation.
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
+    }
+
     /// The interval or priority is accepted.
-    case acknowledge = 0
+    public static let acknowledge = Self(rawValue: 0)
+
     /// The device can't use that interval or priority.
-    case intervalOrPriorityNotSupported = 1
+    public static let intervalOrPriorityNotSupported = Self(rawValue: 1)
+
     /// The interval is shorter than the device measures at.
-    case intervalLessThanMeasurementInterval = 2
+    public static let intervalLessThanMeasurementInterval = Self(rawValue: 2)
+
     /// The device refuses access.
-    case accessDenied = 3
+    public static let accessDenied = Self(rawValue: 3)
+
     /// The device doesn't support the request.
-    case requestNotSupported = 4
+    public static let requestNotSupported = Self(rawValue: 4)
+
+    public var description: String {
+      switch self {
+      case .acknowledge: "acknowledge"
+      case .intervalOrPriorityNotSupported: "interval or priority not supported"
+      case .intervalLessThanMeasurementInterval: "interval less than measurement interval"
+      case .accessDenied: "access denied"
+      case .requestNotSupported: "request not supported"
+      default: "unknown (\(rawValue))"
+      }
+    }
+  }
+  /// How an acknowledgement answers one parameter pair.
+  ///
+  /// Ports `tN2kGroupFunctionParameterErrorCode`. Values without a name here are kept in ``rawValue``.
+  public struct ParameterError: RawRepresentable, Codable, Hashable, Sendable,
+    CustomStringConvertible
+  {
+    /// The value as it appears on the wire.
+    public var rawValue: UInt8
+
+    /// Creates a value from its wire representation.
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
+    }
+
+    /// The pair is accepted.
+    public static let acknowledge = Self(rawValue: 0)
+
+    /// The PGN has no such field.
+    public static let invalidField = Self(rawValue: 1)
+
+    /// The device can't act on the pair now.
+    public static let temporarilyUnableToComply = Self(rawValue: 2)
+
+    /// The value is out of range, or doesn't match a request's filter.
+    public static let outOfRange = Self(rawValue: 3)
+
+    /// The device refuses access.
+    public static let accessDenied = Self(rawValue: 4)
+
+    /// The device doesn't support the request or command.
+    public static let notSupported = Self(rawValue: 5)
+
+    /// The device doesn't support reading or writing the field.
+    public static let readOrWriteNotSupported = Self(rawValue: 6)
+
+    public var description: String {
+      switch self {
+      case .acknowledge: "acknowledge"
+      case .invalidField: "invalid field"
+      case .temporarilyUnableToComply: "temporarily unable to comply"
+      case .outOfRange: "out of range"
+      case .accessDenied: "access denied"
+      case .notSupported: "not supported"
+      case .readOrWriteNotSupported: "read or write not supported"
+      default: "unknown (\(rawValue))"
+      }
+    }
+  }
+  /// A proprietary PGN's manufacturer, which reads, writes and their
+  /// replies carry.
+  public struct Manufacturer: Codable, Hashable, Sendable {
+    /// The manufacturer code (11 bits).
+    public var code: UInt16
+    /// The industry group (3 bits).
+    public var industryGroup: UInt8
+
+    /// Creates a manufacturer.
+    public init(code: UInt16, industryGroup: UInt8) {
+      self.code = code
+      self.industryGroup = industryGroup
+    }
   }
 
-  /// How an acknowledgement answers one parameter pair
-  /// (`tN2kGroupFunctionParameterErrorCode`).
-  public enum ParameterError: UInt8, Sendable {
-    /// The pair is accepted.
-    case acknowledge = 0
-    /// The PGN has no such field.
-    case invalidField = 1
-    /// The device can't act on the pair now.
-    case temporarilyUnableToComply = 2
-    /// The value is out of range, or doesn't match a request's filter.
-    case outOfRange = 3
-    /// The device refuses access.
-    case accessDenied = 4
-    /// The device doesn't support the request or command.
-    case notSupported = 5
-    /// The device doesn't support reading or writing the field.
-    case readOrWriteNotSupported = 6
+  /// How a request asks to change the PGN's transmission interval.
+  public enum IntervalChange: Hashable, Sendable {
+    /// Keep the interval.
+    case unchanged
+    /// Restore the device's default interval.
+    case restoreDefault
+    /// Stop sending the PGN.
+    case stop
+    /// Send the PGN this often.
+    case interval(Duration)
   }
 
   /// Where a request's parameter pairs start (`N2kgf_OffsetToRequestPairParameters`).
@@ -147,8 +283,8 @@ public enum GroupFunction {
     /// The group function message.
     public var message: Message
 
-    /// The function code, or `nil` for a code upstream doesn't define.
-    public var code: Code?
+    /// The function code.
+    public var code: Code
 
     /// The PGN the function is aimed at.
     public var pgn: UInt32
@@ -176,52 +312,131 @@ public enum GroupFunction {
     /// reads and writes.
     public var isProprietary: Bool { PGNCatalog.isProprietary(pgn) }
 
-    /// A request's transmission interval in milliseconds, interval offset in
-    /// units of 10 ms, and number of parameter pairs.
-    public var requestParameters: (interval: UInt32, offset: UInt16, pairCount: UInt8) {
-      var reader = self.reader(at: 4)
-      return (reader.readUInt32(), reader.readUInt16(), reader.readUInt8())
+    /// A request's parameters.
+    public struct RequestParameters: Hashable, Sendable {
+      /// The transmission interval in milliseconds, or one of the special
+      /// values ``GroupFunction/unchangedInterval`` and
+      /// ``GroupFunction/defaultInterval``, or 0 to stop.
+      public var interval: UInt32
+      /// The interval offset in units of 10 ms, or
+      /// ``GroupFunction/unchangedOffset``.
+      public var offset: UInt16
+      /// The number of parameter pairs.
+      public var pairCount: UInt8
+
+      /// Creates request parameters.
+      public init(interval: UInt32, offset: UInt16, pairCount: UInt8) {
+        self.interval = interval
+        self.offset = offset
+        self.pairCount = pairCount
+      }
+
+      /// What the request asks for the interval.
+      public var intervalChange: IntervalChange {
+        switch interval {
+        case GroupFunction.unchangedInterval: .unchanged
+        case GroupFunction.defaultInterval: .restoreDefault
+        case 0: .stop
+        default: .interval(.milliseconds(interval))
+        }
+      }
+
+      /// The new interval offset, or `nil` to keep it.
+      public var offsetChange: Duration? {
+        offset == GroupFunction.unchangedOffset ? nil : .milliseconds(Int(offset) * 10)
+      }
     }
 
-    /// A command's priority setting and number of parameter pairs.
-    public var commandParameters: (prioritySetting: UInt8, pairCount: UInt8) {
-      var reader = self.reader(at: 4)
-      return (reader.readUInt8() & 0x0f, reader.readUInt8())
+    /// A command's parameters.
+    public struct CommandParameters: Hashable, Sendable {
+      /// The priority setting: 0 to 7, 8 to leave it, or 9 to restore the
+      /// default.
+      public var prioritySetting: UInt8
+      /// The number of parameter pairs.
+      public var pairCount: UInt8
+
+      /// Creates command parameters.
+      public init(prioritySetting: UInt8, pairCount: UInt8) {
+        self.prioritySetting = prioritySetting
+        self.pairCount = pairCount
+      }
     }
 
-    /// An acknowledgement's PGN and transmission answers, and number of
-    /// parameter pairs.
-    public var acknowledgementParameters:
-      (pgnError: PGNError?, transmissionError: TransmissionError?, pairCount: UInt8)
-    {
+    /// An acknowledgement's parameters.
+    public struct AcknowledgementParameters: Hashable, Sendable {
+      /// The answer to the PGN.
+      public var pgnError: PGNError
+      /// The answer to the transmission interval or priority.
+      public var transmissionError: TransmissionError
+      /// The number of parameter pairs.
+      public var pairCount: UInt8
+
+      /// Creates acknowledgement parameters.
+      public init(pgnError: PGNError, transmissionError: TransmissionError, pairCount: UInt8) {
+        self.pgnError = pgnError
+        self.transmissionError = transmissionError
+        self.pairCount = pairCount
+      }
+    }
+
+    /// A read's or write's parameters.
+    public struct ReadOrWriteParameters: Hashable, Sendable {
+      /// For a proprietary PGN, its manufacturer.
+      public var manufacturer: Manufacturer?
+      /// The unique ID, which the reply repeats.
+      public var uniqueID: UInt8
+      /// The number of selection pairs.
+      public var selectionPairCount: UInt8
+      /// The number of parameter pairs.
+      public var parameterPairCount: UInt8
+
+      /// Creates read or write parameters.
+      public init(
+        manufacturer: Manufacturer?, uniqueID: UInt8, selectionPairCount: UInt8,
+        parameterPairCount: UInt8
+      ) {
+        self.manufacturer = manufacturer
+        self.uniqueID = uniqueID
+        self.selectionPairCount = selectionPairCount
+        self.parameterPairCount = parameterPairCount
+      }
+    }
+
+    /// A request's parameters (`ParseRequestParams`).
+    public var requestParameters: RequestParameters {
+      var reader = self.reader(at: 4)
+      return RequestParameters(
+        interval: reader.readUInt32(), offset: reader.readUInt16(), pairCount: reader.readUInt8())
+    }
+
+    /// A command's parameters (`ParseCommandParams`).
+    public var commandParameters: CommandParameters {
+      var reader = self.reader(at: 4)
+      return CommandParameters(
+        prioritySetting: reader.readUInt8() & 0x0f, pairCount: reader.readUInt8())
+    }
+
+    /// An acknowledgement's parameters (`ParseAcknowledgeParams`).
+    public var acknowledgementParameters: AcknowledgementParameters {
       var reader = self.reader(at: 4)
       let errors = reader.readUInt8()
-      return (
-        PGNError(rawValue: errors & 0x0f), TransmissionError(rawValue: errors >> 4),
-        reader.readUInt8()
-      )
+      return AcknowledgementParameters(
+        pgnError: PGNError(rawValue: errors & 0x0f),
+        transmissionError: TransmissionError(rawValue: errors >> 4), pairCount: reader.readUInt8())
     }
 
-    /// A read's or write's fields: for a proprietary PGN the manufacturer
-    /// code and industry group, then the unique ID and the numbers of
-    /// selection and parameter pairs.
-    public var readOrWriteParameters:
-      (
-        manufacturerCode: UInt16?, industryGroup: UInt8?, uniqueID: UInt8,
-        selectionPairCount: UInt8, parameterPairCount: UInt8
-      )
-    {
+    /// A read's or write's parameters (`ParseReadOrWriteParams`).
+    public var readOrWriteParameters: ReadOrWriteParameters {
       var reader = self.reader(at: 4)
-      var manufacturerCode: UInt16?
-      var industryGroup: UInt8?
+      var manufacturer: Manufacturer?
       if isProprietary {
         let information = reader.readUInt16()
-        manufacturerCode = information & 0x07ff
-        industryGroup = UInt8(information >> 13 & 0x07)
+        manufacturer = Manufacturer(
+          code: information & 0x07ff, industryGroup: UInt8(information >> 13 & 0x07))
       }
-      return (
-        manufacturerCode, industryGroup, reader.readUInt8(), reader.readUInt8(), reader.readUInt8()
-      )
+      return ReadOrWriteParameters(
+        manufacturer: manufacturer, uniqueID: reader.readUInt8(),
+        selectionPairCount: reader.readUInt8(), parameterPairCount: reader.readUInt8())
     }
 
     /// A reader positioned at the first parameter pair of a request,
@@ -282,10 +497,10 @@ public enum GroupFunction {
         parameterErrors: Array(repeating: parameterError, count: Int(pairCount)))
     }
 
-    /// The acknowledgement message, sent to `destination`. Parameter answers
-    /// take four bits each, the first of a byte in the low bits, with an
-    /// unused high half set to ones.
-    public func message(to destination: UInt8) -> Message {
+    /// The acknowledgement message, sent to `destination`, usually the
+    /// requester. Parameter answers take four bits each, the first of a byte
+    /// in the low bits, with an unused high half set to ones.
+    public func makeMessage(destination: UInt8) -> Message {
       var data: [UInt8] = [
         Code.acknowledge.rawValue, UInt8(truncatingIfNeeded: pgn),
         UInt8(truncatingIfNeeded: pgn >> 8), UInt8(truncatingIfNeeded: pgn >> 16),
@@ -304,34 +519,64 @@ public enum GroupFunction {
     }
   }
 
-  /// Starts a read or write reply; append the parameter pairs to the writer,
-  /// then send `Message(pgn: GroupFunction.pgn, priority:
-  /// GroupFunction.priority, destination: requester, data: writer.data)`.
+  /// A read or write reply being built: its header, then the selection and
+  /// parameter pairs appended to ``writer``.
+  ///
+  /// ```swift
+  /// var reply = GroupFunction.Reply(answering: request, selectionPairCount: 0, parameterPairCount: 1)
+  /// reply.writer.appendUInt8(1)  // Field 1
+  /// reply.writer.appendUInt8(42)
+  /// return [reply.makeMessage(destination: request.requester)]
+  /// ```
   ///
   /// Ports `SetStartReadReply` and `SetStartWriteReply`.
-  ///
-  /// - Parameters:
-  ///   - code: ``Code/readReply`` or ``Code/writeReply``.
-  ///   - pgn: The PGN the reply is about.
-  ///   - proprietary: For a proprietary PGN, the manufacturer code and
-  ///     industry group to include.
-  ///   - uniqueID: The unique ID from the read or write.
-  ///   - selectionPairCount: The number of selection pairs.
-  ///   - parameterPairCount: The number of parameter pairs.
-  public static func startReply(
-    _ code: Code, pgn: UInt32, proprietary: (manufacturerCode: UInt16, industryGroup: UInt8)? = nil,
-    uniqueID: UInt8, selectionPairCount: UInt8, parameterPairCount: UInt8
-  ) -> MessageWriter {
-    var writer = MessageWriter()
-    writer.appendUInt8(code.rawValue)
-    writer.appendInt24(Int32(truncatingIfNeeded: pgn))
-    if let proprietary {
-      writer.appendUInt16(
-        UInt16(proprietary.industryGroup) << 13 | 0x1800 | proprietary.manufacturerCode & 0x07ff)
+  public struct Reply: Sendable {
+    /// The reply so far: the header, then whatever pairs have been
+    /// appended.
+    public var writer: MessageWriter
+
+    /// Starts a reply.
+    ///
+    /// - Parameters:
+    ///   - code: ``Code/readReply`` or ``Code/writeReply``.
+    ///   - pgn: The PGN the reply is about.
+    ///   - manufacturer: For a proprietary PGN, its manufacturer.
+    ///   - uniqueID: The unique ID from the read or write.
+    ///   - selectionPairCount: The number of selection pairs.
+    ///   - parameterPairCount: The number of parameter pairs.
+    public init(
+      _ code: Code, pgn: UInt32, manufacturer: Manufacturer? = nil, uniqueID: UInt8,
+      selectionPairCount: UInt8, parameterPairCount: UInt8
+    ) {
+      writer = MessageWriter()
+      writer.appendUInt8(code.rawValue)
+      writer.appendInt24(Int32(truncatingIfNeeded: pgn))
+      if let manufacturer {
+        writer.appendUInt16(
+          UInt16(manufacturer.industryGroup) << 13 | 0x1800 | manufacturer.code & 0x07ff)
+      }
+      writer.appendUInt8(uniqueID)
+      writer.appendUInt8(selectionPairCount)
+      writer.appendUInt8(parameterPairCount)
     }
-    writer.appendUInt8(uniqueID)
-    writer.appendUInt8(selectionPairCount)
-    writer.appendUInt8(parameterPairCount)
-    return writer
+
+    /// Starts the reply to a read or write, with its PGN, manufacturer and
+    /// unique ID.
+    public init(
+      answering request: Request, selectionPairCount: UInt8, parameterPairCount: UInt8
+    ) {
+      let parameters = request.readOrWriteParameters
+      self.init(
+        request.code == .write ? .writeReply : .readReply, pgn: request.pgn,
+        manufacturer: parameters.manufacturer, uniqueID: parameters.uniqueID,
+        selectionPairCount: selectionPairCount, parameterPairCount: parameterPairCount)
+    }
+
+    /// The reply message, sent to `destination`, usually the requester.
+    public func makeMessage(destination: UInt8) -> Message {
+      Message(
+        pgn: GroupFunction.pgn, priority: GroupFunction.priority, destination: destination,
+        data: writer.data)
+    }
   }
 }

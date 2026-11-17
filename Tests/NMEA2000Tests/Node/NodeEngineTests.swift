@@ -345,20 +345,16 @@ private let appGroupFunctionHandler: Node.GroupFunctionHandler = { request in
       GroupFunction.Acknowledgement.uniform(
         pgn: 130310, pgnError: .acknowledge, transmissionError: .acknowledge,
         pairCount: request.requestParameters.pairCount, parameterError: .outOfRange
-      ).message(to: request.requester)
+      ).makeMessage(destination: request.requester)
     ]
   case .read:
     let read = request.readOrWriteParameters
-    var reply = GroupFunction.startReply(
-      .readReply, pgn: 130310, uniqueID: read.uniqueID,
-      selectionPairCount: read.selectionPairCount, parameterPairCount: read.parameterPairCount)
-    reply.appendUInt8(1)
-    reply.appendUInt8(0x2a)
-    return [
-      Message(
-        pgn: GroupFunction.pgn, priority: GroupFunction.priority, destination: request.requester,
-        data: reply.data)
-    ]
+    var reply = GroupFunction.Reply(
+      answering: request, selectionPairCount: read.selectionPairCount,
+      parameterPairCount: read.parameterPairCount)
+    reply.writer.appendUInt8(1)
+    reply.writer.appendUInt8(0x2a)
+    return [reply.makeMessage(destination: request.requester)]
   default:
     return nil
   }

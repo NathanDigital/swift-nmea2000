@@ -175,7 +175,7 @@ A node can host several devices, as upstream's `SetDeviceCount` allows. Each has
 |---|---|
 | `tN2kGroupFunctionCode`, `tN2kGroupFunctionPGNErrorCode`, `tN2kGroupFunctionTransmissionOrPriorityErrorCode`, `tN2kGroupFunctionParameterErrorCode` | `GroupFunction.Code`, `.PGNError`, `.TransmissionError`, `.ParameterError` |
 | `SetStartAcknowledge`, `AddAcknowledgeParameter`, `ChangePNGErrorCode`, `ChangeTransmissionOrPriorityErrorCode`, `SendAcknowledge` | `GroupFunction.Acknowledgement` |
-| `SetStartReadReply`, `SetStartWriteReply` | `GroupFunction.startReply(_:pgn:proprietary:uniqueID:selectionPairCount:parameterPairCount:)` |
+| `SetStartReadReply`, `SetStartWriteReply` | `GroupFunction.Reply`, including `Reply(answering:selectionPairCount:parameterPairCount:)` |
 | `Parse`, `ParseRequestParams`, `ParseCommandParams`, `ParseAcknowledgeParams`, `ParseReadOrWriteParams`, `StartParse…Parameters` | `GroupFunction.Request` and its `requestParameters`, `commandParameters`, `acknowledgementParameters`, `readOrWriteParameters`, `pairs` |
 | `AddGroupFunctionHandler`, `RemoveGroupFunctionHandler`, subclasses of `tN2kGroupFunctionHandler` | `Node.setGroupFunctionHandler(_:for:)` with a `Node.GroupFunctionHandler` closure, which returns `nil` where a subclass calls the base class |
 | `GetRequestGroupFunctionTransmissionOrPriorityErrorCode` | `GroupFunction.transmissionError(interval:offset:intervalLimits:maxOffset:)` |

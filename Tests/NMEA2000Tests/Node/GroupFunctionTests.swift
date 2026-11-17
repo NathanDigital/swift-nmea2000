@@ -18,13 +18,20 @@ private func request(_ data: [UInt8], to destination: UInt8 = 0x17) -> GroupFunc
 struct GroupFunctionTests {
   @Test func startsRepliesAsUpstreamDoes() {
     // upstream-vectors "Group function reply starts"
-    let read = GroupFunction.startReply(
-      .readReply, pgn: 130816, proprietary: (manufacturerCode: 0x2a5, industryGroup: 4),
+    let read = GroupFunction.Reply(
+      .readReply, pgn: 130816, manufacturer: .init(code: 0x2a5, industryGroup: 4),
       uniqueID: 7, selectionPairCount: 1, parameterPairCount: 2)
-    #expect(read.data == [0x04, 0x00, 0xff, 0x01, 0xa5, 0x9a, 0x07, 0x01, 0x02])
-    let write = GroupFunction.startReply(
+    #expect(read.writer.data == [0x04, 0x00, 0xff, 0x01, 0xa5, 0x9a, 0x07, 0x01, 0x02])
+    let write = GroupFunction.Reply(
       .writeReply, pgn: 130310, uniqueID: 7, selectionPairCount: 1, parameterPairCount: 2)
-    #expect(write.data == [0x06, 0x06, 0xfd, 0x01, 0x07, 0x01, 0x02])
+    #expect(write.writer.data == [0x06, 0x06, 0xfd, 0x01, 0x07, 0x01, 0x02])
+    // A reply to a proprietary write repeats its PGN, manufacturer and
+    // unique ID.
+    let answer = GroupFunction.Reply(
+      answering: request([0x05, 0x00, 0xff, 0x01, 0xa5, 0x9a, 0x07, 0x01, 0x02]),
+      selectionPairCount: 1, parameterPairCount: 2)
+    #expect(answer.makeMessage(destination: 0x42).data == [0x06] + read.writer.data.dropFirst())
+    #expect(answer.makeMessage(destination: 0x42).priority == 3)
   }
 
   @Test func readsTheHeader() {
@@ -34,8 +41,9 @@ struct GroupFunctionTests {
     #expect(request.device == 1)
     #expect(request.requester == 0x42)
     #expect(!request.isBroadcast)
-    #expect(
-      GroupFunction.Request(Message(pgn: GroupFunction.pgn, data: [9]), device: 0).code == nil)
+    let unknown = GroupFunction.Request(Message(pgn: GroupFunction.pgn, data: [9]), device: 0)
+    #expect(unknown.code == GroupFunction.Code(rawValue: 9))
+    #expect(unknown.code.description == "unknown (9)")
   }
 
   @Test func readsRequestParameters() {
@@ -44,16 +52,22 @@ struct GroupFunctionTests {
     #expect(parameters.interval == 2000)
     #expect(parameters.offset == 100)
     #expect(parameters.pairCount == 1)
+    #expect(parameters.intervalChange == .interval(.seconds(2)))
+    #expect(parameters.offsetChange == .seconds(1))
     var pairs = request.pairs
     #expect(pairs.readUInt8() == 0x07)
     #expect(pairs.readUInt8() == 0x2a)
     request.message.data = [0x00, 0x06, 0xfd, 0x01]
-    #expect(request.requestParameters == (0xffff_ffff, 0xffff, 0xff))
+    #expect(
+      request.requestParameters
+        == .init(interval: 0xffff_ffff, offset: 0xffff, pairCount: 0xff))
+    #expect(request.requestParameters.intervalChange == .unchanged)
+    #expect(request.requestParameters.offsetChange == nil)
   }
 
   @Test func readsCommandParameters() {
     let request = request([0x01, 0x06, 0xfd, 0x01, 0xf9, 0x02, 0x03, 0x05])
-    #expect(request.commandParameters == (9, 2))
+    #expect(request.commandParameters == .init(prioritySetting: 9, pairCount: 2))
     var pairs = request.pairs
     #expect(pairs.readUInt8() == 0x03)
   }
@@ -64,17 +78,24 @@ struct GroupFunctionTests {
     #expect(parameters.transmissionError == .intervalOrPriorityNotSupported)
     #expect(parameters.pairCount == 3)
     #expect(
-      request([0x02, 0x06, 0xfd, 0x01, 0x0f, 0x00]).acknowledgementParameters.pgnError == nil)
+      request([0x02, 0x06, 0xfd, 0x01, 0x0f, 0x00]).acknowledgementParameters.pgnError.rawValue
+        == 15)
   }
 
   @Test func readsReadAndWriteParameters() {
     let standard = request([0x03, 0x06, 0xfd, 0x01, 0x05, 0x00, 0x01, 0x09])
-    #expect(standard.readOrWriteParameters == (nil, nil, 5, 0, 1))
+    #expect(
+      standard.readOrWriteParameters
+        == .init(manufacturer: nil, uniqueID: 5, selectionPairCount: 0, parameterPairCount: 1))
     var pairs = standard.pairs
     #expect(pairs.readUInt8() == 0x09)
     // A proprietary PGN carries the manufacturer code and industry group.
     let proprietary = request([0x05, 0x00, 0xff, 0x01, 0xa5, 0x9a, 0x07, 0x01, 0x02, 0x0b])
-    #expect(proprietary.readOrWriteParameters == (0x2a5, 4, 7, 1, 2))
+    #expect(
+      proprietary.readOrWriteParameters
+        == .init(
+          manufacturer: .init(code: 0x2a5, industryGroup: 4), uniqueID: 7, selectionPairCount: 1,
+          parameterPairCount: 2))
     var proprietaryPairs = proprietary.pairs
     #expect(proprietaryPairs.readUInt8() == 0x0b)
   }
