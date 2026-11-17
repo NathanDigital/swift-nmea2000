@@ -108,4 +108,11 @@ struct WaypointListTests {
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
     expectTolerantDecoding(WaypointList.self, from: Self.vectors[0].1)
   }
+
+  @Test func saysHowManyWaypointsAreSent() {
+    // The message fills after nine of the waypoints.
+    let full = Self.vectors[1].0
+    #expect(full.waypoints.count > 9)
+    #expect(full.sentWaypointCount == 9)
+  }
 }

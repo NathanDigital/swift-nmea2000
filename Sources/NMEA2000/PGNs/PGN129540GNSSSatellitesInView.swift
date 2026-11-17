@@ -63,8 +63,12 @@ public struct GNSSSatellitesInView: ParameterGroup {
   /// When the range residuals were calculated.
   public var mode: RangeResidualMode
 
-  /// The satellites in view. Only the first ``maxSatelliteCount`` are sent.
+  /// The satellites in view. Only the first ``maxSatelliteCount`` are sent;
+  /// ``sentSatelliteCount`` says how many.
   public var satellites: [Satellite]
+
+  /// How many of ``satellites`` are sent: at most ``maxSatelliteCount``.
+  public var sentSatelliteCount: Int { min(satellites.count, Self.maxSatelliteCount) }
 
   /// Creates a GNSS satellites in view message.
   ///

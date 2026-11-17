@@ -29,7 +29,16 @@ public struct WaypointList: ParameterGroup {
   ///
   /// Encoding stops at the first waypoint that doesn't fit in the message, as
   /// upstream's `AppendN2kPGN130074` refuses it.
+  /// ``sentWaypointCount`` says how many are sent; send the rest in
+  /// another message.
   public var waypoints: [Waypoint]
+
+  /// How many of ``waypoints`` fit in the message and are sent: all of them,
+  /// or those before the first that doesn't fit.
+  public var sentWaypointCount: Int {
+    let data = makeMessage().data
+    return Int(data[2]) | Int(data[3]) << 8
+  }
 
   /// Creates a waypoint list message.
   public init(

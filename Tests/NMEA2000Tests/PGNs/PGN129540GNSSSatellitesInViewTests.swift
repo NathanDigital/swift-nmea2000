@@ -99,4 +99,15 @@ struct GNSSSatellitesInViewTests {
     // Only 18 go back out.
     #expect(decoded.makeMessage().data == [0x01, 0xfc, 18] + data[3..<(3 + 18 * 12)])
   }
+
+  @Test func saysHowManySatellitesAreSent() throws {
+    var satellites = GNSSSatellitesInView()
+    let satellite = GNSSSatellitesInView.Satellite(
+      prn: 1, elevation: nil, azimuth: nil, signalToNoiseRatio: nil, rangeResidual: nil,
+      usageStatus: PRNUsageStatus(rawValue: 0))
+    satellites.satellites = Array(repeating: satellite, count: 5)
+    #expect(satellites.sentSatelliteCount == 5)
+    satellites.satellites = Array(repeating: satellite, count: 20)
+    #expect(satellites.sentSatelliteCount == 18)
+  }
 }
