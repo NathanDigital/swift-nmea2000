@@ -15,7 +15,7 @@ struct ParameterGroupTests {
       sequenceID: 1, mode: .calculatedAfterPosition,
       satellites: [
         .init(
-          prn: 7, elevation: 0.5, azimuth: nil, signalToNoiseRatio: 40, rangeResiduals: nil,
+          prn: 7, elevation: 0.5, azimuth: nil, signalToNoiseRatio: 40, rangeResidual: nil,
           usageStatus: PRNUsageStatus(rawValue: 9))
       ])
     let data = try JSONEncoder().encode(satellites)

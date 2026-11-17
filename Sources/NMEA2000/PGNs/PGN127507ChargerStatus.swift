@@ -25,7 +25,7 @@ public struct ChargerStatus: ParameterGroup {
   public var chargerMode: ChargerMode
 
   /// Whether the charger is enabled.
-  public var enabled: OnOffStatus
+  public var enabledState: OnOffStatus
 
   /// Whether equalization is pending.
   public var equalizationPending: OnOffStatus
@@ -43,7 +43,7 @@ public struct ChargerStatus: ParameterGroup {
     batteryInstance: UInt8,
     chargeState: ChargeState,
     chargerMode: ChargerMode = .standalone,
-    enabled: OnOffStatus = .on,
+    enabledState: OnOffStatus = .on,
     equalizationPending: OnOffStatus = .unavailable,
     equalizationTimeRemaining: Double? = nil
   ) {
@@ -51,7 +51,7 @@ public struct ChargerStatus: ParameterGroup {
     self.batteryInstance = batteryInstance
     self.chargeState = chargeState
     self.chargerMode = chargerMode
-    self.enabled = enabled
+    self.enabledState = enabledState
     self.equalizationPending = equalizationPending
     self.equalizationTimeRemaining = equalizationTimeRemaining
   }
@@ -63,7 +63,7 @@ public struct ChargerStatus: ParameterGroup {
     chargeState = ChargeState(rawValue: states & 0x0f)
     chargerMode = ChargerMode(rawValue: (states >> 4) & 0x0f)
     let flags = reader.readUInt8()
-    enabled = OnOffStatus(rawValue: flags & 0x03)
+    enabledState = OnOffStatus(rawValue: flags & 0x03)
     equalizationPending = OnOffStatus(rawValue: (flags >> 2) & 0x03)
     equalizationTimeRemaining = reader.readUInt16(resolution: 60)
   }
@@ -73,7 +73,7 @@ public struct ChargerStatus: ParameterGroup {
     writer.appendUInt8(batteryInstance)
     writer.appendUInt8((chargerMode.rawValue & 0x0f) << 4 | chargeState.rawValue & 0x0f)
     writer.appendUInt8(
-      0x0f << 4 | (equalizationPending.rawValue & 0x03) << 2 | enabled.rawValue & 0x03)
+      0x0f << 4 | (equalizationPending.rawValue & 0x03) << 2 | enabledState.rawValue & 0x03)
     // Deliberate divergence: upstream encodes with a resolution of 1.
     writer.appendUInt16(equalizationTimeRemaining, resolution: 60)
   }

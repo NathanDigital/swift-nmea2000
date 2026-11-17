@@ -18,8 +18,8 @@ struct EngineParametersDynamicTests {
         instance: 1, oilPressure: 350000, oilTemperature: 363.15, coolantTemperature: 358.15,
         alternatorVoltage: 14.2, fuelRate: -12.5, engineHours: 3_600_000, coolantPressure: 120000,
         fuelPressure: 300000, load: 85, torque: -5,
-        status1: EngineDiscreteStatus1(rawValue: 0x8421),
-        status2: EngineDiscreteStatus2(rawValue: 0x00a5)),
+        discreteStatus: EngineDiscreteStatus(rawValue: 0x8421),
+        warningStatus: EngineWarningStatus(rawValue: 0x00a5)),
       [
         0x01, 0xac, 0x0d, 0x2f, 0x0e, 0xe7, 0x8b, 0x8c, 0x05, 0x83, 0xff, 0x80, 0xee, 0x36, 0x00,
         0xb0, 0x04, 0x2c, 0x01, 0xff, 0x21, 0x84, 0xa5, 0x00, 0x55, 0xfb,
@@ -30,7 +30,7 @@ struct EngineParametersDynamicTests {
       EngineParametersDynamic(
         instance: 0xff, oilPressure: nil, oilTemperature: nil, coolantTemperature: nil,
         alternatorVoltage: nil, fuelRate: nil, engineHours: nil, coolantPressure: nil,
-        fuelPressure: nil, load: nil, torque: nil, status1: [], status2: []),
+        fuelPressure: nil, load: nil, torque: nil, discreteStatus: [], warningStatus: []),
       [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x7f, 0x7f,
@@ -69,7 +69,7 @@ struct EngineParametersDynamicTests {
     bytes[22] = 0x01  // Discrete status 2.
     bytes[23] = 0x81
     let decoded = try EngineParametersDynamic(Message(pgn: 127489, data: bytes))
-    #expect(decoded.status2 == [.warningLevel1, .manufacturer1, .manufacturer8])
+    #expect(decoded.warningStatus == [.warningLevel1, .manufacturer1, .manufacturer8])
     #expect(decoded.makeMessage().data == bytes)
   }
 }

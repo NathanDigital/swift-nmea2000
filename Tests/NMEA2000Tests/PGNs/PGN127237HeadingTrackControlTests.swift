@@ -65,7 +65,8 @@ struct HeadingTrackControlTests {
         rudderLimitExceeded: .off, offHeadingLimitExceeded: .on, offTrackLimitExceeded: .off,
         override: .on, steeringMode: .mainSteering, turnMode: .rudderLimitControlled,
         headingReference: .true,
-        commandedRudderDirection: .none, commandedRudderAngle: 0, headingToSteer: 0, track: 0,
+        commandedRudderDirection: .noDirectionOrder, commandedRudderAngle: 0, headingToSteer: 0,
+        track: 0,
         rudderLimit: 0, offHeadingLimit: 0, radiusOfTurnOrder: 0, rateOfTurnOrder: 0,
         offTrackLimit: 0, vesselHeading: 0),
       [

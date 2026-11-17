@@ -53,12 +53,22 @@ struct TypesTests {
   }
 
   @Test func flagsUseUpstreamBitPositions() {
-    #expect(EngineDiscreteStatus1.checkEngine.rawValue == 0x0001)
-    #expect(EngineDiscreteStatus1.emergencyStopMode.rawValue == 0x8000)
-    #expect(EngineDiscreteStatus2.manufacturer1.rawValue == 0x0100)
+    #expect(EngineDiscreteStatus.checkEngine.rawValue == 0x0001)
+    #expect(EngineDiscreteStatus.emergencyStopMode.rawValue == 0x8000)
+    #expect(EngineWarningStatus.manufacturer1.rawValue == 0x0100)
     #expect(ThrusterMotorEvents.dataNotAvailable.rawValue == 0x80)
     #expect(WindlassOperatingEvents.endOfRodeReached.rawValue == 0x10)
-    let flags: EngineDiscreteStatus1 = [.overTemperature, .lowOilPressure]
+    let flags: EngineDiscreteStatus = [.overTemperature, .lowOilPressure]
     #expect(flags.rawValue == 0x0006)
+  }
+
+  @Test func describesFlagsByName() {
+    #expect(
+      EngineWarningStatus([.warningLevel1, .manufacturer1]).description
+        == "[warning level 1, manufacturer defined 1]")
+    #expect(
+      WindlassControlEvents(rawValue: 0x81).description
+        == "[another device is controlling the windlass, unknown (0x80)]")
+    #expect(ThrusterMotorEvents([]).description == "[]")
   }
 }

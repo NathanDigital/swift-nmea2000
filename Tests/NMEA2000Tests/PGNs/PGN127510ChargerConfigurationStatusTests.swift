@@ -15,7 +15,7 @@ struct ChargerConfigurationStatusTests {
     // typical
     (
       ChargerConfigurationStatus(
-        chargerInstance: 1, batteryInstance: 2, enabled: .on, chargeCurrentLimit: 80,
+        chargerInstance: 1, batteryInstance: 2, enabledState: .on, chargeCurrentLimit: 80,
         chargingAlgorithm: .twoStage, chargerMode: .primary, batteryTemperature: .hot,
         equalizationEnabled: .error,
         overchargeEnabled: .on, equalizationTime: 7200),
@@ -24,7 +24,7 @@ struct ChargerConfigurationStatusTests {
     // high values
     (
       ChargerConfigurationStatus(
-        chargerInstance: 3, batteryInstance: 4, enabled: .unavailable, chargeCurrentLimit: 252,
+        chargerInstance: 3, batteryInstance: 4, enabledState: .unavailable, chargeCurrentLimit: 252,
         chargingAlgorithm: .error, chargerMode: .echo, batteryTemperature: .error,
         equalizationEnabled: .unavailable,
         overchargeEnabled: .error, equalizationTime: 0),
@@ -33,7 +33,7 @@ struct ChargerConfigurationStatusTests {
     // not available
     (
       ChargerConfigurationStatus(
-        chargerInstance: 0xff, batteryInstance: 0xff, enabled: .unavailable,
+        chargerInstance: 0xff, batteryInstance: 0xff, enabledState: .unavailable,
         chargeCurrentLimit: nil,
         chargingAlgorithm: .unavailable, chargerMode: .unavailable,
         batteryTemperature: .unavailable, equalizationEnabled: .unavailable,

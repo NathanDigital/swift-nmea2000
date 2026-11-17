@@ -29,7 +29,7 @@ public struct Rudder: ParameterGroup {
   public init(
     position: Double?,
     instance: UInt8 = 0,
-    directionOrder: RudderDirectionOrder = .none,
+    directionOrder: RudderDirectionOrder = .noDirectionOrder,
     angleOrder: Double? = nil
   ) {
     self.position = position

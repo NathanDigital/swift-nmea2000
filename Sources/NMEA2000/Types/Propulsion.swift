@@ -192,10 +192,11 @@ public struct TransmissionGear: RawRepresentable, Codable, Hashable, Sendable,
   }
 }
 
-/// Engine warning flags, first set.
+/// Engine discrete status flags: alarms such as overheating or low oil
+/// pressure (PGN 127489's first status field).
 ///
 /// Ports `tN2kDD206` (`tN2kEngineDiscreteStatus1`).
-public struct EngineDiscreteStatus1: OptionSet, Codable, Hashable, Sendable {
+public struct EngineDiscreteStatus: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt16
 
@@ -253,13 +254,13 @@ public struct EngineDiscreteStatus1: OptionSet, Codable, Hashable, Sendable {
   public static let emergencyStopMode = Self(rawValue: 1 << 15)
 }
 
-/// Engine warning flags, second set.
+/// Engine discrete warning status flags: warning levels, power reduction
+/// and the like (PGN 127489's second status field).
 ///
-/// Ports `tN2kDD223` (`tN2kEngineDiscreteStatus2`).
-///
-/// Upstream's assignment operator for this type keeps only the low eight bits, dropping the
-/// manufacturer flags. PGN 127489 decodes through it, so its port must mask the same way.
-public struct EngineDiscreteStatus2: OptionSet, Codable, Hashable, Sendable {
+/// Ports `tN2kDD223` (`tN2kEngineDiscreteStatus2`). Upstream's assignment
+/// operator for this type keeps only the low eight bits, dropping the
+/// manufacturer flags; this port keeps all sixteen.
+public struct EngineWarningStatus: OptionSet, Codable, Hashable, Sendable {
   /// The flags as they appear on the wire.
   public var rawValue: UInt16
 
@@ -400,4 +401,103 @@ public struct TransmissionDiscreteStatus: OptionSet, Codable, Hashable, Sendable
 
   /// Sail drive.
   public static let sailDrive = Self(rawValue: 1 << 4)
+}
+
+extension EngineDiscreteStatus: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (Self.checkEngine.rawValue, "check engine"),
+        (Self.overTemperature.rawValue, "over temperature"),
+        (Self.lowOilPressure.rawValue, "low oil pressure"),
+        (Self.lowOilLevel.rawValue, "low oil level"),
+        (Self.lowFuelPressure.rawValue, "low fuel pressure"),
+        (Self.lowSystemVoltage.rawValue, "low system voltage"),
+        (Self.lowCoolantLevel.rawValue, "low coolant level"),
+        (Self.waterFlow.rawValue, "water flow"),
+        (Self.waterInFuel.rawValue, "water in fuel"),
+        (Self.chargeIndicator.rawValue, "charge indicator"),
+        (Self.preheatIndicator.rawValue, "preheat indicator"),
+        (Self.highBoostPressure.rawValue, "high boost pressure"),
+        (Self.revLimitExceeded.rawValue, "rev limit exceeded"),
+        (Self.egrSystem.rawValue, "EGR system"),
+        (Self.throttlePositionSensor.rawValue, "throttle position sensor"),
+        (Self.emergencyStopMode.rawValue, "engine emergency stop mode"),
+      ])
+  }
+}
+
+extension EngineWarningStatus: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (Self.warningLevel1.rawValue, "warning level 1"),
+        (Self.warningLevel2.rawValue, "warning level 2"),
+        (Self.lowOilPowerReduction.rawValue, "low oil power reduction"),
+        (Self.maintenanceNeeded.rawValue, "maintenance needed"),
+        (Self.engineCommunicationError.rawValue, "engine communication error"),
+        (Self.subOrSecondaryThrottle.rawValue, "sub or secondary throttle"),
+        (Self.neutralStartProtect.rawValue, "neutral start protect"),
+        (Self.engineShuttingDown.rawValue, "engine shutting down"),
+        (Self.manufacturer1.rawValue, "manufacturer defined 1"),
+        (Self.manufacturer2.rawValue, "manufacturer defined 2"),
+        (Self.manufacturer3.rawValue, "manufacturer defined 3"),
+        (Self.manufacturer4.rawValue, "manufacturer defined 4"),
+        (Self.manufacturer5.rawValue, "manufacturer defined 5"),
+        (Self.manufacturer6.rawValue, "manufacturer defined 6"),
+        (Self.manufacturer7.rawValue, "manufacturer defined 7"),
+        (Self.manufacturer8.rawValue, "manufacturer defined 8"),
+      ])
+  }
+}
+
+extension ThrusterMotorEvents: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (Self.motorOverTemperatureCutout.rawValue, "motor over-temperature cutout"),
+        (Self.motorOverCurrentCutout.rawValue, "motor over-current cutout"),
+        (Self.lowOilLevelWarning.rawValue, "low oil level warning"),
+        (Self.oilOverTemperatureWarning.rawValue, "oil over-temperature warning"),
+        (Self.controllerUnderVoltageCutout.rawValue, "controller under-voltage cutout"),
+        (Self.manufacturerDefined.rawValue, "manufacturer defined"),
+        (Self.dataNotAvailable.rawValue, "data not available"),
+      ])
+  }
+}
+
+extension ThrusterControlEvents: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (
+          Self.anotherDeviceControllingThruster.rawValue,
+          "another device is controlling the thruster"
+        ),
+        (Self.boatSpeedTooFast.rawValue, "boat speed is too fast"),
+      ])
+  }
+}
+
+extension TransmissionDiscreteStatus: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (Self.check.rawValue, "check transmission"),
+        (Self.overTemperature.rawValue, "over temperature"),
+        (Self.lowOilPressure.rawValue, "low oil pressure"),
+        (Self.lowOilLevel.rawValue, "low oil level"),
+        (Self.sailDrive.rawValue, "sail drive"),
+      ])
+  }
 }

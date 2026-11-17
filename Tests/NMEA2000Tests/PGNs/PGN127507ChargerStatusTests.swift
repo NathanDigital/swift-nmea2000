@@ -16,7 +16,7 @@ struct ChargerStatusTests {
     (
       ChargerStatus(
         instance: 1, batteryInstance: 2, chargeState: .absorption, chargerMode: .secondary,
-        enabled: .on,
+        enabledState: .on,
         equalizationPending: .off, equalizationTimeRemaining: 5400),
       [0x01, 0x02, 0x22, 0xf1, 0x5a, 0x00]
     ),
@@ -24,7 +24,7 @@ struct ChargerStatusTests {
     (
       ChargerStatus(
         instance: 3, batteryInstance: 4, chargeState: .error, chargerMode: .unavailable,
-        enabled: .error,
+        enabledState: .error,
         equalizationPending: .unavailable, equalizationTimeRemaining: 0),
       [0x03, 0x04, 0xfe, 0xfe, 0x00, 0x00]
     ),
@@ -32,7 +32,7 @@ struct ChargerStatusTests {
     (
       ChargerStatus(
         instance: 0xff, batteryInstance: 0xff, chargeState: .unavailable, chargerMode: .unavailable,
-        enabled: .unavailable,
+        enabledState: .unavailable,
         equalizationPending: .unavailable, equalizationTimeRemaining: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),

@@ -13,7 +13,7 @@ private let manySatellites: [GNSSSatellitesInView.Satellite] = (0..<20).map { i 
   let x = Double(i)
   return GNSSSatellitesInView.Satellite(
     prn: UInt8(i + 1), elevation: 0.1 * x, azimuth: 0.2 * x, signalToNoiseRatio: 30.0 + x,
-    rangeResiduals: 0.01 * x, usageStatus: .trackedNotUsed)
+    rangeResidual: 0.01 * x, usageStatus: .trackedNotUsed)
 }
 
 @Suite("PGN 129540 GNSSSatellitesInView")
@@ -27,10 +27,10 @@ struct GNSSSatellitesInViewTests {
         sequenceID: 14, mode: .calculatedAfterPosition,
         satellites: [
           .init(
-            prn: 5, elevation: 0.5, azimuth: 2.5, signalToNoiseRatio: 42.25, rangeResiduals: -1.5,
+            prn: 5, elevation: 0.5, azimuth: 2.5, signalToNoiseRatio: 42.25, rangeResidual: -1.5,
             usageStatus: .usedWithoutDifferentialCorrections),
           .init(
-            prn: nil, elevation: nil, azimuth: nil, signalToNoiseRatio: nil, rangeResiduals: nil,
+            prn: nil, elevation: nil, azimuth: nil, signalToNoiseRatio: nil, rangeResidual: nil,
             usageStatus: .unavailable),
         ]),
       [

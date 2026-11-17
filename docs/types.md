@@ -8,7 +8,7 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 - **Bit-field unions** (`tN2kDD206`, `tN2kDD471`, …) become `OptionSet`s with upstream's bit positions.
 - **Raw values** are identical to upstream's. Reserved values that upstream names (e.g. `N2kdir_reserved1`) aren't given names; they still round-trip through `rawValue`.
 - **Aliases:** upstream's alternative names for a single value (`N2kDD002_Off`, `N2kWind_Apprent`, …) are dropped, except `BinaryStatus.off` / `.on`.
-- **Descriptions:** every enum type is `CustomStringConvertible`; the flag sets (`OptionSet`s) aren't yet. The strings are written for this port, not copied from `N2kMessagesEnumToStr.h`, whose tables are incomplete and in places wrong (for example, `tN2kMagneticVariation` uses the speed-sensor table). Unknown values print as `unknown (<raw value>)`.
+- **Descriptions:** every type is `CustomStringConvertible`; the flag sets (`OptionSet`s) list the names of the flags that are set. The strings are written for this port, not copied from `N2kMessagesEnumToStr.h`, whose tables are incomplete and in places wrong (for example, `tN2kMagneticVariation` uses the speed-sensor table). Unknown values print as `unknown (<raw value>)`.
 
 ## Deliberate divergences
 
@@ -19,13 +19,13 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 ## Upstream quirks kept
 
 - `tN2kDD471`'s `SetEvents` clears bit 6. This is applied in the PGN ports that use it, not in the type.
-- `tN2kDD223` (`EngineDiscreteStatus2`) keeps only the low eight bits when assigned in upstream, so `ParseN2kPGN127489` loses the manufacturer flags that `SetN2kPGN127489` sends. `EngineParametersDynamic` decodes all sixteen bits instead (see the divergence table in `docs/field-codec.md`).
+- `tN2kDD223` (`EngineWarningStatus`) keeps only the low eight bits when assigned in upstream, so `ParseN2kPGN127489` loses the manufacturer flags that `SetN2kPGN127489` sends. `EngineParametersDynamic` decodes all sixteen bits instead (see the divergence table in `docs/field-codec.md`).
 
 ## Checked against canboat
 
 On 2026-11-17 every type here was compared, value by value, with the matching lookup in canboat's `analyzer/lookup-generated-data.h` (canboat commit `7b4672ae71ab`). Apart from the divergences above, the differences are only spelling ("Rhumbline", "NiCd"), error and unavailable codes that canboat leaves implicit, and values one side names that the other doesn't:
 
-- Upstream names values canboat lacks: `FluidType.gasoline` (6), `ConverterOperatingState.powerSupply` (11) and `.hub1` (252), and the manufacturer bits of `EngineDiscreteStatus2`.
+- Upstream names values canboat lacks: `FluidType.gasoline` (6), `ConverterOperatingState.powerSupply` (11) and `.hub1` (252), and the manufacturer bits of `EngineWarningStatus`.
 - Canboat names values upstream lacks: GNSS method 6–8 (estimated, manual input, simulator), AIS version 2–3, AIS navigation status 11–12, and windlass monitoring bit 3 (manufacturer defined). These decode and re-encode unchanged as unknown raw values.
 - `AISAtoNType.emergencyWreckMarkingBuoy` (4) is "reserved" in canboat and in gpsd's AIVDM table, which follow IALA's original list. Later IALA guidance assigns code 4 to the emergency wreck marking buoy, and upstream follows that, so the name is kept.
 
@@ -91,8 +91,8 @@ On 2026-11-17 every type here was compared, value by value, with the matching lo
 | `tN2kDD481` / `tN2kRodeTypeStates` | `RodeType` | `Windlass.swift` |
 | `tN2kDD484` / `tN2kWindlassDirectionControl` | `WindlassDirectionControl` | `Windlass.swift` |
 | `tN2kDD480` / `tN2kWindlassMotionStates` | `WindlassMotionState` | `Windlass.swift` |
-| `tN2kDD206` / `tN2kEngineDiscreteStatus1` | `EngineDiscreteStatus1` (`OptionSet`) | `Propulsion.swift` |
-| `tN2kDD223` / `tN2kEngineDiscreteStatus2` | `EngineDiscreteStatus2` (`OptionSet`) | `Propulsion.swift` |
+| `tN2kDD206` / `tN2kEngineDiscreteStatus1` | `EngineDiscreteStatus` (`OptionSet`) | `Propulsion.swift` |
+| `tN2kDD223` / `tN2kEngineDiscreteStatus2` | `EngineWarningStatus` (`OptionSet`) | `Propulsion.swift` |
 | `tN2kDD471` / `tN2kThrusterMotorEvents` | `ThrusterMotorEvents` (`OptionSet`) | `Propulsion.swift` |
 | `tN2kDD475` / `tN2kThrusterControlEvents` | `ThrusterControlEvents` (`OptionSet`) | `Propulsion.swift` |
 | `tN2kDD477` / `tN2kWindlassMonitoringEvents` | `WindlassMonitoringEvents` (`OptionSet`) | `Windlass.swift` |

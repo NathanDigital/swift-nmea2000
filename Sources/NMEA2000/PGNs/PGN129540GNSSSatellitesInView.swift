@@ -33,7 +33,7 @@ public struct GNSSSatellitesInView: ParameterGroup {
     public var signalToNoiseRatio: Double?
 
     /// The range residual, in meters, or `nil` if not available.
-    public var rangeResiduals: Double?
+    public var rangeResidual: Double?
 
     /// How the satellite is used in the solution.
     public var usageStatus: PRNUsageStatus
@@ -44,14 +44,14 @@ public struct GNSSSatellitesInView: ParameterGroup {
       elevation: Double?,
       azimuth: Double?,
       signalToNoiseRatio: Double?,
-      rangeResiduals: Double?,
+      rangeResidual: Double?,
       usageStatus: PRNUsageStatus
     ) {
       self.prn = prn
       self.elevation = elevation
       self.azimuth = azimuth
       self.signalToNoiseRatio = signalToNoiseRatio
-      self.rangeResiduals = rangeResiduals
+      self.rangeResidual = rangeResidual
       self.usageStatus = usageStatus
     }
   }
@@ -94,7 +94,7 @@ public struct GNSSSatellitesInView: ParameterGroup {
         elevation: reader.readInt16(resolution: 1e-4),
         azimuth: reader.readUInt16(resolution: 1e-4),
         signalToNoiseRatio: reader.readInt16(resolution: 1e-2),
-        rangeResiduals: reader.readInt32(resolution: 1e-5),
+        rangeResidual: reader.readInt32(resolution: 1e-5),
         usageStatus: PRNUsageStatus(rawValue: reader.readUInt8() & 0x0f))
     }
   }
@@ -109,7 +109,7 @@ public struct GNSSSatellitesInView: ParameterGroup {
       writer.appendInt16(satellite.elevation, resolution: 1e-4)
       writer.appendUInt16(satellite.azimuth, resolution: 1e-4)
       writer.appendInt16(satellite.signalToNoiseRatio, resolution: 1e-2)
-      writer.appendInt32(satellite.rangeResiduals, resolution: 1e-5)
+      writer.appendInt32(satellite.rangeResidual, resolution: 1e-5)
       writer.appendUInt8(0xf0 | satellite.usageStatus.rawValue)
     }
   }

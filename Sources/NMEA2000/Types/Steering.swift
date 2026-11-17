@@ -20,7 +20,7 @@ public struct RudderDirectionOrder: RawRepresentable, Codable, Hashable, Sendabl
   }
 
   /// No direction order.
-  public static let none = Self(rawValue: 0)
+  public static let noDirectionOrder = Self(rawValue: 0)
 
   /// Move to starboard.
   public static let moveToStarboard = Self(rawValue: 1)
@@ -33,7 +33,7 @@ public struct RudderDirectionOrder: RawRepresentable, Codable, Hashable, Sendabl
 
   public var description: String {
     switch self {
-    case .none: "no direction order"
+    case .noDirectionOrder: "no direction order"
     case .moveToStarboard: "move to starboard"
     case .moveToPort: "move to port"
     case .unavailable: "unavailable"

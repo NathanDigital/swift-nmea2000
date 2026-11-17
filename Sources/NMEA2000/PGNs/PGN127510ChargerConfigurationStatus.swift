@@ -20,7 +20,7 @@ public struct ChargerConfigurationStatus: ParameterGroup {
   public var batteryInstance: UInt8
 
   /// Whether the charger is enabled.
-  public var enabled: OnOffStatus
+  public var enabledState: OnOffStatus
 
   /// The charge current limit, in percent (0 to 252), or `nil` if not available.
   public var chargeCurrentLimit: UInt8?
@@ -52,7 +52,7 @@ public struct ChargerConfigurationStatus: ParameterGroup {
   public init(
     chargerInstance: UInt8,
     batteryInstance: UInt8,
-    enabled: OnOffStatus = .on,
+    enabledState: OnOffStatus = .on,
     chargeCurrentLimit: UInt8? = nil,
     chargingAlgorithm: ChargingAlgorithm = .threeStage,
     chargerMode: ChargerMode = .standalone,
@@ -63,7 +63,7 @@ public struct ChargerConfigurationStatus: ParameterGroup {
   ) {
     self.chargerInstance = chargerInstance
     self.batteryInstance = batteryInstance
-    self.enabled = enabled
+    self.enabledState = enabledState
     self.chargeCurrentLimit = chargeCurrentLimit
     self.chargingAlgorithm = chargingAlgorithm
     self.chargerMode = chargerMode
@@ -76,7 +76,7 @@ public struct ChargerConfigurationStatus: ParameterGroup {
   public init(decoding reader: inout MessageReader) {
     chargerInstance = reader.readUInt8()
     batteryInstance = reader.readUInt8()
-    enabled = OnOffStatus(rawValue: reader.readUInt8() & 0x03)
+    enabledState = OnOffStatus(rawValue: reader.readUInt8() & 0x03)
     chargeCurrentLimit = reader.readOptionalUInt8()
     let modes = reader.readUInt8()
     chargingAlgorithm = ChargingAlgorithm(rawValue: modes & 0x0f)
@@ -92,7 +92,7 @@ public struct ChargerConfigurationStatus: ParameterGroup {
   public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(chargerInstance)
     writer.appendUInt8(batteryInstance)
-    writer.appendUInt8(enabled.rawValue & 0x03)
+    writer.appendUInt8(enabledState.rawValue & 0x03)
     writer.appendUInt8(chargeCurrentLimit)
     writer.appendUInt8((chargerMode.rawValue & 0x0f) << 4 | chargingAlgorithm.rawValue & 0x0f)
     writer.appendUInt8(

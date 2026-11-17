@@ -45,14 +45,14 @@ public struct EngineParametersDynamic: ParameterGroup {
   public var torque: Int8?
 
   /// The first set of engine warning flags.
-  public var status1: EngineDiscreteStatus1
+  public var discreteStatus: EngineDiscreteStatus
 
   /// The second set of engine warning flags.
   ///
   /// Upstream's decoder keeps only the low eight bits, so it loses the
   /// manufacturer-defined flags its encoder sends. This type decodes all
   /// sixteen.
-  public var status2: EngineDiscreteStatus2
+  public var warningStatus: EngineWarningStatus
 
   /// Creates a dynamic engine parameters message.
   ///
@@ -69,8 +69,8 @@ public struct EngineParametersDynamic: ParameterGroup {
     fuelPressure: Double? = nil,
     load: Int8? = nil,
     torque: Int8? = nil,
-    status1: EngineDiscreteStatus1 = [],
-    status2: EngineDiscreteStatus2 = []
+    discreteStatus: EngineDiscreteStatus = [],
+    warningStatus: EngineWarningStatus = []
   ) {
     self.instance = instance
     self.oilPressure = oilPressure
@@ -83,8 +83,8 @@ public struct EngineParametersDynamic: ParameterGroup {
     self.fuelPressure = fuelPressure
     self.load = load
     self.torque = torque
-    self.status1 = status1
-    self.status2 = status2
+    self.discreteStatus = discreteStatus
+    self.warningStatus = warningStatus
   }
 
   public init(decoding reader: inout MessageReader) {
@@ -98,10 +98,10 @@ public struct EngineParametersDynamic: ParameterGroup {
     coolantPressure = reader.readUInt16(resolution: 100)
     fuelPressure = reader.readUInt16(resolution: 1000)
     _ = reader.readUInt8()  // Reserved.
-    status1 = EngineDiscreteStatus1(rawValue: reader.readUInt16())
+    discreteStatus = EngineDiscreteStatus(rawValue: reader.readUInt16())
     // Deliberate divergence: upstream assigns through tN2kDD223::operator=,
     // which keeps only the low byte.
-    status2 = EngineDiscreteStatus2(rawValue: reader.readUInt16())
+    warningStatus = EngineWarningStatus(rawValue: reader.readUInt16())
     load = reader.readOptionalInt8()
     torque = reader.readOptionalInt8()
   }
@@ -117,8 +117,8 @@ public struct EngineParametersDynamic: ParameterGroup {
     writer.appendUInt16(coolantPressure, resolution: 100)
     writer.appendUInt16(fuelPressure, resolution: 1000)
     writer.appendUInt8(0xff)
-    writer.appendUInt16(status1.rawValue)
-    writer.appendUInt16(status2.rawValue)
+    writer.appendUInt16(discreteStatus.rawValue)
+    writer.appendUInt16(warningStatus.rawValue)
     writer.appendInt8(load)
     writer.appendInt8(torque)
   }

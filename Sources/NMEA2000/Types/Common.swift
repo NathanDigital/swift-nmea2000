@@ -148,3 +148,18 @@ extension Bool? {
     }
   }
 }
+
+/// Describes a set of flags: the names of the flags that are set, then any
+/// other bits as a raw value, such as `[warning level 1, unknown (0x100)]`.
+func flagDescription<RawValue: FixedWidthInteger>(
+  _ rawValue: RawValue, _ names: [(RawValue, String)]
+) -> String {
+  var remaining = rawValue
+  var parts: [String] = []
+  for (bits, name) in names where bits != 0 && rawValue & bits == bits {
+    parts.append(name)
+    remaining &= ~bits
+  }
+  if remaining != 0 { parts.append("unknown (0x\(String(remaining, radix: 16)))") }
+  return "[" + parts.joined(separator: ", ") + "]"
+}

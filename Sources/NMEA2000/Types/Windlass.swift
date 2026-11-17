@@ -215,3 +215,45 @@ public struct WindlassOperatingEvents: OptionSet, Codable, Hashable, Sendable {
   /// End of rode reached.
   public static let endOfRodeReached = Self(rawValue: 1 << 4)
 }
+
+extension WindlassMonitoringEvents: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (Self.controllerUnderVoltageCutout.rawValue, "controller under-voltage cutout"),
+        (Self.controllerOverCurrentCutout.rawValue, "controller over-current cutout"),
+        (Self.controllerOverTemperatureCutout.rawValue, "controller over-temperature cutout"),
+      ])
+  }
+}
+
+extension WindlassControlEvents: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (
+          Self.anotherDeviceControllingWindlass.rawValue,
+          "another device is controlling the windlass"
+        )
+      ])
+  }
+}
+
+extension WindlassOperatingEvents: CustomStringConvertible {
+  /// The flags that are set, by name, with any unnamed bits as a raw value.
+  public var description: String {
+    flagDescription(
+      rawValue,
+      [
+        (Self.systemError.rawValue, "system error"),
+        (Self.sensorError.rawValue, "sensor error"),
+        (Self.noWindlassMotionDetected.rawValue, "no windlass motion detected"),
+        (Self.retrievalDockingDistanceReached.rawValue, "retrieval docking distance reached"),
+        (Self.endOfRodeReached.rawValue, "end of rode reached"),
+      ])
+  }
+}
