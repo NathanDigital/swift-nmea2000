@@ -84,6 +84,24 @@ struct AISClassAStaticDataTests {
         0xff,
       ]
     ),
+    // unknown DTE code
+    (
+      AISClassAStaticData(
+        messageID: 5, repeatIndicator: .initial, userID: 230_000_004, imoNumber: 0, callsign: "X",
+        name: "Y",
+        vesselType: 0, length: 1, beam: 1, positionReferenceStarboard: 1,
+        positionReferenceBow: 1, etaDate: 19000, etaTime: 0, draught: 1, destination: "Z",
+        aisVersion: .ituRM1371v1, gnssType: .gps, dte: AISDTEStatus(rawValue: 3),
+        transceiverInformation: .channelAReception, sequenceID: 5),
+      [
+        0x05, 0x84, 0x85, 0xb5, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x58, 0x40, 0x40, 0x40, 0x40, 0x40,
+        0x40, 0x59, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+        0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x00, 0x0a, 0x00, 0x0a, 0x00, 0x0a, 0x00, 0x0a, 0x00,
+        0x38, 0x4a, 0x00, 0x00, 0x00, 0x00, 0x64, 0x00, 0x5a, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+        0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0xe0,
+        0x05,
+      ]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)
@@ -98,5 +116,12 @@ struct AISClassAStaticDataTests {
 
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
     expectTolerantDecoding(AISClassAStaticData.self, from: Self.vectors[0].1)
+  }
+
+  @Test func ignoresReservedBitBesideDTE() throws {
+    // Upstream decodes the DTE flag as one bit, so a set reserved bit 7 doesn't affect it.
+    var bytes = Self.vectors[0].1
+    bytes[bytes.count - 3] |= 0x80
+    #expect(try AISClassAStaticData(Message(pgn: 129794, data: bytes)).dte == .ready)
   }
 }

@@ -777,6 +777,22 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) {
      SetN2kPGN129810(m, 24, N2kaisr_Initial, 230000003, 37, "V", "C", 8, 3, 1, 4, 0);
    }},
+  {"PGN129039 unknown unit type without display",
+   [](tN2kMsg &m) {
+     SetN2kPGN129039(m, 18, N2kaisr_Initial, 2, 1.0, 2.0, false, true, 10, 1.0, 1.0, N2kaischannel_A_VDL_reception, 1.0, (tN2kAISUnit)3, false, false, false, false, N2kaismode_Autonomous, false, 1);
+   }},
+  {"PGN129039 display without class B CS",
+   [](tN2kMsg &m) {
+     SetN2kPGN129039(m, 18, N2kaisr_Initial, 3, 1.0, 2.0, true, false, 11, 1.0, 1.0, N2kaischannel_A_VDL_reception, 1.0, N2kaisunit_ClassB_SOTDMA, true, false, false, false, N2kaismode_Autonomous, false, 2);
+   }},
+  {"PGN129794 unknown DTE code",
+   [](tN2kMsg &m) {
+     SetN2kPGN129794(m, 5, N2kaisr_Initial, 230000004, 0, "X", "Y", 0, 1, 1, 1, 1, 19000, 0, 1, "Z", N2kaisv_ITU_R_M_1371_1, N2kGNSSt_GPS, (tN2kAISDTE)3, N2kaischannel_A_VDL_reception, 5);
+   }},
+  {"PGN129802 text over the limit",
+   [](tN2kMsg &m) {
+     SetN2kPGN129802(m, 14, N2kaisr_Initial, 230123456, N2kaischannel_A_VDL_transmission, "Navigational warning: buoy 7 off station near the fairway entrance, buoy 7 off station near the fairway entrance, buoy 7 off station near the fairway entrance, buoy 7 off station near the fairway entrance, ");
+   }},
 };
 
 void print(const Case &c) {

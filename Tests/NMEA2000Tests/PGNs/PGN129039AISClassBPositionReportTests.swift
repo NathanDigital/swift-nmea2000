@@ -58,6 +58,36 @@ struct AISClassBPositionReportTests {
         0xff, 0xff, 0xff, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x00, 0xfe, 0xff,
       ]
     ),
+    // unknown unit type without display
+    (
+      AISClassBPositionReport(
+        messageID: 18, repeatIndicator: .initial, userID: 2, latitude: 1.0, longitude: 2.0,
+        isPositionAccurate: false, isRAIMInUse: true, timestampSecond: 10, courseOverGround: 1.0,
+        speedOverGround: 1.0, transceiverInformation: .channelAReception, heading: 1.0,
+        unitType: AISUnitType(rawValue: 3),
+        hasDisplay: false, hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
+        mode: .autonomous,
+        isCommunicationStateITDMA: false, sequenceID: 1),
+      [
+        0x12, 0x02, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x31, 0x01, 0x80, 0x96, 0x98, 0x00, 0x2a, 0x10,
+        0x27, 0x64, 0x00, 0xff, 0xff, 0x07, 0x10, 0x27, 0xff, 0x04, 0xfe, 0x01,
+      ]
+    ),
+    // display without class B CS
+    (
+      AISClassBPositionReport(
+        messageID: 18, repeatIndicator: .initial, userID: 3, latitude: 1.0, longitude: 2.0,
+        isPositionAccurate: true, isRAIMInUse: false, timestampSecond: 11, courseOverGround: 1.0,
+        speedOverGround: 1.0, transceiverInformation: .channelAReception, heading: 1.0,
+        unitType: .classBSOTDMA,
+        hasDisplay: true, hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
+        mode: .autonomous,
+        isCommunicationStateITDMA: false, sequenceID: 2),
+      [
+        0x12, 0x03, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x31, 0x01, 0x80, 0x96, 0x98, 0x00, 0x2d, 0x10,
+        0x27, 0x64, 0x00, 0xff, 0xff, 0x07, 0x10, 0x27, 0xff, 0x08, 0xfe, 0x02,
+      ]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)
