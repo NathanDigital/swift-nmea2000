@@ -41,7 +41,7 @@ done
 
 docker build --quiet --tag "$image" "$repo/docker" >/dev/null
 
-exec docker run --rm \
+exec docker run --rm --init \
   --volume "$repo:/src:ro" \
   --workdir /src \
   "$image" bash -c '

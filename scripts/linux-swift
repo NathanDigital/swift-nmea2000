@@ -18,7 +18,7 @@ docker build --quiet --tag "$image" "$repo/docker" >/dev/null
 tty_flags=()
 [[ -t 0 && -t 1 ]] && tty_flags=(-it)
 
-exec docker run --rm "${tty_flags[@]}" \
+exec docker run --rm --init "${tty_flags[@]}" \
   --volume "$repo:/src" \
   --volume "$image-build:/src/.build" \
   --workdir /src \
