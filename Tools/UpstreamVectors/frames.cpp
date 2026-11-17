@@ -175,11 +175,11 @@ void start(TestNode &node, tNMEA2000::tN2kMode mode, uint8_t source = 23) {
   node.ParseMessages();
 }
 
-// Polls the node every 10 ms until t milliseconds into the case, as a main
-// loop calling ParseMessages would.
-void until(TestNode &node, uint32_t t) {
+// Polls the node every 10 ms (or `step`) until t milliseconds into the case,
+// as a main loop calling ParseMessages would.
+void until(TestNode &node, uint32_t t, uint32_t step = 10) {
   while (now - origin < t) {
-    now += std::min<uint32_t>(10, t - (now - origin));
+    now += std::min<uint32_t>(step, t - (now - origin));
     node.ParseMessages();
   }
 }
@@ -667,6 +667,14 @@ const std::vector<Case> cases = {
       until(n, 10150);
       claim(n, 23, ownName - 1);
       until(n, 10500);
+    }),
+    NODE("heartbeat sequence wraps after 252", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 600);
+      // Polling once a second, 250 heartbeats take until 15 000 s.
+      until(n, 15000000, 1000);
+      events.clear();
+      until(n, 15200000, 1000);
     }),
     NODE("heartbeat needs a full node", start(n, tNMEA2000::N2km_ListenAndSend); until(n, 10300)),
 

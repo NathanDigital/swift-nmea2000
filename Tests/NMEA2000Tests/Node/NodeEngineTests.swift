@@ -18,6 +18,9 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
   enum Step: Sendable {
     /// Poll every 10 ms until this many milliseconds into the case.
     case until(UInt64)
+    /// Poll every `step` milliseconds until this many milliseconds into the
+    /// case.
+    case untilStepping(UInt64, step: UInt64)
     /// Receive a frame.
     case receive(UInt32, [UInt8])
     /// Send a message whose payload counts up from 0.
@@ -114,9 +117,9 @@ struct EngineDriver {
     }
   }
 
-  mutating func until(_ time: UInt64) {
+  mutating func until(_ time: UInt64, step: UInt64 = 10) {
     while now < time {
-      now += min(10, time - now)
+      now += min(step, time - now)
       poll()
     }
   }
@@ -154,6 +157,7 @@ struct EngineDriver {
   mutating func run(_ step: NodeCase.Step) {
     switch step {
     case .until(let time): until(time)
+    case .untilStepping(let time, let step): until(time, step: step)
     case .receive(let id, let data): receive(CANFrame(id: id, data: data))
     case .send(let pgn, let count, let priority):
       send(Message(pgn: pgn, priority: priority, data: (0..<count).map(UInt8.init)))
@@ -695,6 +699,18 @@ struct NodeEngineTests {
         "t=10150 tx id=0x18eeff18 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
         "t=10150 rx pgn=60928 priority=6 source=23 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
         "t=10400 tx id=0x1df01118 data=[0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]",
+      ]),
+    NodeCase(
+      name: "heartbeat sequence wraps after 252", mode: .node,
+      steps: [
+        .until(600), .untilStepping(15_000_000, step: 1000), .clearEvents,
+        .untilStepping(15_200_000, step: 1000),
+      ],
+      upstream: [
+        "t=15011000 tx id=0x1df01117 data=[0x60, 0xea, 0xfa, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=15071000 tx id=0x1df01117 data=[0x60, 0xea, 0xfb, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=15131000 tx id=0x1df01117 data=[0x60, 0xea, 0xfc, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=15191000 tx id=0x1df01117 data=[0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]",
       ]),
     NodeCase(
       name: "heartbeat needs a full node", mode: .listenAndSend,
