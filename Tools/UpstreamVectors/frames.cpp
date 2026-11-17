@@ -381,6 +381,20 @@ const std::vector<Case> cases = {
       until(n, 800);
       send(n, 129025, 8, 2);
     }),
+    NODE("gives up from address 0 at 251", {
+      start(n, tNMEA2000::N2km_NodeOnly, 0);
+      until(n, 500);
+      // 250 conflicts move the node from 0 to 250; print the last two.
+      for (int i = 0; i < 250; i++) claim(n, n.GetN2kSource(), ownName - 1);
+      events.clear();
+      claim(n, 250, ownName - 1);
+      claim(n, 251, ownName - 1);
+    }),
+    NODE("sends from address 251", {
+      start(n, tNMEA2000::N2km_NodeOnly, 251);
+      until(n, 450);
+      send(n, 129025, 8, 2);
+    }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);
       until(n, 300);

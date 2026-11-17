@@ -255,6 +255,22 @@ struct NodeEngineTests {
         claimed(at: 500, from: 254), claimReceived(at: 500, from: 22),
       ]),
     NodeCase(
+      name: "gives up from address 0 at 251", mode: .node, address: 0,
+      steps: [
+        .until(500), .lowerClaimsFromOwnAddress(250), .clearEvents,
+        .claim(source: 250, name: ownName - 1), .claim(source: 251, name: ownName - 1),
+      ],
+      events: [
+        claimed(at: 500, from: 251), claimReceived(at: 500, from: 250),
+        claimed(at: 500, from: 254), claimReceived(at: 500, from: 251),
+      ]),
+    NodeCase(
+      name: "sends from address 251", mode: .node, address: 251,
+      steps: [.until(450), sendPosition],
+      events: [
+        claimed(at: 200, from: 251), .tx(at: 450, id: 0x09f8_01fb, data: position),
+      ]),
+    NodeCase(
       name: "starts from address 14 without one", mode: .node, address: 254,
       steps: [.until(300)],
       events: [claimed(at: 200, from: 14)]),
