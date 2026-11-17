@@ -23,6 +23,13 @@ struct SystemTimeTests {
         sequenceID: nil, daysSince1970: nil, secondsSinceMidnight: nil, source: .localCrystalClock),
       [0xff, 0xf5, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
+    // unknown time source
+    (
+      SystemTime(
+        sequenceID: 1, daysSince1970: 20000, secondsSinceMidnight: 43200.5,
+        source: TimeSource(rawValue: 10)),
+      [0x01, 0xfa, 0x20, 0x4e, 0x88, 0xdf, 0xbf, 0x19]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

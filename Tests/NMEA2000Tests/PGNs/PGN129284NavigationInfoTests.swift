@@ -63,5 +63,7 @@ struct NavigationInfoTests {
     var bytes = Self.vectors[0].1
     bytes[5] = 0x03  // HeadingReference.unavailable, as upstream would send it.
     #expect(try NavigationInfo(Message(pgn: 129284, data: bytes)).bearingReference == .magnetic)
+    bytes[5] = 0x02  // HeadingReference.error: bit 0 is clear.
+    #expect(try NavigationInfo(Message(pgn: 129284, data: bytes)).bearingReference == .true)
   }
 }

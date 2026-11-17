@@ -58,6 +58,16 @@ const std::vector<Case> cases = {
   FIELD("Variable string UCS-2", m.AddVarStr("\xc3\xa9")),
   FIELD("Variable string UCS-2 three-byte UTF-8", m.AddVarStr("\xe2\x82\xac")),
   FIELD("Variable string UCS-2 outside BMP", m.AddVarStr("a\xf0\x9f\x98\x80")),
+  FIELD("Variable string UCS-2 two-byte UTF-8 above U+03FF", m.AddVarStr("\xd0\x96")),
+  FIELD("Variable string UCS-2 three-byte UTF-8 above U+7FFF", m.AddVarStr("\xe8\xaa\x9e")),
+  FIELD("Variable string forced ASCII mixed scripts",
+        m.AddVarStr("\xd0\x96" "a" "\xe8\xaa\x9e" "b" "\xf0\x9f\x98\x80" "c", 5000,
+                    tN2kMsg::vss_ForceASCII)),
+  {"Field AIS string at capacity", [](tN2kMsg &m) {
+     m.SetPGN(1);
+     for (int i = 0; i < 221; i++) m.AddByte(0);
+     m.AddAISStr("ABCD", 5);
+   }},
   FIELD("Variable string forced ASCII",
         m.AddVarStr("\xc3\xa9" "a", 5000, tN2kMsg::vss_ForceASCII)),
   FIELD("Variable string UCS-2 byte limit",
@@ -207,6 +217,49 @@ const std::vector<Case> cases = {
   {"PGN130577 not available",
    [](tN2kMsg &m) {
      SetN2kPGN130577(m, N2kDD025_Unavailable, N2khr_Unavailable, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN126992 unknown time source",
+   [](tN2kMsg &m) { SetN2kPGN126992(m, 1, 20000, 43200.5, (tN2kTimeSource)10); }},
+  {"PGN129029 Galileo with an old correction",
+   [](tN2kMsg &m) {
+     SetN2kPGN129029(m, 10, 19000, 43200.5, -33.8688, 151.2093, -5.25, N2kGNSSt_Galileo, N2kGNSSm_RTKFixed, 12, 0.6, 1.1, -22.5, 1, N2kGNSSt_Galileo, 4000, 400.0);
+   }},
+  {"PGN129283 unknown mode",
+   [](tN2kMsg &m) { SetN2kPGN129283(m, 11, (tN2kXTEMode)10, false, 1.5); }},
+  {"PGN129285 long names and negative position",
+   [](tN2kMsg &m) {
+     SetN2kPGN129285(m, 1, 2, 3, N2kdir_error, "Around the archipelago and back again", N2kDD002_Unavailable);
+     AppendN2kPGN129285(m, 4, "\xc3\x84ngs\xc3\xb6 northern anchorage, west side", -33.8688, -151.2093);
+   }},
+  {"PGN129285 size estimate exactly at the limit",
+   [](tN2kMsg &m) {
+     SetN2kPGN129285(m, 0, 1, 2, N2kdir_forward, "Route 1234", N2kDD002_No);
+     for (int i = 1; i <= 9; i++) {
+       char name[16];
+       snprintf(name, sizeof name, "WP-%05d", i);
+       AppendN2kPGN129285(m, i, name, 60.1 + i * 0.001, 24.9 + i * 0.001);
+     }
+     AppendN2kPGN129285(m, 10, "\xe6\x9d\xb1\xe4\xba\xac\xe6\xb9\xbe", 60.2, 25.0);
+   }},
+  {"PGN129285 position exactly at the limit",
+   [](tN2kMsg &m) {
+     SetN2kPGN129285(m, 0, 1, 2, N2kdir_forward, "Boundary route!", N2kDD002_No);
+     for (int i = 1; i <= 9; i++) {
+       char name[16];
+       snprintf(name, sizeof name, "WP-%05d", i);
+       AppendN2kPGN129285(m, i, name, 60.1 + i * 0.001, 24.9 + i * 0.001);
+     }
+     AppendN2kPGN129285(m, 10, "a\xc3\xa9", 60.2, 25.0);
+   }},
+  {"PGN130074 entry exactly at the limit",
+   [](tN2kMsg &m) {
+     SetN2kPGN130074(m, 0, 10, 3);
+     for (int i = 1; i <= 9; i++) {
+       char name[16];
+       snprintf(name, sizeof name, "WP-%05d", i);
+       AppendN2kPGN130074(m, i, name, 60.1 + i * 0.001, 24.9 + i * 0.001);
+     }
+     AppendN2kPGN130074(m, 10, (char *)"Twenty-one characters", 60.2, 25.0);
    }},
 };
 

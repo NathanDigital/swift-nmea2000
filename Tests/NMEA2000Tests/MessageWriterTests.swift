@@ -174,6 +174,18 @@ struct MessageWriterTests {
     WriterVector("Variable string UCS-2 outside BMP", [0x06, 0x00, 0x61, 0x00, 0x3f, 0x00]) {
       $0.appendVariableString("a😀")
     },
+    WriterVector("Variable string UCS-2 two-byte UTF-8 above U+03FF", [0x04, 0x00, 0x16, 0x04]) {
+      $0.appendVariableString("Ж")
+    },
+    WriterVector("Variable string UCS-2 three-byte UTF-8 above U+7FFF", [0x04, 0x00, 0x9e, 0x8a]) {
+      $0.appendVariableString("語")
+    },
+    WriterVector(
+      "Variable string forced ASCII mixed scripts",
+      [0x08, 0x01, 0x3f, 0x61, 0x3f, 0x62, 0x3f, 0x63]
+    ) {
+      $0.appendVariableString("Жa語b😀c", encoding: .asciiOnly)
+    },
     WriterVector("Variable string forced ASCII", [0x04, 0x01, 0x3f, 0x61]) {
       $0.appendVariableString("éa", encoding: .asciiOnly)
     },
@@ -213,6 +225,14 @@ struct MessageWriterTests {
     writer.appendBytes([1, 2, 3, 4, 5])
     #expect(writer.count == Message.maxDataCount)
     #expect(writer.data.suffix(3) == [1, 2, 3])
+  }
+
+  @Test func stopsAISStringAtCapacity() {
+    var writer = MessageWriter()
+    writer.appendBytes([UInt8](repeating: 0, count: 221))
+    writer.appendAISString("ABCD", count: 5)
+    #expect(writer.count == Message.maxDataCount)
+    #expect(writer.data.suffix(2) == [0x41, 0x42])
   }
 
   @Test func truncatesAISStringToCapacity() {

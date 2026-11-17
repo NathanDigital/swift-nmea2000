@@ -24,6 +24,13 @@ struct CrossTrackErrorTests {
         sequenceID: nil, mode: .autonomous, isNavigationTerminated: false, crossTrackError: nil),
       [0xff, 0x00, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff]
     ),
+    // unknown mode
+    (
+      CrossTrackError(
+        sequenceID: 11, mode: CrossTrackErrorMode(rawValue: 10), isNavigationTerminated: false,
+        crossTrackError: 1.5),
+      [0x0b, 0x0a, 0x96, 0x00, 0x00, 0x00, 0xff, 0xff]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)
