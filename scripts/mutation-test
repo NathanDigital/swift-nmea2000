@@ -12,6 +12,7 @@ input or assertion, unless the change can't alter behaviour.
     scripts/mutation-test Sources/NMEA2000/PGNs/PGN129029*.swift
     scripts/mutation-test --list                # show the mutants, run nothing
     scripts/mutation-test --only 3,17           # rerun particular mutants
+    scripts/mutation-test --since HEAD~1 <files> # only lines changed since a commit
 
 The target files are edited in place and restored after each mutant, including
 on Ctrl-C. The script refuses to run if any target file has uncommitted
@@ -74,6 +75,19 @@ OPERATORS = [
         lambda m: f"{m.group(1)}// mutant: removed",
     ),
 ]
+
+
+def changed_lines(path, since):
+    """The line numbers of a file that differ from commit `since`."""
+    diff = subprocess.run(
+        ["git", "diff", "--unified=0", since, "--", path],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout
+    lines = set()
+    for m in re.finditer(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", diff, flags=re.M):
+        start, count = int(m.group(1)), int(m.group(2) or 1)
+        lines.update(range(start, start + count))
+    return lines
 
 
 def find_mutants(paths):
@@ -145,6 +159,9 @@ def main():
     parser.add_argument("--list", action="store_true", help="list the mutants without running them")
     parser.add_argument("--only", help="comma-separated mutant ids to run")
     parser.add_argument("--output", help="also write one JSON result per line to this file")
+    parser.add_argument(
+        "--since", metavar="COMMIT", help="only mutate lines changed since this commit"
+    )
     args = parser.parse_args()
 
     patterns = args.files or [os.path.join(REPO, p) for p in DEFAULT_TARGETS]
@@ -155,6 +172,9 @@ def main():
     if args.only:
         wanted = {int(x) for x in args.only.split(",")}
         mutants = [m for m in mutants if m["id"] in wanted]
+    if args.since:
+        changed = {path: changed_lines(path, args.since) for path in paths}
+        mutants = [m for m in mutants if m["line"] in changed[os.path.join(REPO, m["file"])]]
 
     if args.list:
         for m in mutants:

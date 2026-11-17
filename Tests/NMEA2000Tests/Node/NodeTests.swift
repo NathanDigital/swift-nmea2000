@@ -74,14 +74,85 @@ final class ManualClock: Clock {
   }
 
   /// Waits until a number of tasks are sleeping on the clock.
-  ///
-  /// - Throws: `CancellationError` if the test times out first.
   func waitForSleepers(_ count: Int = 1) async throws {
-    while sleeperCount < count {
-      try Task.checkCancellation()
-      await Task.yield()
+    try await eventually { sleeperCount >= count ? () : nil }
+  }
+}
+
+/// A test waited for something that didn't happen.
+struct TimedOut: Error {}
+
+/// Polls `check` until it returns a value, giving up after a few seconds.
+///
+/// A broken node can leave a test waiting for a frame that never comes. This
+/// fails the test quickly instead, which keeps mutation testing fast.
+func eventually<T>(_ check: () -> T?) async throws -> T {
+  let deadline = ContinuousClock.now + .seconds(5)
+  while true {
+    if let value = check() { return value }
+    guard ContinuousClock.now < deadline else { throw TimedOut() }
+    try await Task.sleep(for: .milliseconds(1))
+  }
+}
+
+/// Collects the elements of a sequence as they arrive, so a test can wait for
+/// them with a deadline.
+final class Recorder<Element: Sendable>: Sendable {
+  private struct State {
+    var elements: [Element] = []
+    var isFinished = false
+    var nextIndex = 0
+  }
+
+  private let state = Mutex(State())
+
+  init<S: AsyncSequence & Sendable>(_ sequence: S) where S.Element == Element {
+    Task {
+      do {
+        for try await element in sequence { self.append(element) }
+      } catch {}
+      self.markFinished()
     }
   }
+
+  private func append(_ element: Element) {
+    state.withLock { $0.elements.append(element) }
+  }
+
+  private func markFinished() {
+    state.withLock { $0.isFinished = true }
+  }
+
+  /// Waits for the next element, or `nil` once the sequence has finished.
+  func next() async throws -> Element? {
+    try await eventually {
+      state.withLock { state -> Element?? in
+        if state.nextIndex < state.elements.count {
+          defer { state.nextIndex += 1 }
+          return .some(state.elements[state.nextIndex])
+        }
+        return state.isFinished ? .some(nil) : nil
+      }
+    }
+  }
+
+  /// Waits for the sequence to finish, and returns every element.
+  func all() async throws -> [Element] {
+    try await eventually { state.withLock { $0.isFinished ? $0.elements : nil } }
+  }
+}
+
+/// Waits for a task to finish, giving up after a few seconds.
+func finish(_ task: Task<Void, any Error>) async throws {
+  let done = Recorder(
+    AsyncStream<Void> { continuation in
+      Task {
+        _ = await task.result
+        continuation.finish()
+      }
+    })
+  _ = try await done.all()
+  try await task.value
 }
 
 /// A transport whose received frames a test supplies, and which records the
@@ -89,7 +160,8 @@ final class ManualClock: Clock {
 final class FakeTransport: CANTransport {
   let received: AsyncStream<CANFrame>
   let receive: AsyncStream<CANFrame>.Continuation
-  let sent: AsyncStream<CANFrame>
+  /// The frames the node sent.
+  let sent: Recorder<CANFrame>
   private let sentContinuation: AsyncStream<CANFrame>.Continuation
   private let failures: Mutex<Int>
   private let opens = Mutex(0)
@@ -98,7 +170,9 @@ final class FakeTransport: CANTransport {
 
   init(failingOpens: Int = 0) {
     (received, receive) = AsyncStream.makeStream(of: CANFrame.self)
-    (sent, sentContinuation) = AsyncStream.makeStream(of: CANFrame.self)
+    let (sentFrames, sentContinuation) = AsyncStream.makeStream(of: CANFrame.self)
+    sent = Recorder(sentFrames)
+    self.sentContinuation = sentContinuation
     failures = Mutex(failingOpens)
   }
 
@@ -125,8 +199,7 @@ final class FakeTransport: CANTransport {
 private let claim: CANFrame = CANFrame(
   id: 0x18ee_ff17, data: [0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0])
 
-// A broken node can leave a test waiting for a frame that never comes, so
-// stop any test that runs for a minute.
+// The helpers give up after a few seconds; the time limit catches the rest.
 @Suite("Node", .timeLimit(.minutes(1)))
 struct NodeTests {
   @Test func claimsSendsAndReceives() async throws {
@@ -135,11 +208,11 @@ struct NodeTests {
     let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
     let messages = await node.messages()
     let run = Task { try await node.run() }
-    var sent = transport.sent.makeAsyncIterator()
+    let sent = transport.sent
 
     try await clock.waitForSleepers()
     clock.advance(to: 200)
-    #expect(await sent.next() == claim)
+    #expect(try await sent.next() == claim)
 
     clock.advance(to: 449)
     await #expect(throws: NodeError.claimingAddress) {
@@ -147,19 +220,19 @@ struct NodeTests {
     }
     clock.advance(to: 450)
     try await node.send(PositionRapidUpdate(latitude: 1, longitude: 2))
-    #expect(await sent.next()?.id == 0x09f8_0117)
+    #expect(try await sent.next()?.id == 0x09f8_0117)
 
     transport.receive.yield(CANFrame(id: 0x09f8_0142, data: [1, 2, 3, 4, 5, 6, 7, 8]))
-    var iterator = messages.makeAsyncIterator()
-    let message = try #require(await iterator.next())
+    let received = Recorder(messages)
+    let message = try #require(try await received.next())
     #expect(message.pgn == 129025)
     #expect(message.source == 0x42)
     #expect(message.data == [1, 2, 3, 4, 5, 6, 7, 8])
     #expect(message.timestamp == 450)
 
     transport.receive.finish()
-    try await run.value
-    #expect(await iterator.next() == nil)
+    try await finish(run)
+    #expect(try await received.next() == nil)
   }
 
   @Test func defendsItsAddress() async throws {
@@ -167,20 +240,20 @@ struct NodeTests {
     let transport = FakeTransport()
     let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
-    var sent = transport.sent.makeAsyncIterator()
+    let sent = transport.sent
     try await clock.waitForSleepers()
     clock.advance(to: 500)
-    #expect(await sent.next() == claim)
+    #expect(try await sent.next() == claim)
 
     // A lower NAME takes address 23, so the node claims 24.
     transport.receive.yield(
       CANFrame(id: 0x18ee_ff17, data: [0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]))
-    #expect(await sent.next() == CANFrame(id: 0x18ee_ff18, data: claim.data))
+    #expect(try await sent.next() == CANFrame(id: 0x18ee_ff18, data: claim.data))
     #expect(await node.address == 24)
 
     run.cancel()
     transport.receive.finish()
-    try await run.value
+    try await finish(run)
   }
 
   @Test func retriesOpeningEverySecond() async throws {
@@ -188,7 +261,7 @@ struct NodeTests {
     let transport = FakeTransport(failingOpens: 2)
     let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
-    var sent = transport.sent.makeAsyncIterator()
+    let sent = transport.sent
 
     try await clock.waitForSleepers()
     #expect(transport.openCount == 1)
@@ -199,10 +272,10 @@ struct NodeTests {
     try await clock.waitForSleepers()
     #expect(transport.openCount == 3)
     clock.advance(to: 2200)
-    #expect(await sent.next() == claim)
+    #expect(try await sent.next() == claim)
 
     transport.receive.finish()
-    try await run.value
+    try await finish(run)
   }
 
   @Test func stopsOpeningWhenCancelled() async throws {
@@ -212,7 +285,7 @@ struct NodeTests {
     let run = Task { try await node.run() }
     try await clock.waitForSleepers()
     run.cancel()
-    await #expect(throws: CancellationError.self) { try await run.value }
+    await #expect(throws: CancellationError.self) { try await finish(run) }
   }
 
   @Test func refusesToSendBeforeRunning() async {
@@ -238,10 +311,7 @@ struct NodeTests {
     _ = try await (sendFirst, sendSecond)
 
     var frames: [CANFrame] = []
-    for await frame in transport.sent {
-      frames.append(frame)
-      if frames.count == 14 { break }
-    }
+    for _ in 0..<14 { frames.append(try #require(try await transport.sent.next())) }
     // Each fast packet's seven frames are sent together, in order.
     let sequences = frames.map { $0.data[0] >> 5 }
     #expect(
@@ -250,7 +320,7 @@ struct NodeTests {
     #expect(frames.map { $0.data[0] & 0x1f } == Array(0..<7) + Array(0..<7))
 
     transport.receive.finish()
-    try await run.value
+    try await finish(run)
   }
 
   @Test func sendsTransportProtocolPacketsOnTime() async throws {
@@ -258,41 +328,42 @@ struct NodeTests {
     let transport = FakeTransport()
     let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
-    var sent = transport.sent.makeAsyncIterator()
+    let sent = transport.sent
     try await clock.waitForSleepers()
     clock.advance(to: 200)
-    #expect(await sent.next() == claim)
+    #expect(try await sent.next() == claim)
     clock.advance(to: 450)
 
     try await node.send(
       Message(pgn: 126464, data: Array(0..<10), isTransportProtocol: true))
-    #expect(await sent.next()?.id == 0x18ec_ff17)
+    #expect(try await sent.next()?.id == 0x18ec_ff17)
     // The node wakes itself for each data packet.
     try await clock.waitForSleepers()
     clock.advance(to: 500)
-    #expect(await sent.next() == CANFrame(id: 0x18eb_ff17, data: [1, 0, 1, 2, 3, 4, 5, 6]))
+    #expect(try await sent.next() == CANFrame(id: 0x18eb_ff17, data: [1, 0, 1, 2, 3, 4, 5, 6]))
     try await clock.waitForSleepers()
     clock.advance(to: 550)
     #expect(
-      await sent.next() == CANFrame(id: 0x18eb_ff17, data: [2, 7, 8, 9, 0xff, 0xff, 0xff, 0xff]))
+      try await sent.next()
+        == CANFrame(id: 0x18eb_ff17, data: [2, 7, 8, 9, 0xff, 0xff, 0xff, 0xff]))
 
     transport.receive.finish()
-    try await run.value
+    try await finish(run)
   }
 
   @Test func deliversEveryMessageToEverySubscriber() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
     let node = Node(transport: transport, clock: clock)
-    let first = await node.messages()
-    let second = await node.messages()
+    let first = Recorder(await node.messages())
+    let second = Recorder(await node.messages())
     let run = Task { try await node.run() }
     try await clock.waitForSleepers()
     clock.advance(to: 200)
     transport.receive.yield(CANFrame(id: 0x09f8_0142, data: [1, 2, 3, 4, 5, 6, 7, 8]))
     transport.receive.finish()
-    try await run.value
-    #expect(await first.map(\.pgn).reduce(into: []) { $0.append($1) } == [129025])
-    #expect(await second.map(\.pgn).reduce(into: []) { $0.append($1) } == [129025])
+    try await finish(run)
+    #expect(try await first.all().map(\.pgn) == [129025])
+    #expect(try await second.all().map(\.pgn) == [129025])
   }
 }
