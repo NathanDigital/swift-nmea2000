@@ -87,9 +87,16 @@ struct GNSSSatellitesInViewTests {
     expectTolerantDecoding(GNSSSatellitesInView.self, from: Self.vectors[0].1)
   }
 
-  @Test func rejectsMoreSatellitesThanUpstreamParses() {
-    #expect(throws: MessageDecodingError.self) {
-      try GNSSSatellitesInView(Message(pgn: 129540, data: [0x01, 0xfc, 19]))
-    }
+  @Test func decodesMoreSatellitesThanUpstreamParses() throws {
+    // Upstream's header parser still returns the SID, mode and count; its
+    // per-satellite parser refuses every satellite past 18 declared.
+    let satellite: [UInt8] = [7, 0x10, 0x27, 0x20, 0x4e, 0xe8, 0x03, 0x01, 0x00, 0x00, 0x00, 0xf2]
+    let data = [0x01, 0xfc, 19] + Array([[UInt8]](repeating: satellite, count: 19).joined())
+    let decoded = try GNSSSatellitesInView(Message(pgn: 129540, data: data))
+    #expect(decoded.sequenceID == 1)
+    #expect(decoded.satellites.count == 19)
+    #expect(decoded.satellites.allSatisfy { $0.prn == 7 && $0.usageStatus.rawValue == 2 })
+    // Only 18 go back out.
+    #expect(decoded.makeMessage().data == [0x01, 0xfc, 18] + data[3..<(3 + 18 * 12)])
   }
 }

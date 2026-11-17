@@ -79,17 +79,15 @@ public struct GNSSSatellitesInView: ParameterGroup, Hashable {
 
   /// Decodes the fields from a payload.
   ///
-  /// - Throws: ``MessageDecodingError/invalidPayload(pgn:reason:)`` if the
-  ///   message declares more than ``maxSatelliteCount`` satellites, which
-  ///   upstream also refuses to parse.
-  public init(from reader: inout MessageReader) throws(MessageDecodingError) {
+  /// Every satellite the message declares is decoded. Upstream's
+  /// per-satellite parser refuses all of them when more than
+  /// ``maxSatelliteCount`` are declared, which a message sent by transport
+  /// protocol can hold.
+  public init(from reader: inout MessageReader) {
     sequenceID = reader.readOptionalUInt8()
     mode = RangeResidualMode(rawValue: reader.readUInt8() & 0x03)
     // A payload that ends before the count holds no satellites.
     let count = reader.remainingCount > 0 ? Int(reader.readUInt8()) : 0
-    guard count <= Self.maxSatelliteCount else {
-      throw .invalidPayload(pgn: Self.pgn, reason: "\(count) satellites declared")
-    }
     satellites = (0..<count).map { _ in
       Satellite(
         prn: reader.readOptionalUInt8(),
