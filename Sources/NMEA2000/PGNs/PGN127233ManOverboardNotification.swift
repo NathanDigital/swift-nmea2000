@@ -22,16 +22,16 @@ public struct ManOverboardNotification: ParameterGroup {
   public var status: MOBStatus
 
   /// The time the emitter was activated, in seconds since midnight UTC, or `nil` if not available.
-  public var activationTime: Double?
+  public var activationSecondsSinceMidnight: Double?
 
   /// The source of the position.
   public var positionSource: MOBPositionSource
 
   /// The date of the position, in days since 1970-01-01, or `nil` if not available.
-  public var positionDate: UInt16?
+  public var positionDaysSince1970: UInt16?
 
   /// The time of the position, in seconds since midnight UTC, or `nil` if not available.
-  public var positionTime: Double?
+  public var positionSecondsSinceMidnight: Double?
 
   /// The latitude, in degrees, positive north, or `nil` if not available.
   public var latitude: Double?
@@ -59,10 +59,10 @@ public struct ManOverboardNotification: ParameterGroup {
     sequenceID: UInt8?,
     emitterID: UInt32?,
     status: MOBStatus,
-    activationTime: Double?,
+    activationSecondsSinceMidnight: Double?,
     positionSource: MOBPositionSource,
-    positionDate: UInt16?,
-    positionTime: Double?,
+    positionDaysSince1970: UInt16?,
+    positionSecondsSinceMidnight: Double?,
     latitude: Double?,
     longitude: Double?,
     courseReference: HeadingReference,
@@ -74,10 +74,10 @@ public struct ManOverboardNotification: ParameterGroup {
     self.sequenceID = sequenceID
     self.emitterID = emitterID
     self.status = status
-    self.activationTime = activationTime
+    self.activationSecondsSinceMidnight = activationSecondsSinceMidnight
     self.positionSource = positionSource
-    self.positionDate = positionDate
-    self.positionTime = positionTime
+    self.positionDaysSince1970 = positionDaysSince1970
+    self.positionSecondsSinceMidnight = positionSecondsSinceMidnight
     self.latitude = latitude
     self.longitude = longitude
     self.courseReference = courseReference
@@ -91,10 +91,10 @@ public struct ManOverboardNotification: ParameterGroup {
     sequenceID = reader.readOptionalUInt8()
     emitterID = reader.readOptionalUInt32()
     status = MOBStatus(rawValue: reader.readUInt8() & 0x07)
-    activationTime = reader.readUInt32(resolution: 0.0001)
+    activationSecondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
     positionSource = MOBPositionSource(rawValue: reader.readUInt8() & 0x07)
-    positionDate = reader.readOptionalUInt16()
-    positionTime = reader.readUInt32(resolution: 0.0001)
+    positionDaysSince1970 = reader.readOptionalUInt16()
+    positionSecondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
     latitude = reader.readInt32(resolution: 1e-7)
     longitude = reader.readInt32(resolution: 1e-7)
     courseReference = HeadingReference(rawValue: reader.readUInt8() & 0x03)
@@ -108,10 +108,10 @@ public struct ManOverboardNotification: ParameterGroup {
     writer.appendUInt8(sequenceID)
     writer.appendUInt32(emitterID)
     writer.appendUInt8(status.rawValue & 0x07 | 0xf8)
-    writer.appendUInt32(activationTime, resolution: 0.0001)
+    writer.appendUInt32(activationSecondsSinceMidnight, resolution: 0.0001)
     writer.appendUInt8(positionSource.rawValue & 0x07 | 0xf8)
-    writer.appendUInt16(positionDate)
-    writer.appendUInt32(positionTime, resolution: 0.0001)
+    writer.appendUInt16(positionDaysSince1970)
+    writer.appendUInt32(positionSecondsSinceMidnight, resolution: 0.0001)
     writer.appendInt32(latitude, resolution: 1e-7)
     writer.appendInt32(longitude, resolution: 1e-7)
     writer.appendUInt8(courseReference.rawValue & 0x03 | 0xfc)

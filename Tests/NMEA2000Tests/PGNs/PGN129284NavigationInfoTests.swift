@@ -17,7 +17,7 @@ struct NavigationInfoTests {
       NavigationInfo(
         sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .magnetic,
         isPerpendicularCrossed: true, isArrivalCircleEntered: false, calculationType: .rhumbLine,
-        etaTime: 45000.5, etaDate: 19001, bearingOriginToDestination: 0.5,
+        etaDaysSince1970: 19001, etaSecondsSinceMidnight: 45000.5, bearingOriginToDestination: 0.5,
         bearingPositionToDestination: 0.6, originWaypointNumber: 100,
         destinationWaypointNumber: 101,
         destinationLatitude: 60.15, destinationLongitude: 24.95, waypointClosingVelocity: -1.25),
@@ -32,7 +32,8 @@ struct NavigationInfoTests {
       NavigationInfo(
         sequenceID: nil, distanceToWaypoint: nil, bearingReference: .true,
         isPerpendicularCrossed: false,
-        isArrivalCircleEntered: true, calculationType: .greatCircle, etaTime: nil, etaDate: nil,
+        isArrivalCircleEntered: true, calculationType: .greatCircle, etaDaysSince1970: nil,
+        etaSecondsSinceMidnight: nil,
         bearingOriginToDestination: nil, bearingPositionToDestination: nil,
         originWaypointNumber: nil,
         destinationWaypointNumber: nil, destinationLatitude: nil, destinationLongitude: nil,
@@ -48,7 +49,7 @@ struct NavigationInfoTests {
       NavigationInfo(
         sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .unavailable,
         isPerpendicularCrossed: false, isArrivalCircleEntered: false, calculationType: .greatCircle,
-        etaTime: nil, etaDate: nil, bearingOriginToDestination: 0.5,
+        etaDaysSince1970: nil, etaSecondsSinceMidnight: nil, bearingOriginToDestination: 0.5,
         bearingPositionToDestination: 0.6,
         originWaypointNumber: 100, destinationWaypointNumber: 101, destinationLatitude: 60.15,
         destinationLongitude: 24.95, waypointClosingVelocity: nil),
@@ -63,7 +64,7 @@ struct NavigationInfoTests {
       NavigationInfo(
         sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .error,
         isPerpendicularCrossed: true, isArrivalCircleEntered: true, calculationType: .rhumbLine,
-        etaTime: nil, etaDate: nil, bearingOriginToDestination: 0.5,
+        etaDaysSince1970: nil, etaSecondsSinceMidnight: nil, bearingOriginToDestination: 0.5,
         bearingPositionToDestination: 0.6,
         originWaypointNumber: 100, destinationWaypointNumber: 101, destinationLatitude: 60.15,
         destinationLongitude: 24.95, waypointClosingVelocity: nil),

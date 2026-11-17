@@ -16,8 +16,9 @@ struct ManOverboardNotificationTests {
     (
       ManOverboardNotification(
         sequenceID: 1, emitterID: 0x1234_5678, status: .manualButtonActivation,
-        activationTime: 43200.5,
-        positionSource: .reportedByEmitter, positionDate: 19000, positionTime: 43210.25,
+        activationSecondsSinceMidnight: 43200.5,
+        positionSource: .reportedByEmitter, positionDaysSince1970: 19000,
+        positionSecondsSinceMidnight: 43210.25,
         latitude: -33.8688,
         longitude: -151.2093, courseReference: .magnetic, courseOverGround: 2.5,
         speedOverGround: 1.25,
@@ -31,8 +32,10 @@ struct ManOverboardNotificationTests {
     // unknown values
     (
       ManOverboardNotification(
-        sequenceID: 2, emitterID: 7, status: MOBStatus(rawValue: 5), activationTime: 0,
-        positionSource: MOBPositionSource(rawValue: 6), positionDate: 0, positionTime: 0,
+        sequenceID: 2, emitterID: 7, status: MOBStatus(rawValue: 5),
+        activationSecondsSinceMidnight: 0,
+        positionSource: MOBPositionSource(rawValue: 6), positionDaysSince1970: 0,
+        positionSecondsSinceMidnight: 0,
         latitude: 0,
         longitude: 0, courseReference: .unavailable, courseOverGround: 0, speedOverGround: 0,
         mmsi: 0, emitterBatteryStatus: MOBEmitterBatteryStatus(rawValue: 4)),
@@ -45,8 +48,9 @@ struct ManOverboardNotificationTests {
     // not available
     (
       ManOverboardNotification(
-        sequenceID: nil, emitterID: nil, status: .notActive, activationTime: nil,
-        positionSource: .estimatedByVessel, positionDate: nil, positionTime: nil, latitude: nil,
+        sequenceID: nil, emitterID: nil, status: .notActive, activationSecondsSinceMidnight: nil,
+        positionSource: .estimatedByVessel, positionDaysSince1970: nil,
+        positionSecondsSinceMidnight: nil, latitude: nil,
         longitude: nil, courseReference: .true, courseOverGround: nil, speedOverGround: nil,
         mmsi: nil, emitterBatteryStatus: .good),
       [

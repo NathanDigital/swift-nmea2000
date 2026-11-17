@@ -47,11 +47,11 @@ public struct NavigationInfo: ParameterGroup {
   /// and sends other values unchanged, so they round-trip.
   public var calculationType: DistanceCalculationType
 
-  /// The estimated time of arrival, in seconds since midnight UTC, or `nil` if not available.
-  public var etaTime: Double?
-
   /// The estimated date of arrival, in days since 1970-01-01, or `nil` if not available.
-  public var etaDate: UInt16?
+  public var etaDaysSince1970: UInt16?
+
+  /// The estimated time of arrival, in seconds since midnight UTC, or `nil` if not available.
+  public var etaSecondsSinceMidnight: Double?
 
   /// The bearing from the origin waypoint to the destination waypoint, in radians, or `nil` if not
   /// available.
@@ -86,8 +86,8 @@ public struct NavigationInfo: ParameterGroup {
     isPerpendicularCrossed: Bool?,
     isArrivalCircleEntered: Bool?,
     calculationType: DistanceCalculationType,
-    etaTime: Double?,
-    etaDate: UInt16?,
+    etaDaysSince1970: UInt16?,
+    etaSecondsSinceMidnight: Double?,
     bearingOriginToDestination: Double?,
     bearingPositionToDestination: Double?,
     originWaypointNumber: UInt32?,
@@ -102,8 +102,8 @@ public struct NavigationInfo: ParameterGroup {
     self.isPerpendicularCrossed = isPerpendicularCrossed
     self.isArrivalCircleEntered = isArrivalCircleEntered
     self.calculationType = calculationType
-    self.etaTime = etaTime
-    self.etaDate = etaDate
+    self.etaDaysSince1970 = etaDaysSince1970
+    self.etaSecondsSinceMidnight = etaSecondsSinceMidnight
     self.bearingOriginToDestination = bearingOriginToDestination
     self.bearingPositionToDestination = bearingPositionToDestination
     self.originWaypointNumber = originWaypointNumber
@@ -121,8 +121,8 @@ public struct NavigationInfo: ParameterGroup {
     isPerpendicularCrossed = Bool(twoBitFlag: flags >> 2)
     isArrivalCircleEntered = Bool(twoBitFlag: flags >> 4)
     calculationType = DistanceCalculationType(rawValue: flags >> 6 & 0x03)
-    etaTime = reader.readUInt32(resolution: 0.0001)
-    etaDate = reader.readOptionalUInt16()
+    etaSecondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
+    etaDaysSince1970 = reader.readOptionalUInt16()
     bearingOriginToDestination = reader.readUInt16(resolution: 0.0001)
     bearingPositionToDestination = reader.readUInt16(resolution: 0.0001)
     originWaypointNumber = reader.readOptionalUInt32()
@@ -138,8 +138,8 @@ public struct NavigationInfo: ParameterGroup {
     writer.appendUInt8(
       bearingReference.rawValue | isPerpendicularCrossed.twoBitFlag << 2
         | isArrivalCircleEntered.twoBitFlag << 4 | (calculationType.rawValue & 0x03) << 6)
-    writer.appendUInt32(etaTime, resolution: 0.0001)
-    writer.appendUInt16(etaDate)
+    writer.appendUInt32(etaSecondsSinceMidnight, resolution: 0.0001)
+    writer.appendUInt16(etaDaysSince1970)
     writer.appendUInt16(bearingOriginToDestination, resolution: 0.0001)
     writer.appendUInt16(bearingPositionToDestination, resolution: 0.0001)
     writer.appendUInt32(originWaypointNumber)

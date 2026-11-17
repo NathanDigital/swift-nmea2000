@@ -18,7 +18,8 @@ struct AISClassAStaticDataTests {
         messageID: 5, repeatIndicator: .initial, userID: 230_123_456, imoNumber: 9_876_543,
         callsign: "oh2abc", name: "m/s Example Vessel",
         vesselType: 70, length: 188.5, beam: 30.25, positionReferenceStarboard: 15.5,
-        positionReferenceBow: 140.0, etaDate: 19001, etaTime: 50400, draught: 10.75,
+        positionReferenceBow: 140.0, etaDaysSince1970: 19001, etaSecondsSinceMidnight: 50400,
+        draught: 10.75,
         destination: "Helsinki",
         aisVersion: .ituRM1371v3, gnssType: .gps, dte: .ready,
         transceiverInformation: .channelAReception, sequenceID: 11),
@@ -37,7 +38,7 @@ struct AISClassAStaticDataTests {
         messageID: 63, repeatIndicator: .final, userID: 1, imoNumber: 0, callsign: "CALLSIGN9",
         name: "Näme longer than twenty chars",
         vesselType: 255, length: 0, beam: 0, positionReferenceStarboard: 0,
-        positionReferenceBow: 0, etaDate: 0, etaTime: 0, draught: -1.5,
+        positionReferenceBow: 0, etaDaysSince1970: 0, etaSecondsSinceMidnight: 0, draught: -1.5,
         destination: "Destination name too long~",
         aisVersion: AISVersion(rawValue: 3), gnssType: .galileo, dte: .notReady,
         transceiverInformation: AISTransceiverInformation(rawValue: 31), sequenceID: 0xfe),
@@ -55,7 +56,8 @@ struct AISClassAStaticDataTests {
       AISClassAStaticData(
         messageID: 5, repeatIndicator: .initial, userID: 0, imoNumber: 0, callsign: "", name: "",
         vesselType: 0, length: nil, beam: nil, positionReferenceStarboard: nil,
-        positionReferenceBow: nil, etaDate: nil, etaTime: nil, draught: nil, destination: "",
+        positionReferenceBow: nil, etaDaysSince1970: nil, etaSecondsSinceMidnight: nil,
+        draught: nil, destination: "",
         aisVersion: .ituRM1371v1, gnssType: .gps, dte: .ready,
         transceiverInformation: .channelAReception, sequenceID: nil),
       [
@@ -73,7 +75,8 @@ struct AISClassAStaticDataTests {
         messageID: 5, repeatIndicator: .initial, userID: 230_000_001, imoNumber: 0, callsign: "AB",
         name: "SHIP",
         vesselType: 30, length: 10, beam: 3, positionReferenceStarboard: 1,
-        positionReferenceBow: 5, etaDate: 19000, etaTime: 0, draught: 1, destination: "PORT",
+        positionReferenceBow: 5, etaDaysSince1970: 19000, etaSecondsSinceMidnight: 0, draught: 1,
+        destination: "PORT",
         aisVersion: .ituRM1371v1, gnssType: .gps, dte: .ready),
       [
         0x05, 0x81, 0x85, 0xb5, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x41, 0x42, 0x40, 0x40, 0x40, 0x40,
@@ -90,7 +93,8 @@ struct AISClassAStaticDataTests {
         messageID: 5, repeatIndicator: .initial, userID: 230_000_004, imoNumber: 0, callsign: "X",
         name: "Y",
         vesselType: 0, length: 1, beam: 1, positionReferenceStarboard: 1,
-        positionReferenceBow: 1, etaDate: 19000, etaTime: 0, draught: 1, destination: "Z",
+        positionReferenceBow: 1, etaDaysSince1970: 19000, etaSecondsSinceMidnight: 0, draught: 1,
+        destination: "Z",
         aisVersion: .ituRM1371v1, gnssType: .gps, dte: AISDTEStatus(rawValue: 3),
         transceiverInformation: .channelAReception, sequenceID: 5),
       [

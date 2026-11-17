@@ -48,10 +48,10 @@ public struct AISClassAStaticData: ParameterGroup {
   public var positionReferenceBow: Double?
 
   /// The estimated date of arrival, in days since 1970-01-01, or `nil` if not available.
-  public var etaDate: UInt16?
+  public var etaDaysSince1970: UInt16?
 
   /// The estimated time of arrival, in seconds since midnight UTC, or `nil` if not available.
-  public var etaTime: Double?
+  public var etaSecondsSinceMidnight: Double?
 
   /// The maximum present static draught, in meters, or `nil` if not available.
   public var draught: Double?
@@ -89,8 +89,8 @@ public struct AISClassAStaticData: ParameterGroup {
     beam: Double?,
     positionReferenceStarboard: Double?,
     positionReferenceBow: Double?,
-    etaDate: UInt16?,
-    etaTime: Double?,
+    etaDaysSince1970: UInt16?,
+    etaSecondsSinceMidnight: Double?,
     draught: Double?,
     destination: String,
     aisVersion: AISVersion,
@@ -110,8 +110,8 @@ public struct AISClassAStaticData: ParameterGroup {
     self.beam = beam
     self.positionReferenceStarboard = positionReferenceStarboard
     self.positionReferenceBow = positionReferenceBow
-    self.etaDate = etaDate
-    self.etaTime = etaTime
+    self.etaDaysSince1970 = etaDaysSince1970
+    self.etaSecondsSinceMidnight = etaSecondsSinceMidnight
     self.draught = draught
     self.destination = destination
     self.aisVersion = aisVersion
@@ -134,8 +134,8 @@ public struct AISClassAStaticData: ParameterGroup {
     beam = reader.readUInt16(resolution: 0.1)
     positionReferenceStarboard = reader.readUInt16(resolution: 0.1)
     positionReferenceBow = reader.readUInt16(resolution: 0.1)
-    etaDate = reader.readOptionalUInt16()
-    etaTime = reader.readUInt32(resolution: 0.0001)
+    etaDaysSince1970 = reader.readOptionalUInt16()
+    etaSecondsSinceMidnight = reader.readUInt32(resolution: 0.0001)
     draught = reader.readInt16(resolution: 0.01)
     destination = reader.readFixedString(count: 20, terminator: UInt8(ascii: "@")) ?? ""
     let versions = reader.readUInt8()
@@ -157,8 +157,8 @@ public struct AISClassAStaticData: ParameterGroup {
     writer.appendUInt16(beam, resolution: 0.1)
     writer.appendUInt16(positionReferenceStarboard, resolution: 0.1)
     writer.appendUInt16(positionReferenceBow, resolution: 0.1)
-    writer.appendUInt16(etaDate)
-    writer.appendUInt32(etaTime, resolution: 0.0001)
+    writer.appendUInt16(etaDaysSince1970)
+    writer.appendUInt32(etaSecondsSinceMidnight, resolution: 0.0001)
     writer.appendInt16(draught, resolution: 0.01)
     writer.appendAISString(destination, count: 20)
     writer.appendUInt8(
