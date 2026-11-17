@@ -1340,6 +1340,28 @@ const std::vector<Case> cases = {
        input.insert(input.end(), rest.begin(), rest.end());
        actisenseRead(input);
      }},
+    {"Actisense read empty payload", [](TestNode &) {
+       std::vector<uint8_t> body = {0x93, 11, 2, 0x12, 0xf1, 0x01, 0xff, 0x01, 4, 3, 2, 1, 0};
+       int sum = 0;
+       for (uint8_t b : body) sum += b;
+       std::vector<uint8_t> input = {0x10, 0x02};
+       input.insert(input.end(), body.begin(), body.end());
+       input.push_back(uint8_t(256 - sum % 256));
+       input.push_back(0x10);
+       input.push_back(0x03);
+       actisenseRead(input);
+     }},
+    {"Actisense read full buffer then escaped escape", [](TestNode &) {
+       // A full 300-byte body, then DLE DLE STX: the escaped DLE doesn't
+       // fit, which drops the body, so the STX that follows starts nothing.
+       std::vector<uint8_t> input = {0x10, 0x02, 0x93};
+       for (int i = 0; i < 299; i++) input.push_back(0x20);
+       input.push_back(0x10);
+       input.push_back(0x10);
+       std::vector<uint8_t> rest = typicalActisense();
+       input.insert(input.end(), rest.begin() + 1, rest.end());
+       actisenseRead(input);
+     }},
     {"Actisense read data longer than a message", [](TestNode &) {
        // 224 data bytes.
        std::vector<uint8_t> body = {0x93, 235, 2, 0x12, 0xf1, 0x01, 0xff, 0x01, 0, 0, 0, 0, 224};

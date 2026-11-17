@@ -174,6 +174,26 @@ struct ActisenseTests {
     #expect(decoder.decode(input, at: 0) == [typical])
   }
 
+  @Test func decodesAnEmptyPayload() {
+    // upstream-vectors "Actisense read empty payload"
+    var body: [UInt8] = [0x93, 11, 2, 0x12, 0xf1, 0x01, 0xff, 0x01, 4, 3, 2, 1, 0]
+    body.append(0 &- body.reduce(0, &+))
+    var decoder = ActisenseDecoder()
+    #expect(
+      decoder.decode([0x10, 0x02] + body + [0x10, 0x03], at: 0) == [
+        Message(pgn: 127250, priority: 2, source: 1, destination: 255, timestamp: 0x0102_0304)
+      ])
+  }
+
+  @Test func dropsAFullBodyThatCannotTakeAnEscapedByte() {
+    // upstream-vectors "Actisense read full buffer then escaped escape"
+    var decoder = ActisenseDecoder()
+    let input =
+      [0x10, 0x02, 0x93] + Array(repeating: UInt8(0x20), count: 299) + [0x10, 0x10]
+      + typicalBytes.dropFirst()
+    #expect(decoder.decode(input, at: 0).isEmpty)
+  }
+
   @Test func keepsTheLowThreeBitsOfThePriority() {
     // Upstream keeps the whole byte; Message holds three bits.
     var body: [UInt8] = [0x93, 0x0c, 0x0e, 0x12, 0xf1, 0x01, 0xff, 0x01, 0, 0, 0, 0, 1, 0x55]

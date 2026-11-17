@@ -170,7 +170,7 @@ public struct ActisenseDecoder: Sendable {
     guard buffer.count < Self.bufferCount else { return false }
     buffer.append(byte)
     // The checksum byte, which follows `length` more bytes, isn't summed.
-    if buffer.count < 2 || Int(buffer[1]) + 3 != buffer.count { sum &+= byte }
+    if !buffer.indices.contains(1) || Int(buffer[1]) + 3 != buffer.count { sum &+= byte }
     return true
   }
 
@@ -178,7 +178,7 @@ public struct ActisenseDecoder: Sendable {
   ///
   /// Ports `tActisenseReader::CheckMessage`.
   private func checkedMessage(at time: UInt32) -> Message? {
-    guard buffer.count >= 2, buffer.count == Int(buffer[1]) + 3,
+    guard buffer.indices.contains(1), buffer.count == Int(buffer[1]) + 3,
       0 &- sum == buffer[buffer.count - 1]
     else { return nil }
     let isReceived = buffer[0] == Actisense.messageType
