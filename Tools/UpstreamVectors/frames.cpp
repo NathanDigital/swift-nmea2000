@@ -24,6 +24,7 @@
 
 #include "ActisenseReader.h"
 #include "N2kDeviceList.h"
+#include "Seasmart.h"
 #include "N2kMessages.h"
 #include "NMEA2000.h"
 
@@ -404,6 +405,37 @@ std::vector<uint8_t> actisenseBytes(const tN2kMsg &m) {
 
 std::vector<uint8_t> typicalActisense() {
   return actisenseBytes(makeMsg(127250, 2, 1, 255, 0x01020304, {1, 2, 3, 4, 5, 6, 7, 8}));
+}
+
+// Records the Seasmart sentence upstream writes for a message.
+void seasmartWrite(const tN2kMsg &m, uint32_t timestamp) {
+  char buffer[600];
+  size_t count = N2kToSeasmart(m, timestamp, buffer, sizeof buffer);
+  events.push_back("seasmart " + std::string(buffer, count));
+}
+
+// A Seasmart sentence with its checksum, flipped by `wrong` and in lower
+// case if asked, then `tail`.
+std::string sentence(const std::string &body, int wrong = 0, bool lower = false,
+                     const char *tail = "") {
+  int checksum = 0;
+  for (char c : body) checksum ^= c;
+  char text[8];
+  snprintf(text, sizeof text, lower ? "*%02x" : "*%02X", checksum ^ wrong);
+  return "$" + body + text + tail;
+}
+
+// Records what upstream reads from a Seasmart sentence.
+void seasmartRead(const char *sentence) {
+  tN2kMsg m;
+  uint32_t timestamp = 0;
+  if (!SeasmartToN2k(sentence, timestamp, m)) {
+    events.push_back("rejected");
+    return;
+  }
+  char line[96];
+  snprintf(line, sizeof line, "message pgn=%lu source=%u time=%u data=", m.PGN, m.Source, timestamp);
+  events.push_back(line + bytes(m.Data, m.DataLen));
 }
 
 // The node a case runs, for the ISO request handler.
@@ -1374,6 +1406,48 @@ const std::vector<Case> cases = {
        input.push_back(0x10);
        input.push_back(0x03);
        actisenseRead(input);
+     }},
+    // Seasmart ($PCDIN) gateway format.
+    {"Seasmart write", [](TestNode &) {
+       seasmartWrite(makeMsg(127250, 2, 1, 255, 0, {1, 2, 3, 0xab, 0xcd, 0xef, 0x10, 0xff}), 0x01020304);
+       seasmartWrite(makeMsg(0x1ffff, 7, 255, 255, 0, {0}), 0xffffffff);
+       seasmartWrite(makeMsg(59904, 6, 0, 0x42, 0, {}), 0);
+     }},
+    {"Seasmart read", [](TestNode &) {
+       seasmartRead(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF").c_str());
+       seasmartRead(sentence("pcdin,01f112,01020304,01,010203abcdef10ff", 0, true).c_str());
+       seasmartRead(sentence("PCDIN,01f112,01020304,01,010203abcdef10ff", 0, true).c_str());
+       seasmartRead(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF", 0, false, "\r\n").c_str());
+       seasmartRead(sentence("PCDIN,01F112,01020304,01,").c_str());
+     }},
+    {"Seasmart read rejects", [](TestNode &) {
+       seasmartRead(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF", 1).c_str());
+       seasmartRead(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10F").c_str());
+       seasmartRead(sentence("PCDIN,01F112;01020304,01,01").c_str());
+       seasmartRead(sentence("PCDIN,01F112,01020304;01,01").c_str());
+       seasmartRead(sentence("PCDIN,01F112,01020304,01;01").c_str());
+       seasmartRead("$PCDIN,01F112,01020304,01,01");
+       seasmartRead(sentence("PCDIN,01F112,01020304,01,0G").c_str());
+       seasmartRead(sentence("PCDIN,01G112,01020304,01,01").c_str());
+       seasmartRead(sentence("GPGGA,01F112,01020304,01,01").c_str());
+       seasmartRead("$PCDIN,01F112,0102");
+       seasmartRead("$PCDIN,01F112,01020304,01,01*");
+       seasmartRead("$PCDIN,01F112,01020304,01,01*0");
+     }},
+    {"Seasmart read longest", [](TestNode &) {
+       std::string data;
+       for (int i = 0; i < 223; i++) data += "A5";
+       std::string body = "PCDIN,01F014,00000000,21," + data;
+       int checksum = 0;
+       for (char c : body) checksum ^= c;
+       char tail[8];
+       snprintf(tail, sizeof tail, "*%02X", checksum);
+       seasmartRead(("$" + body + tail).c_str());
+       body += "A5";
+       checksum = 0;
+       for (char c : body) checksum ^= c;
+       snprintf(tail, sizeof tail, "*%02X", checksum);
+       seasmartRead(("$" + body + tail).c_str());
      }},
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);

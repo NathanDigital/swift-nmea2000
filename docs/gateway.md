@@ -24,3 +24,16 @@ Upstream reads and writes gateway formats straight from and to streams (`N2kStre
 | `SendInActisenseFormat` counts its output with an 8-bit index, so a message longer than 255 bytes once escaped comes out corrupted | `Actisense.encode(_:)` writes the whole message | Upstream sends a broken frame. **Changes the bytes sent** for such messages. |
 | The reader keeps the whole priority byte | Keeps its low three bits | `Message.priority` holds three bits, the width of the CAN priority field. |
 | `GetMessageFromStream(ReadOut: false)` leaves bytes outside a message in the stream for another reader | Not ported | The decoder takes bytes it is given; split a shared stream before decoding. |
+
+## Seasmart
+
+| Upstream | Swift |
+|---|---|
+| `N2kToSeasmart(msg, timestamp, buffer, size)` | `Seasmart.encode(_:)`, which takes the time stamp from `Message.timestamp` and returns a `String` |
+| `SeasmartToN2k(buffer, timestamp, msg)` | `Seasmart.decode(_:)`, which returns the time stamp in `Message.timestamp` |
+
+### Kept upstream behaviour
+
+- The sentence is `$PCDIN,` then the PGN (6 hex digits), the time stamp (8), the source (2) and the payload in hex, each after a comma, then `*` and the XOR checksum of everything between `$` and `*`. The writer uses upper-case hex and no line ending.
+- The reader requires the `$PCDIN,` prefix exactly, accepts hex digits in either case, and ignores anything after the checksum. It rejects a missing separator, an odd number of payload digits, a payload over 223 bytes, a non-hex digit or a wrong checksum.
+- The sentence carries no priority or destination, so decoded messages get `Message`'s defaults (6 and 255), as upstream leaves whatever the message held.
