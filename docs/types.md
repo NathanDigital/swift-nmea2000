@@ -20,6 +20,14 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 
 - `tN2kDD223` (`EngineDiscreteStatus2`) keeps only the low eight bits when assigned in upstream, and `tN2kDD471`'s `SetEvents` clears bit 6. These are applied in the PGN ports that use them, not in the types.
 
+## Checked against canboat
+
+On 2026-11-17 every type here was compared, value by value, with the matching lookup in canboat's `analyzer/lookup-generated-data.h` (canboat commit `7b4672ae71ab`). Apart from the divergences above, the differences are only spelling ("Rhumbline", "NiCd"), error and unavailable codes that canboat leaves implicit, and values one side names that the other doesn't:
+
+- Upstream names values canboat lacks: `FluidType.gasoline` (6), `ConverterOperatingState.powerSupply` (11) and `.hub1` (252), and the manufacturer bits of `EngineDiscreteStatus2`.
+- Canboat names values upstream lacks: GNSS method 6–8 (estimated, manual input, simulator), AIS version 2–3, AIS navigation status 11–12, and windlass monitoring bit 3 (manufacturer defined). These decode and re-encode unchanged as unknown raw values.
+- `AISAtoNType.emergencyWreckMarkingBuoy` (4) is "reserved" in canboat and in gpsd's AIVDM table, which follow IALA's original list. Later IALA guidance assigns code 4 to the emergency wreck marking buoy, and upstream follows that, so the name is kept.
+
 ## Mapping
 
 | Upstream | Swift | File |
