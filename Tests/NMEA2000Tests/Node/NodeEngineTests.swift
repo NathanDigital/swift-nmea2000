@@ -284,9 +284,12 @@ struct EngineDriver {
   /// Appends the device list's state, as frames.cpp's `dumpDevices` prints
   /// it.
   mutating func dumpDevices() {
-    guard var list = engine.deviceList else { return }
-    events.append(.line("devices count=\(list.count) updated=\(list.resetUpdated() ? 1 : 0)"))
-    engine.deviceList = list
+    guard let list = engine.deviceList else { return }
+    // Upstream's ReadResetIsListUpdated: whether the list changed since the
+    // last dump.
+    let isUpdated = engine.events.contains(.deviceListChanged)
+    engine.events.removeAll { $0 == .deviceListChanged }
+    events.append(.line("devices count=\(list.count) updated=\(isUpdated ? 1 : 0)"))
     for device in list.devices {
       let name = String(device.name?.rawValue ?? 0, radix: 16)
       events.append(

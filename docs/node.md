@@ -209,7 +209,7 @@ An application answers group functions for its own PGNs with `Node.setGroupFunct
 | `tN2kDeviceList` | `DeviceList`, a value type driven by `handle(_:at:sending:)`; `Node.Configuration.discoversDevices` keeps one in `Node.deviceList` |
 | `tN2kDeviceList::tInternalDevice`, `tNMEA2000::tDevice` | `DeviceList.Device` |
 | `FindDeviceBySource`, `FindDeviceByName`, `FindDeviceByIDs`, `FindDeviceByProduct` | `DeviceList[source:]`, `device(named:)`, `device(manufacturerCode:uniqueNumber:)`, `device(manufacturerCode:productCode:after:)` |
-| `Count`, `ReadResetIsListUpdated`, `GetDeviceLastMessageTime` | `count`, `resetUpdated()`, `Device.lastMessageTime` |
+| `Count`, `ReadResetIsListUpdated`, `GetDeviceLastMessageTime` | `count`, the `Bool` that `handle(_:at:sending:)` returns and `Node.Event.deviceListChanged`, `Device.lastMessageTime` |
 
 ### Kept upstream behaviour
 

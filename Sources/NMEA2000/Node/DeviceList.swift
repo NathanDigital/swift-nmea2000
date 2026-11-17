@@ -12,8 +12,10 @@
 /// received, and only once a device has been known for a second, so it
 /// doesn't flood the bus; each request is retried up to four times.
 ///
-/// A ``Node`` keeps one when created with `discoversDevices: true`. To
-/// drive one yourself, pass it every received message with ``handle(_:at:sending:)``.
+/// A ``Node`` keeps one when its configuration sets
+/// ``Node/Configuration/discoversDevices``, and reports each change with
+/// ``Node/Event/deviceListChanged``. To drive one yourself, pass it every
+/// received message with ``handle(_:at:sending:)``.
 ///
 /// Ports `tN2kDeviceList`.
 public struct DeviceList: Sendable {
@@ -120,8 +122,8 @@ public struct DeviceList: Sendable {
   private var sourceLimit = 0
   private var hasPendingRequests = true
 
-  /// Whether the list has changed since ``resetUpdated()`` was last called.
-  public private(set) var isUpdated = false
+  /// Whether the message being handled changed the list.
+  private var isUpdated = false
 
   /// Creates an empty device list.
   public init() {}
@@ -166,13 +168,6 @@ public struct DeviceList: Sendable {
     }
   }
 
-  /// Returns whether the list has changed since the last call, and clears
-  /// the flag (`ReadResetIsListUpdated`).
-  public mutating func resetUpdated() -> Bool {
-    defer { isUpdated = false }
-    return isUpdated
-  }
-
   /// Updates the list from a received message, sending requests as needed.
   ///
   /// - Parameters:
@@ -180,9 +175,20 @@ public struct DeviceList: Sendable {
   ///   - time: The time it arrived, in milliseconds on a clock that may wrap.
   ///   - send: Sends a request, returning whether it could be sent. The
   ///     list only counts a request as made when it was sent.
+  /// - Returns: Whether the message changed the list, which upstream's
+  ///   `ReadResetIsListUpdated` reports.
   ///
   /// Ports `tN2kDeviceList::HandleMsg`.
+  @discardableResult
   public mutating func handle(
+    _ message: Message, at time: UInt32, sending send: (Message) -> Bool
+  ) -> Bool {
+    isUpdated = false
+    handleMessage(message, at: time, sending: send)
+    return isUpdated
+  }
+
+  private mutating func handleMessage(
     _ message: Message, at time: UInt32, sending send: (Message) -> Bool
   ) {
     let source = Int(message.source)

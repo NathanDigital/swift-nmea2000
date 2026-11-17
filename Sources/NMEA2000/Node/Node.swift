@@ -207,6 +207,9 @@ public actor Node {
     /// Another device changed the installation descriptions in
     /// ``Node/configurationInformation`` with a group function command.
     case installationDescriptionChanged
+    /// ``Node/deviceList`` changed: a device appeared, moved, or sent its
+    /// details (upstream's `ReadResetIsListUpdated`).
+    case deviceListChanged
   }
 
   /// How the node takes part in the bus.

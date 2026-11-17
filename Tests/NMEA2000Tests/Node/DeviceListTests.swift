@@ -67,14 +67,14 @@ struct DeviceListTests {
     #expect(list.device(manufacturerCode: 2046, productCode: 77, after: 0x31)?.source == 0x10)
   }
 
-  @Test func reportsUpdatesOnce() {
-    var list = makeList()
-    #expect(list.isUpdated)
-    let first = list.resetUpdated()
-    let second = list.resetUpdated()
+  @Test func reportsChanges() {
+    var list = DeviceList()
+    let claim = Message(
+      pgn: 60928, source: 0x10, data: ISOAddressClaim(name: name(1)).makeMessage().data)
+    let first = list.handle(claim, at: 0, sending: { _ in true })
+    let second = list.handle(claim, at: 0, sending: { _ in true })
     #expect(first)
     #expect(!second)
-    #expect(!list.isUpdated)
   }
 
   @Test func ignoresAddressesNoDeviceCanHold() {
@@ -105,13 +105,12 @@ struct DeviceListTests {
 
   @Test func keepsTheProductInformationOnceLoaded() {
     var list = makeList()
-    _ = list.resetUpdated()
     var other = ProductInformation.default
     other.productCode = 99
-    list.handle(
+    let isChanged = list.handle(
       Message(pgn: 126996, source: 0x10, data: other.makeMessage().data), at: 0,
       sending: { _ in true })
     #expect(list[source: 0x10]?.productInformation?.productCode == 77)
-    #expect(!list.isUpdated)
+    #expect(!isChanged)
   }
 }

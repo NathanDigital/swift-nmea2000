@@ -426,12 +426,13 @@ struct NodeEngine: Sendable {
     frames += replies
     let deliveredAfter = frames.count
     if let message, var list = deviceList {
-      list.handle(message, at: UInt32(truncatingIfNeeded: now)) { request in
+      let isChanged = list.handle(message, at: UInt32(truncatingIfNeeded: now)) { request in
         guard let sent = try? send(request, at: now) else { return false }
         frames += sent
         return true
       }
       deviceList = list
+      if isChanged { events.append(.deviceListChanged) }
     }
     frames += afterReceiving(at: now)
     return (frames, message, deliveredAfter)
