@@ -35,6 +35,9 @@ struct NodeCase: Sendable, CustomTestStringConvertible {
     /// Receive an ISO request from 0x42; a count other than 3 pads or cuts
     /// the payload to that many bytes.
     case request(to: UInt8, pgn: UInt32, count: Int = 3)
+    /// Receive a commanded address from 0x42 by transport protocol
+    /// broadcast: a NAME and an address, plus `extra` bytes of 0x55.
+    case command(name: UInt64, address: UInt8, extra: Int = 0)
     /// Receive this many claims with a lower NAME, each from the node's
     /// address at the time.
     case lowerClaimsFromOwnAddress(Int)
@@ -175,6 +178,18 @@ struct EngineDriver {
       var data = (0..<3).map { UInt8(truncatingIfNeeded: pgn >> (8 * $0)) }
       data = Array((data + repeatElement(0xff, count: max(count - 3, 0))).prefix(count))
       receive(CANFrame(id: 0x18ea_0042 | UInt32(destination) << 8, data: data))
+    case .command(let name, let address, let extra):
+      let payload =
+        (0..<8).map { UInt8(truncatingIfNeeded: name >> (8 * $0)) } + [address]
+        + repeatElement(0x55, count: extra)
+      receive(CANFrame(id: tpCM(to: 0xff), data: bam(payload.count, 65240)))
+      for sequence in 1...(payload.count + 6) / 7 {
+        let bytes = payload.dropFirst((sequence - 1) * 7).prefix(7)
+        receive(
+          CANFrame(
+            id: tpDT(to: 0xff),
+            data: [UInt8(sequence)] + bytes + repeatElement(0xff, count: 7 - bytes.count)))
+      }
     case .lowerClaimsFromOwnAddress(let count):
       for _ in 0..<count { claim(from: engine.address, name: ownName - 1) }
     case .clearEvents: events = []
@@ -866,6 +881,75 @@ struct NodeEngineTests {
       upstream: [
         "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x00, 0xee, 0x00]",
         "t=500 rx pgn=59904 priority=6 source=66 destination=23 data=[0x06, 0xfd, 0x01]",
+      ]),
+    NodeCase(
+      name: "commanded address", mode: .node,
+      steps: [
+        .until(500), .command(name: ownName, address: 0x30), sendPosition, .until(750),
+        sendPosition,
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x18eeff30 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=65240 priority=7 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0x30]",
+        "t=500 send refused",
+        "t=750 tx id=0x09f80130 data=[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]",
+      ]),
+    NodeCase(
+      name: "commanded address for another NAME", mode: .node,
+      steps: [.until(500), .command(name: ownName - 1, address: 0x30)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=65240 priority=7 source=66 destination=255 data=[0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0x30]",
+      ]),
+    NodeCase(
+      name: "commanded address that doesn't change it", mode: .node,
+      steps: [.until(500), .command(name: ownName, address: 23)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=65240 priority=7 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0x17]",
+      ]),
+    NodeCase(
+      name: "commanded address out of range", mode: .node,
+      steps: [
+        .until(500), .command(name: ownName, address: 252), .command(name: ownName, address: 251),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=65240 priority=7 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0xfc]",
+        "t=500 tx id=0x18eefffb data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=65240 priority=7 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0xfb]",
+      ]),
+    NodeCase(
+      name: "commanded address of the wrong length", mode: .node,
+      steps: [.until(500), .command(name: ownName, address: 0x30, extra: 1)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=65240 priority=7 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0x30, 0x55]",
+      ]),
+    NodeCase(
+      name: "commanded address as a fast packet", mode: .node,
+      steps: [
+        .until(500), .receive(0x18fe_d842, [0x00, 9, 0x01, 0x00, 0xc0, 0xff, 0x00, 0x82]),
+        .receive(0x18fe_d842, [0x01, 0x32, 0xc0, 0x30]),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 rx pgn=65240 priority=6 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0x30]",
+      ]),
+    NodeCase(
+      name: "commanded address while claiming", mode: .node,
+      steps: [.until(300), .command(name: ownName, address: 0x30)],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=300 tx id=0x18eeff30 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=300 rx pgn=65240 priority=7 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0x30]",
+      ]),
+    NodeCase(
+      name: "commanded address needs a full node", mode: .listenAndSend,
+      steps: [.until(500), .command(name: ownName, address: 0x30)],
+      upstream: [
+        "t=500 rx pgn=65240 priority=7 source=66 destination=255 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0, 0x30]"
       ]),
     NodeCase(
       name: "starts from address 14 without one", mode: .node, address: 254,

@@ -35,6 +35,10 @@ struct NodeEngine: Sendable {
   /// Where a device without an address starts claiming.
   static let firstClaimedAddress: UInt8 = 14
 
+  /// Commanded address, which tells the device with a NAME to move to a new
+  /// address.
+  static let commandedAddressPGN: UInt32 = 65240
+
   /// How long after opening the first heartbeat is due.
   static let heartbeatOffset: UInt64 = 10000
 
@@ -254,6 +258,7 @@ struct NodeEngine: Sendable {
       switch assembled.message.pgn {
       case ISOAddressClaim.pgn: frames += handleAddressClaim(assembled.message, at: now)
       case ISORequest.pgn: frames += handleISORequest(assembled.message, at: now)
+      case Self.commandedAddressPGN: frames += handleCommandedAddress(assembled.message, at: now)
       default: break
       }
     }
@@ -473,6 +478,27 @@ struct NodeEngine: Sendable {
     } else {
       moveToNextAddress()
     }
+    return startAddressClaim(at: now)
+  }
+
+  /// Moves to a commanded address and claims it, if the command names this
+  /// node's NAME and a new, valid address. Upstream only accepts the command
+  /// by transport protocol, with exactly nine bytes: the NAME, then the
+  /// address.
+  ///
+  /// Ports `HandleCommandedAddress`.
+  private mutating func handleCommandedAddress(_ message: Message, at now: UInt64) -> [CANFrame] {
+    guard message.isTransportProtocol, message.data.count == 9,
+      message.destination == Message.broadcastAddress
+        || (message.destination == address && address != Self.nullAddress)
+    else { return [] }
+    var reader = MessageReader(message)
+    let commandedName = DeviceName(rawValue: reader.readUInt64())
+    let newAddress = reader.readUInt8()
+    guard newAddress <= MessageFramer.maxBusAddress, commandedName == name, newAddress != address
+    else { return [] }
+    address = newAddress
+    resetLastAddressToTry()
     return startAddressClaim(at: now)
   }
 

@@ -204,6 +204,22 @@ void request(TestNode &node, uint8_t destination, unsigned long pgn, int count =
   receive(node, 0x18ea0042 | destination << 8, data);
 }
 
+// Receives a commanded address (PGN 65240) from 0x42 by transport protocol
+// broadcast: a NAME and a new address, plus `extra` more bytes.
+void command(TestNode &node, uint64_t name, uint8_t address, int extra = 0) {
+  std::vector<unsigned char> payload;
+  for (int i = 0; i < 8; i++) payload.push_back(uint8_t(name >> (8 * i)));
+  payload.push_back(address);
+  payload.resize(9 + extra, 0x55);
+  int count = payload.size();
+  receive(node, tp(TPCM, 0xff), bam(count, 65240));
+  for (int sequence = 1; (sequence - 1) * 7 < count; sequence++) {
+    std::vector<unsigned char> data = {uint8_t(sequence)};
+    for (int i = (sequence - 1) * 7; i < sequence * 7; i++) data.push_back(i < count ? payload[i] : 0xff);
+    receive(node, tp(TPDT, 0xff), data);
+  }
+}
+
 // The node a case runs, for the ISO request handler.
 TestNode *current = nullptr;
 
@@ -754,6 +770,52 @@ const std::vector<Case> cases = {
       until(n, 500);
       request(n, 0x17, 60928);
       request(n, 0x17, 130310);
+    }),
+    // Commanded address.
+    NODE("commanded address", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      command(n, ownName, 0x30);
+      send(n, 129025, 8, 2);
+      until(n, 750);
+      send(n, 129025, 8, 2);
+    }),
+    NODE("commanded address for another NAME", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      command(n, ownName - 1, 0x30);
+    }),
+    NODE("commanded address that doesn't change it", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      command(n, ownName, 23);
+    }),
+    NODE("commanded address out of range", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      command(n, ownName, 252);
+      command(n, ownName, 251);
+    }),
+    NODE("commanded address of the wrong length", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      command(n, ownName, 0x30, 1);
+    }),
+    NODE("commanded address as a fast packet", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      receive(n, 0x18fed842, fp(0x00, {9, 0x01, 0x00, 0xc0, 0xff, 0x00, 0x82}));
+      receive(n, 0x18fed842, fp(0x01, {0x32, 0xc0, 0x30}));
+    }),
+    NODE("commanded address while claiming", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 300);
+      command(n, ownName, 0x30);
+    }),
+    NODE("commanded address needs a full node", {
+      start(n, tNMEA2000::N2km_ListenAndSend);
+      until(n, 500);
+      command(n, ownName, 0x30);
     }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);

@@ -5,7 +5,7 @@ Upstream's `tNMEA2000` (`NMEA2000.h/.cpp`) is one class that talks to the CAN dr
 1. **CAN frames** (`Sources/NMEA2000/CAN/`, done): pure value types that turn messages into frames and back.
 2. **Transport and node** (`Sources/NMEA2000/Node/`, done): a transport protocol for CAN drivers, and an actor that opens it, claims an address, sends messages and delivers received ones as an `AsyncSequence`.
 3. **ISO transport protocol** (done): multi-packet sessions, broadcast (BAM) or to one device (RTS/CTS), received in `MessageAssembler` and sent by `NodeEngine`.
-4. **Network management** (in progress): ISO requests, product and configuration information, heartbeat and PGN lists are done; commanded address and group functions are next.
+4. **Network management** (in progress): ISO requests, product and configuration information, heartbeat, PGN lists and commanded address are done; group functions are next.
 
 ## CAN frames
 
@@ -86,7 +86,6 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 ### Not yet ported
 
 - Several devices on one node (`SetDeviceCount`).
-- Commanded address (PGN 65240), which arrives by transport protocol (layer 4).
 - Group functions (layer 4).
 - Forwarding to a stream (`SetForwardStream`, debug modes): gateway formats will be separate codecs.
 - The send frame buffer (`SetN2kCANSendFrameBufSize`): `CANTransport.send(_:)` suspends while the transport is busy instead.
@@ -135,6 +134,7 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 | `HandleISORequest`, `RespondISORequest`, `IgnoreBroadcastISORequest` | `NodeEngine` (internal) |
 | `SetISORqstHandler` | `Node.setISORequestHandler(_:)`, which returns the replies instead of sending them |
 | `SendHeartbeat` | `NodeEngine` (internal) |
+| `HandleCommandedAddress` | `NodeEngine` (internal); PGN 65240 has no public type, as upstream has no encoder or parser for it |
 
 ### Kept upstream behaviour
 
@@ -142,6 +142,7 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 - Other requests go to the application's handler, except broadcast requests for the ten PGNs upstream ignores (127500, 130060, 130061, 130330 and 130561–130566). If the handler doesn't answer, an addressed request gets a negative acknowledgement.
 - A request shorter than three bytes asks for PGN 0, because upstream ignores the parse failure.
 - The first heartbeat is due 10 s after the node opens and later ones every interval after that. Upstream's 64-bit timer sends each once its time has passed, at the first poll after it. Heartbeats wait for an address claim to end, are only sent in `.node` mode, and carry a sequence number that wraps from 252 to 0.
+- A commanded address (PGN 65240) moves the node to a new address and claims it, if it names the node's NAME and an address from 0 to 251 other than the current one. Upstream only accepts it by transport protocol with exactly nine bytes, and only in `.node` mode, including during an address claim.
 - `ParseMessages` sends pending messages, then handles received frames, then the heartbeat; `NodeEngine.receive(_:at:)` keeps that order.
 
 ### Not ported
