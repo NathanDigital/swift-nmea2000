@@ -43,8 +43,13 @@ struct NodeEngine: Sendable {
   /// address.
   static let commandedAddressPGN: UInt32 = 65240
 
-  /// How long after opening the first heartbeat is due.
+  /// How long after opening the first heartbeat is due, unless a group
+  /// function changes it.
   static let heartbeatOffset: UInt64 = 10000
+
+  /// The heartbeat interval in milliseconds a group function restores
+  /// (upstream's `DefaultHeartbeatInterval`).
+  static let defaultHeartbeatInterval: UInt64 = 60000
 
   /// The PGNs every node receives (`DefReceiveMessages`).
   static let defaultReceivePGNs: [UInt32] = [59392, 59904, 60160, 60416, 60928, 65240, 126208]
@@ -91,6 +96,10 @@ struct NodeEngine: Sendable {
     /// When heartbeats are due, once the node is open (upstream's
     /// `HeartbeatScheduler`).
     var heartbeat: HeartbeatSchedule?
+    /// The heartbeat period and offset in milliseconds, kept while the
+    /// heartbeat is off, as upstream's scheduler keeps them when disabled.
+    var lastHeartbeatPeriod: UInt64
+    var lastHeartbeatOffset = NodeEngine.heartbeatOffset
     /// When to send an address claim that was put off for a moment, if any
     /// (upstream's `PendingIsoAddressClaim`).
     var pendingClaim: UInt64?
@@ -111,6 +120,7 @@ struct NodeEngine: Sendable {
         // Upstream keeps the interval between 1 and 655.32 seconds.
         min(max(NodeClock.milliseconds($0), 1000), 655_320)
       }
+      lastHeartbeatPeriod = heartbeatInterval ?? NodeEngine.defaultHeartbeatInterval
       framer = MessageFramer(catalog: catalog, transmitPGNs: device.transmitPGNs)
       resetLastAddressToTry()
     }
@@ -340,8 +350,9 @@ struct NodeEngine: Sendable {
       }
       for index in devices.indices {
         if let period = devices[index].heartbeatInterval {
+          // Upstream's scheduler keeps its offset when the node opens again.
           devices[index].heartbeat = HeartbeatSchedule(
-            sync: now, offset: Self.heartbeatOffset, period: period, now: now)
+            sync: now, offset: devices[index].lastHeartbeatOffset, period: period, now: now)
         }
       }
       events.append(.opened)
@@ -886,15 +897,21 @@ struct NodeEngine: Sendable {
     of device: Int, interval: UInt64?, offset: UInt64?, at now: UInt64
   ) {
     guard let interval else {
+      if let schedule = devices[device].heartbeat {
+        devices[device].lastHeartbeatPeriod = schedule.period
+        devices[device].lastHeartbeatOffset = schedule.offset
+      }
       devices[device].heartbeat = nil
       devices[device].heartbeatInterval = nil
       return
     }
     let period = min(max(interval, 1000), 655_320)
     devices[device].heartbeatInterval = period
+    let newOffset = offset ?? devices[device].lastHeartbeatOffset
+    devices[device].lastHeartbeatPeriod = period
+    devices[device].lastHeartbeatOffset = newOffset
     guard let openTime else { return }
     if var schedule = devices[device].heartbeat {
-      let newOffset = offset ?? schedule.offset
       guard period != schedule.period || newOffset != schedule.offset else { return }
       schedule.period = period
       schedule.offset = newOffset
@@ -902,7 +919,7 @@ struct NodeEngine: Sendable {
       devices[device].heartbeat = schedule
     } else {
       devices[device].heartbeat = HeartbeatSchedule(
-        sync: openTime, offset: offset ?? Self.heartbeatOffset, period: period, now: now)
+        sync: openTime, offset: newOffset, period: period, now: now)
     }
     events.append(.deviceInformationChanged(device: device))
   }

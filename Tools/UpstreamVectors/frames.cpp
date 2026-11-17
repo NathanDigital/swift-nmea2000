@@ -1268,6 +1268,15 @@ const std::vector<Case> cases = {
       groupFunction(n, 0xff, gfRequest(126993, 5000, 100, 0));
       until(n, 6300);
     }),
+    GF_NODE("request to keep the interval of a heartbeat that is off", {
+      n.SetHeartbeatIntervalAndOffset(0, 0);
+      // The offset is unchanged, so the heartbeat stays off.
+      groupFunction(n, 0x17, gfRequest(126993, 0xffffffff, 0, 0));
+      until(n, 12000);
+      // A new offset turns it back on, with the period it had.
+      groupFunction(n, 0x17, gfRequest(126993, 0xffffffff, 100, 0));
+      until(n, 72000);
+    }),
     GF_NODE("command for a long installation description", {
       groupFunction(n, 0x17, gfCommand(126998, 8, 1, std::vector<unsigned char>{1} + varStr("0123456789012345678901234567890123456789012345678901234567890123456789XYZ")));
       groupFunction(n, 0x17, gfRequest(126998, 0xffffffff, 0xffff, 1, std::vector<unsigned char>{1} + varStr("0123456789012345678901234567890123456789012345678901234567890123456789")));

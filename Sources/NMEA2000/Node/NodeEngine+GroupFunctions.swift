@@ -411,16 +411,25 @@ extension NodeEngine {
     // The offset comes in units of 10 ms.
     let newOffset =
       offset == GroupFunction.unchangedOffset || offset == 0 ? nil : UInt64(offset) * 10
-    let period: UInt64? =
+    let state = devices[request.device]
+    let period: UInt64 =
       switch interval {
-      case GroupFunction.unchangedInterval: devices[request.device].heartbeat?.period
-      case GroupFunction.defaultInterval: 60000
+      // Upstream's scheduler keeps its period while the heartbeat is off.
+      case GroupFunction.unchangedInterval: state.heartbeat?.period ?? state.lastHeartbeatPeriod
+      case GroupFunction.defaultInterval: Self.defaultHeartbeatInterval
       default: UInt64(interval)
       }
-    setHeartbeat(of: request.device, interval: period, offset: newOffset, at: now)
-    guard let schedule = devices[request.device].heartbeat else { return [] }
+    // Upstream turns a heartbeat that is off back on only if the request
+    // changes its period or offset; either way it sends one.
+    let turnsOn =
+      state.heartbeat != nil || period != state.lastHeartbeatPeriod
+      || (newOffset ?? state.lastHeartbeatOffset) != state.lastHeartbeatOffset
+    if turnsOn {
+      setHeartbeat(of: request.device, interval: period, offset: newOffset, at: now)
+    }
+    let sentPeriod = devices[request.device].heartbeat?.period ?? state.lastHeartbeatPeriod
     return sendAll(
-      [Heartbeat(interval: Double(schedule.period) / 1000, sequenceCounter: nil).makeMessage()],
+      [Heartbeat(interval: Double(sentPeriod) / 1000, sequenceCounter: nil).makeMessage()],
       from: request.device, at: now)
   }
 

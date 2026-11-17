@@ -1641,6 +1641,26 @@ struct NodeEngineTests {
         "t=6210 tx id=0x1df01117 data=[0x88, 0x13, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]",
       ]),
     NodeCase(
+      name: "group function request to keep the interval of a heartbeat that is off",
+      mode: .node,
+      steps: [
+        .until(500),
+        .perform { e, t in
+          e.setHeartbeat(of: 0, interval: nil, offset: nil, at: t)
+          return []
+        },
+        .groupFunction(to: 0x17, gfRequest(126993, 0xffff_ffff, 0, 0)), .until(12000),
+        .groupFunction(to: 0x17, gfRequest(126993, 0xffff_ffff, 100, 0)), .until(72000),
+      ],
+      upstream: [
+        "t=200 tx id=0x18eeff17 data=[0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]",
+        "t=500 tx id=0x1df01117 data=[0x60, 0xea, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=500 rx pgn=126208 priority=3 source=66 destination=23 data=[0x00, 0x11, 0xf0, 0x01, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00]",
+        "t=12000 tx id=0x1df01117 data=[0x60, 0xea, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]",
+        "t=12000 rx pgn=126208 priority=3 source=66 destination=23 data=[0x00, 0x11, 0xf0, 0x01, 0xff, 0xff, 0xff, 0xff, 0x64, 0x00, 0x00]",
+        "t=61210 tx id=0x1df01117 data=[0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]",
+      ]),
+    NodeCase(
       name: "group function command for a long installation description", mode: .node,
       steps: [
         .until(500),
