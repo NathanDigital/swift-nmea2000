@@ -504,6 +504,24 @@ struct NodeTests {
     #expect(try await events.next() == nil)
   }
 
+  @Test func deliversDecodedParameterGroups() async throws {
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let node = makeNode(transport, clock: clock)
+    let positions = Recorder(await node.messages(of: PositionRapidUpdate.self))
+    let run = Task { try await node.run() }
+    try await clock.waitForSleepers()
+    clock.advance(to: 200)
+    // Wind data, then a position: only the position comes through.
+    transport.receive.yield(
+      CANFrame(id: 0x09fd_0242, data: [1, 0xf4, 1, 0x10, 0x27, 0, 0xff, 0xff]))
+    transport.receive.yield(CANFrame(id: 0x09f8_0142, data: [0, 0, 0, 0, 0, 0, 0, 0]))
+    #expect(try await positions.next() == PositionRapidUpdate(latitude: 0, longitude: 0))
+    transport.receive.finish()
+    try await finish(run)
+    #expect(try await positions.next() == nil)
+  }
+
   @Test func waitsUntilTheAddressIsClaimed() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()

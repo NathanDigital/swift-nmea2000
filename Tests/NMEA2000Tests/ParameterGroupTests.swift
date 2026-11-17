@@ -21,4 +21,22 @@ struct ParameterGroupTests {
     let data = try JSONEncoder().encode(satellites)
     #expect(try JSONDecoder().decode(GNSSSatellitesInView.self, from: data) == satellites)
   }
+
+  @Test func catalogsEveryStandardParameterGroupByItsOwnPGN() {
+    // Each type has its own PGN, so none replaced another.
+    #expect(ParameterGroupCatalog.standard.types.count == 65)
+    for (pgn, type) in ParameterGroupCatalog.standard.types { #expect(type.pgn == pgn) }
+  }
+
+  @Test func decodesWithTheTypeForThePGN() throws {
+    let message = PositionRapidUpdate(latitude: 60.5, longitude: 24.25).makeMessage()
+    let decoded = try #require(try message.decoded())
+    #expect(
+      decoded as? PositionRapidUpdate == PositionRapidUpdate(latitude: 60.5, longitude: 24.25))
+    #expect(try Message(pgn: 65286, data: [0x89, 0x98, 1, 2, 3]).decoded() == nil)
+    var catalog = ParameterGroupCatalog.standard
+    catalog.add(ParameterGroupCatalog.maretron)
+    let flow = try Message(pgn: 65286, data: [0x89, 0x98, 1, 2, 3]).decoded(using: catalog)
+    #expect(flow is MaretronFluidFlowRate)
+  }
 }

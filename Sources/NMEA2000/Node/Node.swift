@@ -436,16 +436,29 @@ public actor Node {
   ///
   /// Each call returns a new sequence, and every sequence gets every
   /// message. The sequence finishes when ``run()`` returns. Messages wait in
-  /// the sequence until they're read, so keep reading it.
+  /// the sequence until they're read, up to the buffering policy's limit.
   ///
   /// A message's ``Message/timestamp`` is the time its first frame arrived,
   /// in milliseconds since the node was created.
   ///
-  /// - Parameter includingSent: Whether to include the messages the node's
-  ///   devices send, as upstream forwards its own messages to its forward
-  ///   stream. A gateway logging all traffic wants them.
-  public func messages(includingSent: Bool = false) -> AsyncStream<Message> {
-    let (stream, continuation) = AsyncStream.makeStream(of: Message.self)
+  /// The sequence finishes cleanly whether ``run()`` returns or throws;
+  /// ``run()`` itself throws any transport error, so run it where its error
+  /// is handled (see ``run()``).
+  ///
+  /// - Parameters:
+  ///   - includingSent: Whether to include the messages the node's devices
+  ///     send, as upstream forwards its own messages to its forward stream.
+  ///     A gateway logging all traffic wants them.
+  ///   - bufferingPolicy: How many messages wait to be read before older or
+  ///     newer ones are dropped. The default keeps the newest 1024, so a
+  ///     slow reader on a busy bus loses the oldest rather than using ever
+  ///     more memory; pass `.unbounded` to keep them all.
+  public func messages(
+    includingSent: Bool = false,
+    bufferingPolicy: AsyncStream<Message>.Continuation.BufferingPolicy = .bufferingNewest(1024)
+  ) -> AsyncStream<Message> {
+    let (stream, continuation) = AsyncStream.makeStream(
+      of: Message.self, bufferingPolicy: bufferingPolicy)
     let id = nextSubscriberID
     nextSubscriberID += 1
     subscribers[id] = (continuation, includingSent)
@@ -453,6 +466,29 @@ public actor Node {
       Task { await self?.removeSubscriber(id) }
     }
     return stream
+  }
+
+  /// Returns a sequence of the parameter groups of one type the node
+  /// receives from now on, decoded. Messages that don't decode are skipped.
+  ///
+  /// ```swift
+  /// for await wind in await node.messages(of: WindData.self) {
+  ///   print(wind.speed ?? .nan)
+  /// }
+  /// ```
+  ///
+  /// - Parameters:
+  ///   - type: The parameter group type.
+  ///   - includingSent: Whether to include those the node's devices send.
+  ///   - bufferingPolicy: How many messages wait to be read before older or
+  ///     newer ones are dropped.
+  public func messages<Group: ParameterGroup>(
+    of type: Group.Type, includingSent: Bool = false,
+    bufferingPolicy: AsyncStream<Message>.Continuation.BufferingPolicy = .bufferingNewest(1024)
+  ) -> some AsyncSequence<Group, Never> & Sendable {
+    messages(includingSent: includingSent, bufferingPolicy: bufferingPolicy).compactMap {
+      @Sendable message in message.pgn == Group.pgn ? try? Group(message) : nil
+    }
   }
 
   /// Returns a sequence of the node's events from now on: when it opens,
