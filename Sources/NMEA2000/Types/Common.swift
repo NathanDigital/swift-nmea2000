@@ -125,3 +125,26 @@ public struct OnOffStatus: RawRepresentable, Hashable, Sendable, CustomStringCon
     }
   }
 }
+
+extension Bool {
+  /// Decodes a two-bit yes/no field from its low two bits: 0 is `false`, 1
+  /// is `true`, and error (2) or not available (3) is `nil`.
+  init?(twoBitFlag bits: UInt8) {
+    switch bits & 0x03 {
+    case 0: self = false
+    case 1: self = true
+    default: return nil
+    }
+  }
+}
+
+extension Bool? {
+  /// The value as a two-bit yes/no field: 0, 1, or 3 for not available.
+  var twoBitFlag: UInt8 {
+    switch self {
+    case false?: 0
+    case true?: 1
+    case nil: 3
+    }
+  }
+}

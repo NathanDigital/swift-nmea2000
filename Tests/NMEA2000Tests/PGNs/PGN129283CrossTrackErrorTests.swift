@@ -46,4 +46,17 @@ struct CrossTrackErrorTests {
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
     expectTolerantDecoding(CrossTrackError.self, from: Self.vectors[0].1)
   }
+
+  @Test(
+    "Decodes both bits of navigation terminated",
+    arguments: [(UInt8(0b00), Bool?.some(false)), (0b01, true), (0b10, nil), (0b11, nil)])
+  func decodesNavigationTerminated(bits: UInt8, expected: Bool?) throws {
+    // Deliberate divergence: upstream decodes only bit 6, reading error and
+    // not available as true.
+    var bytes = Self.vectors[0].1
+    bytes[1] = bytes[1] & 0x0f | bits << 6
+    let decoded = try CrossTrackError(Message(pgn: 129283, data: bytes))
+    #expect(decoded.isNavigationTerminated == expected)
+    #expect(decoded.makeMessage().data[1] == bytes[1] & 0x0f | (expected == nil ? 0xc0 : bits << 6))
+  }
 }

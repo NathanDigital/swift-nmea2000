@@ -26,13 +26,25 @@ public struct NavigationInfo: ParameterGroup, Hashable {
   public var bearingReference: HeadingReference
 
   /// A Boolean value that indicates whether the perpendicular through the destination waypoint has
-  /// been crossed.
-  public var isPerpendicularCrossed: Bool
+  /// been crossed, or `nil` if not available.
+  ///
+  /// The field is two bits wide. Upstream decodes only bit 0, so it reads
+  /// error and not available as `true`; this type decodes both as `nil`,
+  /// and sends `nil` as not available, which upstream's `bool` can't.
+  public var isPerpendicularCrossed: Bool?
 
-  /// A Boolean value that indicates whether the arrival circle has been entered.
-  public var isArrivalCircleEntered: Bool
+  /// A Boolean value that indicates whether the arrival circle has been entered, or `nil` if not
+  /// available.
+  ///
+  /// Two bits wide, like ``isPerpendicularCrossed``.
+  public var isArrivalCircleEntered: Bool?
 
   /// How distances and bearings are calculated.
+  ///
+  /// The field is two bits wide. Upstream decodes only bit 0 and sends
+  /// anything but ``DistanceCalculationType/rhumbLine`` as
+  /// ``DistanceCalculationType/greatCircle``; this type decodes both bits
+  /// and sends other values unchanged, so they round-trip.
   public var calculationType: DistanceCalculationType
 
   /// The estimated time of arrival, in seconds since midnight UTC, or `nil` if not available.
@@ -71,8 +83,8 @@ public struct NavigationInfo: ParameterGroup, Hashable {
     sequenceID: UInt8?,
     distanceToWaypoint: Double?,
     bearingReference: HeadingReference,
-    isPerpendicularCrossed: Bool,
-    isArrivalCircleEntered: Bool,
+    isPerpendicularCrossed: Bool?,
+    isArrivalCircleEntered: Bool?,
     calculationType: DistanceCalculationType,
     etaTime: Double?,
     etaDate: UInt16?,
@@ -106,9 +118,9 @@ public struct NavigationInfo: ParameterGroup, Hashable {
     distanceToWaypoint = reader.readUInt32(resolution: 0.01)
     let flags = reader.readUInt8()
     bearingReference = HeadingReference(rawValue: flags & 0x03)
-    isPerpendicularCrossed = flags & 0x04 != 0
-    isArrivalCircleEntered = flags & 0x10 != 0
-    calculationType = flags & 0x40 != 0 ? .rhumbLine : .greatCircle
+    isPerpendicularCrossed = Bool(twoBitFlag: flags >> 2)
+    isArrivalCircleEntered = Bool(twoBitFlag: flags >> 4)
+    calculationType = DistanceCalculationType(rawValue: flags >> 6 & 0x03)
     etaTime = reader.readUInt32(resolution: 0.0001)
     etaDate = reader.readOptionalUInt16()
     bearingOriginToDestination = reader.readUInt16(resolution: 0.0001)
@@ -124,8 +136,8 @@ public struct NavigationInfo: ParameterGroup, Hashable {
     writer.appendUInt8(sequenceID)
     writer.appendUInt32(distanceToWaypoint, resolution: 0.01)
     writer.appendUInt8(
-      bearingReference.rawValue | (isPerpendicularCrossed ? 0x04 : 0)
-        | (isArrivalCircleEntered ? 0x10 : 0) | (calculationType == .rhumbLine ? 0x40 : 0))
+      bearingReference.rawValue | isPerpendicularCrossed.twoBitFlag << 2
+        | isArrivalCircleEntered.twoBitFlag << 4 | (calculationType.rawValue & 0x03) << 6)
     writer.appendUInt32(etaTime, resolution: 0.0001)
     writer.appendUInt16(etaDate)
     writer.appendUInt16(bearingOriginToDestination, resolution: 0.0001)

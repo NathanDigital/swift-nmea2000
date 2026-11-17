@@ -18,8 +18,13 @@ public struct CrossTrackError: ParameterGroup, Hashable {
   /// The mode the error was calculated in.
   public var mode: CrossTrackErrorMode
 
-  /// A Boolean value that indicates whether navigation has terminated.
-  public var isNavigationTerminated: Bool
+  /// A Boolean value that indicates whether navigation has terminated, or
+  /// `nil` if not available.
+  ///
+  /// The field is two bits wide. Upstream decodes only bit 0, so it reads
+  /// error and not available as `true`; this type decodes both as `nil`,
+  /// and sends `nil` as not available, which upstream's `bool` can't.
+  public var isNavigationTerminated: Bool?
 
   /// The distance from the planned track, in meters, or `nil` if not available.
   public var crossTrackError: Double?
@@ -28,7 +33,7 @@ public struct CrossTrackError: ParameterGroup, Hashable {
   public init(
     sequenceID: UInt8?,
     mode: CrossTrackErrorMode,
-    isNavigationTerminated: Bool,
+    isNavigationTerminated: Bool?,
     crossTrackError: Double?
   ) {
     self.sequenceID = sequenceID
@@ -41,13 +46,13 @@ public struct CrossTrackError: ParameterGroup, Hashable {
     sequenceID = reader.readOptionalUInt8()
     let flags = reader.readUInt8()
     mode = CrossTrackErrorMode(rawValue: flags & 0x0f)
-    isNavigationTerminated = flags & 0x40 != 0
+    isNavigationTerminated = Bool(twoBitFlag: flags >> 6)
     crossTrackError = reader.readInt32(resolution: 0.01)
   }
 
   public func encode(to writer: inout MessageWriter) {
     writer.appendUInt8(sequenceID)
-    writer.appendUInt8(mode.rawValue | (isNavigationTerminated ? 0x40 : 0))
+    writer.appendUInt8(mode.rawValue | isNavigationTerminated.twoBitFlag << 6)
     writer.appendInt32(crossTrackError, resolution: 0.01)
     writer.appendUInt8(0xff)
     writer.appendUInt8(0xff)

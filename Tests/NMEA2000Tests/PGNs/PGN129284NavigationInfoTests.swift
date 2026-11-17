@@ -104,4 +104,28 @@ struct NavigationInfoTests {
     bytes[5] = bytes[5] & ~0x03 | bits
     #expect(try NavigationInfo(Message(pgn: 129284, data: bytes)).bearingReference == expected)
   }
+
+  @Test(
+    "Decodes the two-bit flags and calculation type",
+    arguments: [
+      (UInt8(0b00), Bool?.some(false), DistanceCalculationType.greatCircle),
+      (0b01, true, .rhumbLine),
+      (0b10, nil, DistanceCalculationType(rawValue: 2)),
+      (0b11, nil, DistanceCalculationType(rawValue: 3)),
+    ])
+  func decodesTwoBitFields(
+    bits: UInt8, flag: Bool?, calculationType: DistanceCalculationType
+  ) throws {
+    // Deliberate divergence: upstream decodes only the low bit of each, and
+    // reads error and not available as true and rhumb line.
+    var bytes = Self.vectors[0].1
+    bytes[5] = bytes[5] & 0x03 | bits << 2 | bits << 4 | bits << 6
+    let decoded = try NavigationInfo(Message(pgn: 129284, data: bytes))
+    #expect(decoded.isPerpendicularCrossed == flag)
+    #expect(decoded.isArrivalCircleEntered == flag)
+    #expect(decoded.calculationType == calculationType)
+    // Error is sent back as not available; everything else round-trips.
+    let resent = bits == 0b10 ? bytes[5] & 0x03 | 0b11_11_00 | bits << 6 : bytes[5]
+    #expect(decoded.makeMessage().data[5] == resent)
+  }
 }
