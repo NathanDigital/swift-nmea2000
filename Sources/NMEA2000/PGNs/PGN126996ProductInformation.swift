@@ -40,8 +40,12 @@ public struct ProductInformation: ParameterGroup {
   /// The NMEA 2000 certification level.
   public var certificationLevel: UInt8
 
-  /// The current the device draws from the bus, in units of 50 mA.
+  /// The current the device draws from the bus, as a load equivalency
+  /// number: units of 50 mA. ``loadCurrent`` gives it in amperes.
   public var loadEquivalency: UInt8
+
+  /// The current the device draws from the bus, in amperes.
+  public var loadCurrent: Double { Double(loadEquivalency) * 0.05 }
 
   /// The product information upstream gives a device that doesn't set its
   /// own: NMEA 2000 version 2.101, product code 666 and model "Arduino

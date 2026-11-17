@@ -14,48 +14,48 @@ public struct EngineTripParameters: ParameterGroup {
   /// The engine instance.
   public var instance: UInt8
 
-  /// The fuel used this trip, in litres (as upstream uses), or `nil` if not available.
-  public var tripFuelUsed: Double?
+  /// The fuel used this trip, in litres as upstream uses them, or `nil` if not available.
+  public var tripFuelUsedLitres: Double?
 
   /// The average fuel rate, in litres per hour, or `nil` if not available.
-  public var fuelRateAverage: Double?
+  public var averageFuelRateLitresPerHour: Double?
 
   /// The economy fuel rate, in litres per hour, or `nil` if not available.
-  public var fuelRateEconomy: Double?
+  public var economyFuelRateLitresPerHour: Double?
 
   /// The instantaneous fuel economy, in litres per hour, or `nil` if not available.
-  public var instantaneousFuelEconomy: Double?
+  public var instantaneousFuelEconomyLitresPerHour: Double?
 
   /// Creates an engine trip parameters message.
   ///
   /// The defaults match upstream's `SetN2kEngineTripParameters`.
   public init(
     instance: UInt8,
-    tripFuelUsed: Double?,
-    fuelRateAverage: Double?,
-    fuelRateEconomy: Double? = nil,
-    instantaneousFuelEconomy: Double? = nil
+    tripFuelUsedLitres: Double?,
+    averageFuelRateLitresPerHour: Double?,
+    economyFuelRateLitresPerHour: Double? = nil,
+    instantaneousFuelEconomyLitresPerHour: Double? = nil
   ) {
     self.instance = instance
-    self.tripFuelUsed = tripFuelUsed
-    self.fuelRateAverage = fuelRateAverage
-    self.fuelRateEconomy = fuelRateEconomy
-    self.instantaneousFuelEconomy = instantaneousFuelEconomy
+    self.tripFuelUsedLitres = tripFuelUsedLitres
+    self.averageFuelRateLitresPerHour = averageFuelRateLitresPerHour
+    self.economyFuelRateLitresPerHour = economyFuelRateLitresPerHour
+    self.instantaneousFuelEconomyLitresPerHour = instantaneousFuelEconomyLitresPerHour
   }
 
   public init(decoding reader: inout MessageReader) {
     instance = reader.readUInt8()
-    tripFuelUsed = reader.readUInt16(resolution: 1)
-    fuelRateAverage = reader.readInt16(resolution: 0.1)
-    fuelRateEconomy = reader.readInt16(resolution: 0.1)
-    instantaneousFuelEconomy = reader.readInt16(resolution: 0.1)
+    tripFuelUsedLitres = reader.readUInt16(resolution: 1)
+    averageFuelRateLitresPerHour = reader.readInt16(resolution: 0.1)
+    economyFuelRateLitresPerHour = reader.readInt16(resolution: 0.1)
+    instantaneousFuelEconomyLitresPerHour = reader.readInt16(resolution: 0.1)
   }
 
   public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance)
-    writer.appendUInt16(tripFuelUsed, resolution: 1)
-    writer.appendInt16(fuelRateAverage, resolution: 0.1)
-    writer.appendInt16(fuelRateEconomy, resolution: 0.1)
-    writer.appendInt16(instantaneousFuelEconomy, resolution: 0.1)
+    writer.appendUInt16(tripFuelUsedLitres, resolution: 1)
+    writer.appendInt16(averageFuelRateLitresPerHour, resolution: 0.1)
+    writer.appendInt16(economyFuelRateLitresPerHour, resolution: 0.1)
+    writer.appendInt16(instantaneousFuelEconomyLitresPerHour, resolution: 0.1)
   }
 }

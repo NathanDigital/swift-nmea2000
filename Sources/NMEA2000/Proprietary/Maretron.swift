@@ -94,16 +94,18 @@ public struct MaretronFluidFlowRate: ParameterGroup {
   /// The fluid being measured.
   public var fluidType: FluidType
 
-  /// The flow rate, in litres per hour as upstream has it, or `nil` if not
+  /// The flow rate, in litres per hour as upstream uses them, or `nil` if not
   /// available.
-  public var flowRate: Double?
+  public var flowRateLitresPerHour: Double?
 
   /// Creates a fluid flow rate message.
-  public init(sequenceID: UInt8?, instance: UInt8, fluidType: FluidType, flowRate: Double?) {
+  public init(
+    sequenceID: UInt8?, instance: UInt8, fluidType: FluidType, flowRateLitresPerHour: Double?
+  ) {
     self.sequenceID = sequenceID
     self.instance = instance
     self.fluidType = fluidType
-    self.flowRate = flowRate
+    self.flowRateLitresPerHour = flowRateLitresPerHour
   }
 
   public init(decoding reader: inout MessageReader) throws(MessageDecodingError) {
@@ -111,7 +113,7 @@ public struct MaretronFluidFlowRate: ParameterGroup {
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
     fluidType = FluidType(rawValue: reader.readUInt8())
-    flowRate = reader.readInt24(resolution: 0.1)
+    flowRateLitresPerHour = reader.readInt24(resolution: 0.1)
   }
 
   public func encode(into writer: inout MessageWriter) {
@@ -119,7 +121,7 @@ public struct MaretronFluidFlowRate: ParameterGroup {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
     writer.appendUInt8(fluidType.rawValue)
-    writer.appendInt24(flowRate, resolution: 0.1)
+    writer.appendInt24(flowRateLitresPerHour, resolution: 0.1)
   }
 }
 
@@ -142,16 +144,16 @@ public struct MaretronTripVolume: ParameterGroup {
   /// The fluid being measured.
   public var fluidType: FluidType
 
-  /// The volume used on the trip, in litres as upstream has it, or `nil` if
+  /// The volume used on the trip, in litres as upstream uses them, or `nil` if
   /// not available.
-  public var volume: Double?
+  public var volumeLitres: Double?
 
   /// Creates a trip volume message.
-  public init(sequenceID: UInt8?, instance: UInt8, fluidType: FluidType, volume: Double?) {
+  public init(sequenceID: UInt8?, instance: UInt8, fluidType: FluidType, volumeLitres: Double?) {
     self.sequenceID = sequenceID
     self.instance = instance
     self.fluidType = fluidType
-    self.volume = volume
+    self.volumeLitres = volumeLitres
   }
 
   public init(decoding reader: inout MessageReader) throws(MessageDecodingError) {
@@ -159,7 +161,7 @@ public struct MaretronTripVolume: ParameterGroup {
     sequenceID = reader.readOptionalUInt8()
     instance = reader.readUInt8()
     fluidType = FluidType(rawValue: reader.readUInt8())
-    volume = reader.readInt24(resolution: 1)
+    volumeLitres = reader.readInt24(resolution: 1)
   }
 
   public func encode(into writer: inout MessageWriter) {
@@ -167,6 +169,6 @@ public struct MaretronTripVolume: ParameterGroup {
     writer.appendUInt8(sequenceID)
     writer.appendUInt8(instance)
     writer.appendUInt8(fluidType.rawValue)
-    writer.appendInt24(volume, resolution: 1)
+    writer.appendInt24(volumeLitres, resolution: 1)
   }
 }

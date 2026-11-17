@@ -14,17 +14,17 @@ struct FluidLevelTests {
   static let vectors: [(FluidLevel, [UInt8])] = [
     // typical
     (
-      FluidLevel(instance: 2, fluidType: .blackWater, level: 75.5, capacity: 120.5),
+      FluidLevel(instance: 2, fluidType: .blackWater, level: 75.5, capacityLitres: 120.5),
       [0x52, 0xbb, 0x49, 0xb5, 0x04, 0x00, 0x00, 0xff]
     ),
     // high instance and type
     (
-      FluidLevel(instance: 0x0e, fluidType: .error, level: -1.0, capacity: 4000),
+      FluidLevel(instance: 0x0e, fluidType: .error, level: -1.0, capacityLitres: 4000),
       [0xee, 0x06, 0xff, 0x40, 0x9c, 0x00, 0x00, 0xff]
     ),
     // not available
     (
-      FluidLevel(instance: 0x0f, fluidType: .unavailable, level: nil, capacity: nil),
+      FluidLevel(instance: 0x0f, fluidType: .unavailable, level: nil, capacityLitres: nil),
       [0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
   ]

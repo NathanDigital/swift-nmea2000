@@ -28,28 +28,30 @@ struct MaretronTests {
 
   static let flowRates: [(MaretronFluidFlowRate, [UInt8])] = [
     (
-      MaretronFluidFlowRate(sequenceID: 3, instance: 1, fluidType: .fuel, flowRate: 12.3),
+      MaretronFluidFlowRate(
+        sequenceID: 3, instance: 1, fluidType: .fuel, flowRateLitresPerHour: 12.3),
       [0x89, 0x98, 0x03, 0x01, 0x00, 0x7b, 0x00, 0x00]
     ),
     (
       MaretronFluidFlowRate(
         sequenceID: nil, instance: 0xff, fluidType: FluidType(rawValue: 0x0e),
-        flowRate: -838860.7),
+        flowRateLitresPerHour: -838860.7),
       [0x89, 0x98, 0xff, 0xff, 0x0e, 0x01, 0x00, 0x80]
     ),
     (
-      MaretronFluidFlowRate(sequenceID: 0, instance: 0, fluidType: .water, flowRate: nil),
+      MaretronFluidFlowRate(
+        sequenceID: 0, instance: 0, fluidType: .water, flowRateLitresPerHour: nil),
       [0x89, 0x98, 0x00, 0x00, 0x01, 0xff, 0xff, 0x7f]
     ),
   ]
 
   static let volumes: [(MaretronTripVolume, [UInt8])] = [
     (
-      MaretronTripVolume(sequenceID: 4, instance: 2, fluidType: .fuel, volume: 1_234_567),
+      MaretronTripVolume(sequenceID: 4, instance: 2, fluidType: .fuel, volumeLitres: 1_234_567),
       [0x89, 0x98, 0x04, 0x02, 0x00, 0x87, 0xd6, 0x12]
     ),
     (
-      MaretronTripVolume(sequenceID: nil, instance: 0xff, fluidType: .oil, volume: nil),
+      MaretronTripVolume(sequenceID: nil, instance: 0xff, fluidType: .oil, volumeLitres: nil),
       [0x89, 0x98, 0xff, 0xff, 0x04, 0xff, 0xff, 0x7f]
     ),
   ]
@@ -61,7 +63,7 @@ struct MaretronTests {
   }
 
   @Test("Flow rate encodes and decodes as upstream does", arguments: flowRates)
-  func flowRate(_ value: MaretronFluidFlowRate, bytes: [UInt8]) throws {
+  func flowRateLitresPerHour(_ value: MaretronFluidFlowRate, bytes: [UInt8]) throws {
     expectEncodes(value, as: bytes, priority: 5)
     try expectDecodes(bytes, as: value)
   }
@@ -99,6 +101,6 @@ struct MaretronTests {
   @Test func toleratesShortPayloadsAfterTheHeader() throws {
     let volume = try MaretronTripVolume(Message(pgn: 65287, data: [0x89, 0x98, 4]))
     #expect(volume.sequenceID == 4)
-    #expect(volume.volume == nil)
+    #expect(volume.volumeLitres == nil)
   }
 }

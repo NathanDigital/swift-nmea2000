@@ -15,20 +15,22 @@ struct EngineTripParametersTests {
     // typical
     (
       EngineTripParameters(
-        instance: 1, tripFuelUsed: 125, fuelRateAverage: 15.5, fuelRateEconomy: -2.5,
-        instantaneousFuelEconomy: 18.25),
+        instance: 1, tripFuelUsedLitres: 125, averageFuelRateLitresPerHour: 15.5,
+        economyFuelRateLitresPerHour: -2.5,
+        instantaneousFuelEconomyLitresPerHour: 18.25),
       [0x01, 0x7d, 0x00, 0x9b, 0x00, 0xe7, 0xff, 0xb7, 0x00]
     ),
     // not available
     (
       EngineTripParameters(
-        instance: 0xff, tripFuelUsed: nil, fuelRateAverage: nil, fuelRateEconomy: nil,
-        instantaneousFuelEconomy: nil),
+        instance: 0xff, tripFuelUsedLitres: nil, averageFuelRateLitresPerHour: nil,
+        economyFuelRateLitresPerHour: nil,
+        instantaneousFuelEconomyLitresPerHour: nil),
       [0xff, 0xff, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff, 0x7f]
     ),
     // defaults
     (
-      EngineTripParameters(instance: 0, tripFuelUsed: 40, fuelRateAverage: 12.5),
+      EngineTripParameters(instance: 0, tripFuelUsedLitres: 40, averageFuelRateLitresPerHour: 12.5),
       [0x00, 0x28, 0x00, 0x7d, 0x00, 0xff, 0x7f, 0xff, 0x7f]
     ),
   ]

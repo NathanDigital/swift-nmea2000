@@ -20,20 +20,20 @@ public struct FluidLevel: ParameterGroup {
   /// The tank level, in percent of full, or `nil` if not available.
   public var level: Double?
 
-  /// The tank capacity, in litres (as upstream uses), or `nil` if not available.
-  public var capacity: Double?
+  /// The tank capacity, in litres as upstream uses them, or `nil` if not available.
+  public var capacityLitres: Double?
 
   /// Creates a fluid level message.
   public init(
     instance: UInt8,
     fluidType: FluidType,
     level: Double?,
-    capacity: Double?
+    capacityLitres: Double?
   ) {
     self.instance = instance
     self.fluidType = fluidType
     self.level = level
-    self.capacity = capacity
+    self.capacityLitres = capacityLitres
   }
 
   public init(decoding reader: inout MessageReader) {
@@ -41,13 +41,13 @@ public struct FluidLevel: ParameterGroup {
     instance = instanceAndType & 0x0f
     fluidType = FluidType(rawValue: (instanceAndType >> 4) & 0x0f)
     level = reader.readInt16(resolution: 0.004)
-    capacity = reader.readUInt32(resolution: 0.1)
+    capacityLitres = reader.readUInt32(resolution: 0.1)
   }
 
   public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(instance & 0x0f | (fluidType.rawValue & 0x0f) << 4)
     writer.appendInt16(level, resolution: 0.004)
-    writer.appendUInt32(capacity, resolution: 0.1)
+    writer.appendUInt32(capacityLitres, resolution: 0.1)
     writer.appendUInt8(0xff)
   }
 }

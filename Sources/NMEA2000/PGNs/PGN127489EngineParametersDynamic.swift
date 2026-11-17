@@ -26,8 +26,8 @@ public struct EngineParametersDynamic: ParameterGroup {
   /// The alternator potential, in volts, or `nil` if not available.
   public var alternatorVoltage: Double?
 
-  /// The fuel rate, in litres per hour (as upstream uses), or `nil` if not available.
-  public var fuelRate: Double?
+  /// The fuel rate, in litres per hour as upstream uses them, or `nil` if not available.
+  public var fuelRateLitresPerHour: Double?
 
   /// The total engine run time, in seconds, or `nil` if not available.
   public var engineHours: Double?
@@ -63,7 +63,7 @@ public struct EngineParametersDynamic: ParameterGroup {
     oilTemperature: Double?,
     coolantTemperature: Double?,
     alternatorVoltage: Double?,
-    fuelRate: Double?,
+    fuelRateLitresPerHour: Double?,
     engineHours: Double?,
     coolantPressure: Double? = nil,
     fuelPressure: Double? = nil,
@@ -77,7 +77,7 @@ public struct EngineParametersDynamic: ParameterGroup {
     self.oilTemperature = oilTemperature
     self.coolantTemperature = coolantTemperature
     self.alternatorVoltage = alternatorVoltage
-    self.fuelRate = fuelRate
+    self.fuelRateLitresPerHour = fuelRateLitresPerHour
     self.engineHours = engineHours
     self.coolantPressure = coolantPressure
     self.fuelPressure = fuelPressure
@@ -93,7 +93,7 @@ public struct EngineParametersDynamic: ParameterGroup {
     oilTemperature = reader.readUInt16(resolution: 0.1)
     coolantTemperature = reader.readUInt16(resolution: 0.01)
     alternatorVoltage = reader.readInt16(resolution: 0.01)
-    fuelRate = reader.readInt16(resolution: 0.1)
+    fuelRateLitresPerHour = reader.readInt16(resolution: 0.1)
     engineHours = reader.readUInt32(resolution: 1)
     coolantPressure = reader.readUInt16(resolution: 100)
     fuelPressure = reader.readUInt16(resolution: 1000)
@@ -112,7 +112,7 @@ public struct EngineParametersDynamic: ParameterGroup {
     writer.appendUInt16(oilTemperature, resolution: 0.1)
     writer.appendUInt16(coolantTemperature, resolution: 0.01)
     writer.appendInt16(alternatorVoltage, resolution: 0.01)
-    writer.appendInt16(fuelRate, resolution: 0.1)
+    writer.appendInt16(fuelRateLitresPerHour, resolution: 0.1)
     writer.appendUInt32(engineHours, resolution: 1)
     writer.appendUInt16(coolantPressure, resolution: 100)
     writer.appendUInt16(fuelPressure, resolution: 1000)

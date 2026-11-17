@@ -16,7 +16,8 @@ struct EngineParametersDynamicTests {
     (
       EngineParametersDynamic(
         instance: 1, oilPressure: 350000, oilTemperature: 363.15, coolantTemperature: 358.15,
-        alternatorVoltage: 14.2, fuelRate: -12.5, engineHours: 3_600_000, coolantPressure: 120000,
+        alternatorVoltage: 14.2, fuelRateLitresPerHour: -12.5, engineHours: 3_600_000,
+        coolantPressure: 120000,
         fuelPressure: 300000, load: 85, torque: -5,
         discreteStatus: EngineDiscreteStatus(rawValue: 0x8421),
         warningStatus: EngineWarningStatus(rawValue: 0x00a5)),
@@ -29,7 +30,7 @@ struct EngineParametersDynamicTests {
     (
       EngineParametersDynamic(
         instance: 0xff, oilPressure: nil, oilTemperature: nil, coolantTemperature: nil,
-        alternatorVoltage: nil, fuelRate: nil, engineHours: nil, coolantPressure: nil,
+        alternatorVoltage: nil, fuelRateLitresPerHour: nil, engineHours: nil, coolantPressure: nil,
         fuelPressure: nil, load: nil, torque: nil, discreteStatus: [], warningStatus: []),
       [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff,
@@ -40,7 +41,7 @@ struct EngineParametersDynamicTests {
     (
       EngineParametersDynamic(
         instance: 0, oilPressure: 300000, oilTemperature: 360, coolantTemperature: 350,
-        alternatorVoltage: 13.8, fuelRate: 10, engineHours: 7200),
+        alternatorVoltage: 13.8, fuelRateLitresPerHour: 10, engineHours: 7200),
       [
         0x00, 0xb8, 0x0b, 0x10, 0x0e, 0xb8, 0x88, 0x64, 0x05, 0x64, 0x00, 0x20, 0x1c, 0x00, 0x00,
         0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x7f, 0x7f,
