@@ -473,6 +473,18 @@ void czone(unsigned long pgn, std::vector<unsigned char> data) {
 // The node a case runs, for the ISO request handler.
 TestNode *current = nullptr;
 
+// Answers requests for 130306 from the second device only, with a message
+// from that device holding its index.
+bool deviceRequestHandler(unsigned long pgn, unsigned char requester, int device) {
+  if (pgn != 130306 || device != 1) return false;
+  tN2kMsg m;
+  m.SetPGN(130306);
+  m.Destination = requester;
+  m.AddByte(device);
+  current->SendMsg(m, device);
+  return true;
+}
+
 // Answers requests for 130306 with a one-byte message, and refuses others.
 bool requestHandler(unsigned long pgn, unsigned char requester, int) {
   if (pgn != 130306) return false;
@@ -1520,6 +1532,67 @@ const std::vector<Case> cases = {
        czone(65301, {0x27, 0x99, 0x07, 0x1d, 0x3f});
        czone(65301, {0x27, 0x99, 0x07, 0x3e, 0x3f});
      }},
+    // Several devices on one node. With three devices at 23, upstream gives
+    // them addresses 23-25 and unique numbers 1-3.
+#define DEVICES_NODE(name, count, ...) NODE("devices " name, { \
+      n.SetDeviceCount(count); \
+      start(n, tNMEA2000::N2km_NodeOnly); \
+      __VA_ARGS__; \
+    })
+    DEVICES_NODE("open and claim", 3, until(n, 700)),
+    DEVICES_NODE("send from each", 2, {
+      until(n, 500);
+      tN2kMsg m;
+      SetN2kPGN129029(m, 1, 18000, 3600, 60.1, 24.9, 10, N2kGNSSt_GPS, N2kGNSSm_GNSSfix, 12, 0.8, 0.5, 15, 1, N2kGNSSt_GPS, 15, 2);
+      n.SendMsg(m, 0);
+      n.SendMsg(m, 1);
+      n.SendMsg(m, 1);
+      n.SendMsg(m, 2);
+    }),
+    DEVICES_NODE("conflict skips a sibling's address", 2, {
+      until(n, 500);
+      claim(n, 23, ownName - 1);
+      until(n, 800);
+      claim(n, 24, otherName(2) - 1);
+    }),
+    DEVICES_NODE("broadcast requests answered by each", 2, {
+      until(n, 500);
+      request(n, 0xff, 60928);
+      request(n, 0x18, 60928);
+      request(n, 0xff, 126464);
+      request(n, 0x17, 130310);
+      request(n, 0x18, 130310);
+    }),
+    DEVICES_NODE("product information falls back to the first device's", 2, {
+      until(n, 500);
+      request(n, 0x18, 126996);
+    }),
+    DEVICES_NODE("request handler told the device", 2, {
+      current = &n;
+      n.SetISORqstHandler(deviceRequestHandler);
+      until(n, 500);
+      request(n, 0xff, 130306);
+    }),
+    DEVICES_NODE("heartbeats from each", 2, until(n, 10300)),
+    DEVICES_NODE("commanded address for the second device", 2, {
+      until(n, 500);
+      command(n, otherName(2), 0x30);
+      command(n, otherName(2), 0x18);
+    }),
+    DEVICES_NODE("transport protocol with the second device", 2, {
+      until(n, 500);
+      receive(n, tp(TPCM, 0x18), rts(20, 126464));
+      dts(n, 0x18, 1, 3, 20);
+    }),
+    DEVICES_NODE("group functions for each", 2, {
+      until(n, 500);
+      groupFunction(n, 0xff, gfRequest(60928, 0xffffffff, 0xffff, 1, {1, 0x02, 0x00, 0x00}));
+      until(n, 520);
+      groupFunction(n, 0x18, gfCommand(60928, 8, 1, {3, 5}));
+      until(n, 540);
+      groupFunction(n, 0x18, gfRequest(126993, 2000, 0xffff, 0));
+      until(n, 10300);
+    }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);
       until(n, 300);

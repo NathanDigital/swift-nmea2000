@@ -355,7 +355,7 @@ struct NodeTests {
     let clock = ManualClock()
     let transport = FakeTransport()
     let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
-    await node.setISORequestHandler { pgn, requester in
+    await node.setISORequestHandler { pgn, requester, _ in
       pgn == 130306 ? [Message(pgn: 130306, destination: requester, data: [requester])] : nil
     }
     let run = Task { try await node.run() }
@@ -376,6 +376,34 @@ struct NodeTests {
     #expect(
       try await sent.next()
         == CANFrame(id: 0x1df0_1117, data: [0x60, 0xea, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]))
+
+    transport.receive.finish()
+    try await finish(run)
+  }
+
+  @Test func hostsSeveralDevices() async throws {
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let second = DeviceName(
+      uniqueNumber: 2, manufacturerCode: 2046, deviceFunction: 130, deviceClass: 25)
+    let node = Node(
+      transport: transport, mode: .node,
+      devices: [Node.Device(address: 23), Node.Device(address: 24, name: second)], clock: clock)
+    let run = Task { try await node.run() }
+    let sent = transport.sent
+    try await clock.waitForSleepers()
+    clock.advance(to: 200)
+    #expect(try await sent.next() == claim)
+    #expect(try await sent.next()?.id == 0x18ee_ff18)
+    clock.advance(to: 450)
+
+    try await node.send(PositionRapidUpdate(latitude: 1, longitude: 2), from: 1)
+    #expect(try await sent.next()?.id == 0x09f8_0118)
+    await #expect(throws: NodeError.noSuchDevice(2)) {
+      try await node.send(PositionRapidUpdate(latitude: 1, longitude: 2), from: 2)
+    }
+    #expect(await node.devices.map(\.address) == [23, 24])
+    #expect(await node.devices[1].name == second)
 
     transport.receive.finish()
     try await finish(run)

@@ -49,16 +49,69 @@ public actor Node {
     case node
   }
 
+  /// A device the node hosts on the bus.
+  ///
+  /// Most nodes host one device. A node can host several, as upstream's
+  /// `SetDeviceCount` allows, each with its own address, NAME and
+  /// heartbeat; they share the transport and the configuration
+  /// information.
+  public struct Device: Sendable, Hashable {
+    /// The address to claim first. If another device holds it, the device
+    /// tries the following addresses, skipping its sibling devices'. 254
+    /// starts from 14. Save it when it changes and use it next time, so the
+    /// device keeps its address across restarts.
+    public var address: UInt8
+
+    /// The NAME to claim the address with. Every device on a bus needs a
+    /// different NAME.
+    public var name: DeviceName
+
+    /// The product information the device sends when asked, or `nil` for
+    /// the first device's.
+    public var productInformation: ProductInformation?
+
+    /// The PGNs the device sends, beyond the network management PGNs every
+    /// node sends. The device lists them when asked.
+    public var transmitPGNs: [UInt32]
+
+    /// The PGNs the device receives, beyond the network management PGNs.
+    /// The device lists them when asked.
+    public var receivePGNs: [UInt32]
+
+    /// How often to send a heartbeat, between 1 and 655.32 seconds, or `nil`
+    /// for none. The first is sent 10 seconds after the node opens.
+    public var heartbeatInterval: Duration?
+
+    /// Creates a device.
+    public init(
+      address: UInt8 = 15,
+      name: DeviceName = .default,
+      productInformation: ProductInformation? = nil,
+      transmitPGNs: [UInt32] = [],
+      receivePGNs: [UInt32] = [],
+      heartbeatInterval: Duration? = .seconds(60)
+    ) {
+      self.address = address
+      self.name = name
+      self.productInformation = productInformation
+      self.transmitPGNs = transmitPGNs
+      self.receivePGNs = receivePGNs
+      self.heartbeatInterval = heartbeatInterval
+    }
+  }
+
   /// Answers an ISO request for a PGN the node doesn't answer itself.
   ///
-  /// The handler gets the requested PGN and the requester's address, and
-  /// returns the messages to send in reply, or `nil` if it doesn't handle
-  /// the PGN. The node then sends a negative acknowledgement if the request
-  /// was addressed to it. The handler runs on the node, so it must be quick.
+  /// The handler gets the requested PGN, the requester's address and the
+  /// index of the node's device the request is for, and returns the
+  /// messages that device sends in reply, or `nil` if it doesn't handle the
+  /// PGN. The device then sends a negative acknowledgement if the request
+  /// was addressed to it. A broadcast request asks every device in turn.
+  /// The handler runs on the node, so it must be quick.
   ///
   /// Replaces upstream's `SetISORqstHandler` callback.
   public typealias ISORequestHandler =
-    @Sendable (_ requestedPGN: UInt32, _ requester: UInt8) -> [Message]?
+    @Sendable (_ requestedPGN: UInt32, _ requester: UInt8, _ device: Int) -> [Message]?
 
   /// How the node takes part in the bus.
   public nonisolated let mode: Mode
@@ -74,7 +127,7 @@ public actor Node {
   private var timerDeadline: UInt64?
   private var isRunning = false
 
-  /// Creates a node.
+  /// Creates a node hosting one device.
   ///
   /// - Parameters:
   ///   - transport: The CAN bus connection.
@@ -95,14 +148,14 @@ public actor Node {
   ///     management PGNs every node sends. The node lists them when asked.
   ///   - receivePGNs: The PGNs the device receives, beyond the network
   ///     management PGNs. The node lists them when asked.
+  ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
+  ///     PGN isn't in the catalog.
   ///   - discoversDevices: Whether to keep a ``DeviceList`` of the devices
   ///     on the bus, asking them for their details as upstream's
   ///     `tN2kDeviceList` does.
   ///   - heartbeatInterval: How often to send a heartbeat, between 1 and
   ///     655.32 seconds, or `nil` for none. The first is sent 10 seconds
   ///     after the node opens.
-  ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
-  ///     PGN isn't in the catalog.
   ///   - clock: The clock that times the open sequence and address claim.
   public init(
     transport: some CANTransport,
@@ -119,20 +172,49 @@ public actor Node {
     heartbeatInterval: Duration? = .seconds(60),
     clock: some Clock<Duration> = ContinuousClock()
   ) {
+    self.init(
+      transport: transport, mode: mode,
+      devices: [
+        Device(
+          address: address, name: name, productInformation: productInformation,
+          transmitPGNs: transmitPGNs, receivePGNs: receivePGNs,
+          heartbeatInterval: heartbeatInterval)
+      ],
+      configurationInformation: configurationInformation, catalog: catalog,
+      handlesOnlyKnownMessages: handlesOnlyKnownMessages, discoversDevices: discoversDevices,
+      clock: clock)
+  }
+
+  /// Creates a node hosting several devices.
+  ///
+  /// - Parameters:
+  ///   - transport: The CAN bus connection.
+  ///   - mode: How the node takes part in the bus. Upstream defaults to
+  ///     listening only.
+  ///   - devices: The devices the node hosts, at least one.
+  ///   - configurationInformation: The configuration information the
+  ///     devices send when asked, or `nil` to refuse requests for it.
+  ///   - catalog: Which PGNs are sent and received as fast packets.
+  ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
+  ///     PGN isn't in the catalog.
+  ///   - discoversDevices: Whether to keep a ``DeviceList`` of the devices
+  ///     on the bus. The first device asks them for their details.
+  ///   - clock: The clock that times the open sequence and address claims.
+  public init(
+    transport: some CANTransport,
+    mode: Mode = .listenOnly,
+    devices: [Device],
+    configurationInformation: ConfigurationInformation? = .default,
+    catalog: PGNCatalog = PGNCatalog(),
+    handlesOnlyKnownMessages: Bool = false,
+    discoversDevices: Bool = false,
+    clock: some Clock<Duration> = ContinuousClock()
+  ) {
     self.mode = mode
     engine = NodeEngine(
-      mode: mode, address: address, name: name,
-      framer: MessageFramer(catalog: catalog, transmitPGNs: transmitPGNs),
-      assembler: MessageAssembler(
-        catalog: catalog, handlesOnlyKnownMessages: handlesOnlyKnownMessages),
-      device: NodeEngine.DeviceInformation(
-        productInformation: productInformation,
-        configurationInformation: configurationInformation, transmitPGNs: transmitPGNs,
-        receivePGNs: receivePGNs,
-        // Upstream keeps the interval between 1 and 655.32 seconds.
-        heartbeatInterval: heartbeatInterval.map {
-          min(max(NodeClock.milliseconds($0), 1000), 655_320)
-        }))
+      mode: mode, devices: devices, catalog: catalog,
+      handlesOnlyKnownMessages: handlesOnlyKnownMessages,
+      configurationInformation: configurationInformation)
     if discoversDevices { engine.deviceList = DeviceList() }
     self.clock = NodeClock(clock)
     openTransport = {
@@ -144,21 +226,27 @@ public actor Node {
     sendFrame = { try await transport.send($0) }
   }
 
-  /// The node's address: the one it holds or is claiming, or 254 if it
-  /// found no free address.
+  /// The first device's address: the one it holds or is claiming, or 254 if
+  /// it found no free address.
   public var address: UInt8 { engine.address }
 
-  /// The NAME the node claims its address with. The node changes the device
-  /// instance if another device claims the same NAME, and another device can
-  /// set the device and system instances with a group function command; save
-  /// the NAME so the device keeps them across restarts.
+  /// The NAME the first device claims its address with. The node changes
+  /// the device instance if another device claims the same NAME, and
+  /// another device can set the device and system instances with a group
+  /// function command; save the NAME so the device keeps them across
+  /// restarts.
   public var name: DeviceName { engine.name }
+
+  /// The devices the node hosts, as they are now: their addresses, NAMEs
+  /// and heartbeat intervals change as they claim addresses and answer
+  /// group functions.
+  public var devices: [Device] { engine.devices.map(\.settings) }
 
   /// The configuration information the node sends when asked. Another
   /// device can change the installation descriptions with a group function
   /// command; save them so the device keeps them across restarts.
   public var configurationInformation: ConfigurationInformation? {
-    engine.device.configurationInformation
+    engine.configurationInformation
   }
 
   /// The devices on the bus, if the node was created with
@@ -168,7 +256,7 @@ public actor Node {
   /// Sets the handler that answers ISO requests the node doesn't answer
   /// itself, or removes it.
   public func setISORequestHandler(_ handler: ISORequestHandler?) {
-    engine.device.isoRequestHandler = handler
+    engine.isoRequestHandler = handler
   }
 
   /// Opens the transport and runs the node until the transport's frames end
@@ -209,9 +297,9 @@ public actor Node {
     return stream
   }
 
-  /// Sends a message from the node's address.
+  /// Sends a message from one of the node's devices.
   ///
-  /// The message's source is replaced with the node's address. A message of
+  /// The message's source is replaced with the device's address. A message of
   /// up to eight bytes is sent in one frame unless its PGN is a fast-packet
   /// PGN; anything longer is sent as a fast packet.
   ///
@@ -223,19 +311,21 @@ public actor Node {
   /// one device by transport protocol must be shorter than 223 bytes for
   /// upstream's receivers to accept them.
   ///
-  /// - Parameter message: The message to send.
-  /// - Throws: ``NodeError`` if the node can't send the message now, or an
+  /// - Parameters:
+  ///   - message: The message to send.
+  ///   - device: The index of the node's device to send from.
+  /// - Throws: ``NodeError`` if the device can't send the message now, or an
   ///   error from the transport.
-  public func send(_ message: Message) async throws {
+  public func send(_ message: Message, from device: Int = 0) async throws {
     let now = clock.now()
     transmit(engine.poll(at: now))
     // A transport protocol send sets a deadline for its next packet.
     defer { scheduleTimer() }
-    let frames = try engine.send(message, at: now)
+    let frames = try engine.send(message, from: device, at: now)
     try await enqueue(frames).value
   }
 
-  /// Sends a parameter group from the node's address.
+  /// Sends a parameter group from one of the node's devices.
   ///
   /// - Parameters:
   ///   - parameterGroup: The parameter group to send.
@@ -244,11 +334,13 @@ public actor Node {
   ///     broadcast.
   /// - Throws: ``NodeError`` if the node can't send the message now, or an
   ///   error from the transport.
+  ///   - device: The index of the node's device to send from.
   public func send(
     _ parameterGroup: some ParameterGroup, priority: UInt8? = nil,
-    to destination: UInt8 = Message.broadcastAddress
+    to destination: UInt8 = Message.broadcastAddress, from device: Int = 0
   ) async throws {
-    try await send(parameterGroup.makeMessage(priority: priority, destination: destination))
+    try await send(
+      parameterGroup.makeMessage(priority: priority, destination: destination), from: device)
   }
 
   // MARK: - Running
@@ -355,6 +447,8 @@ public enum NodeError: Error, Sendable, Hashable {
   case transferInProgress
   /// Only a node in ``Node/Mode/node`` mode can send by transport protocol.
   case notAFullNode
+  /// The node has no device with this index.
+  case noSuchDevice(Int)
   /// The message can't be framed.
   case invalidMessage(FramingError)
 }

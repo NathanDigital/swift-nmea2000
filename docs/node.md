@@ -58,7 +58,8 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 | Upstream | Swift |
 |---|---|
 | `CANOpen`, `CANSendFrame`, `CANGetFrame` (driver virtuals) | `CANTransport.open()`, `.send(_:)`, and the frame sequence `open()` returns |
-| `tNMEA2000` (one device) | `Node` actor, driving the internal `NodeEngine` |
+| `tNMEA2000` | `Node` actor, driving the internal `NodeEngine` |
+| `SetDeviceCount`, `tInternalDevice`, the `DeviceIndex` / `iDev` arguments | `Node(devices:)`, `Node.Device`, `Node.devices`, `send(_:from:)` |
 | `Open`, `OpenState`, `OpenScheduler` | `Node.run()`; `NodeEngine.openState` |
 | `SetMode` | `Node(mode:address:)` |
 | `N2km_ListenOnly` | `Node.Mode.listenOnly` |
@@ -85,7 +86,6 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 
 ### Not yet ported
 
-- Several devices on one node (`SetDeviceCount`).
 - Forwarding to a stream (`SetForwardStream`, debug modes): gateway formats will be separate codecs.
 - The send frame buffer (`SetN2kCANSendFrameBufSize`): `CANTransport.send(_:)` suspends while the transport is busy instead.
 
@@ -143,6 +143,10 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 - The first heartbeat is due 10 s after the node opens and later ones every interval after that. Upstream's 64-bit timer sends each once its time has passed, at the first poll after it. Heartbeats wait for an address claim to end, are only sent in `.node` mode, and carry a sequence number that wraps from 252 to 0.
 - A commanded address (PGN 65240) moves the node to a new address and claims it, if it names the node's NAME and an address from 0 to 251 other than the current one. Upstream only accepts it by transport protocol with exactly nine bytes, and only in `.node` mode, including during an address claim.
 - `ParseMessages` sends pending messages, then handles received frames, then the heartbeat; `NodeEngine.receive(_:at:)` keeps that order.
+
+### Several devices
+
+A node can host several devices, as upstream's `SetDeviceCount` allows. Each has its own address, NAME, product information (falling back to the first device's), PGN lists, fast-packet sequence counters, address claim, transport protocol session and heartbeat. They share the transport, the reassembly buffers and the configuration information. A device moving to a new address skips its siblings' addresses. Broadcast ISO requests, group functions and commanded addresses go to every device in turn, and addressed ones, like transport protocol sessions, to the device at that address. The ISO request handler is told which device a request is for, and the device list asks from the first device.
 
 ### Not ported
 

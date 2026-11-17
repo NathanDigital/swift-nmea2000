@@ -16,6 +16,8 @@ extension NodeEngine {
     var message: Message
     var code: UInt8
     var pgn: UInt32
+    /// The node's device the request is for.
+    var device: Int
 
     var requester: UInt8 { message.source }
     var isBroadcast: Bool { message.destination == Message.broadcastAddress }
@@ -34,18 +36,26 @@ extension NodeEngine {
     }
   }
 
-  /// Handles a group function sent to the node or broadcast.
+  /// Handles a group function sent to one of the node's devices, or
+  /// broadcast to all of them.
   ///
-  /// Ports `tNMEA2000::HandleGroupFunction`, `RespondGroupFunction` and
-  /// `tN2kGroupFunctionHandler::Handle`.
+  /// Ports `tNMEA2000::HandleGroupFunction` and `RespondGroupFunction`.
   mutating func handleGroupFunction(_ message: Message, at now: UInt64) -> [CANFrame] {
-    guard
-      message.destination == Message.broadcastAddress
-        || (message.destination == address && address != Self.nullAddress)
-    else { return [] }
     var reader = MessageReader(message)
-    let request = GroupFunctionRequest(
-      message: message, code: reader.readUInt8(), pgn: reader.readUInt24())
+    let code = reader.readUInt8()
+    let pgn = reader.readUInt24()
+    return recipients(of: message).flatMap {
+      handleGroupFunction(
+        GroupFunctionRequest(message: message, code: code, pgn: pgn, device: $0), at: now)
+    }
+  }
+
+  /// Handles a group function for one device.
+  ///
+  /// Ports `tN2kGroupFunctionHandler::Handle`.
+  private mutating func handleGroupFunction(_ request: GroupFunctionRequest, at now: UInt64)
+    -> [CANFrame]
+  {
     // The handlers for network management PGNs know those aren't
     // proprietary; the default handler checks the requested PGN.
     let isProprietary =
@@ -77,9 +87,10 @@ extension NodeEngine {
       return sendAcknowledgement(
         .uniform(
           pgn: request.pgn,
-          pgnError: isTransmitted(request.pgn) ? .readOrWriteNotSupported : .pgnNotSupported,
+          pgnError: isTransmitted(request.pgn, by: request.device)
+            ? .readOrWriteNotSupported : .pgnNotSupported,
           transmissionError: .acknowledge, pairCount: pairCount),
-        to: request.requester, at: now)
+        to: request.requester, from: request.device, at: now)
     case .acknowledge, .readReply, .writeReply, nil:
       return []
     }
@@ -88,15 +99,16 @@ extension NodeEngine {
   /// The PGNs with handlers of their own.
   static let networkManagementPGNs: Set<UInt32> = [60928, 126464, 126993, 126996, 126998]
 
-  /// Whether the device transmits a PGN (`IsTxPGN`).
-  func isTransmitted(_ pgn: UInt32) -> Bool {
-    MessageFramer.defaultTransmitPGNs.contains(pgn) || device.transmitPGNs.contains(pgn)
+  /// Whether a device transmits a PGN (`IsTxPGN`).
+  func isTransmitted(_ pgn: UInt32, by device: Int) -> Bool {
+    MessageFramer.defaultTransmitPGNs.contains(pgn) || devices[device].transmitPGNs.contains(pgn)
   }
 
   private mutating func sendAcknowledgement(
-    _ acknowledgement: GroupFunction.Acknowledgement, to destination: UInt8, at now: UInt64
+    _ acknowledgement: GroupFunction.Acknowledgement, to destination: UInt8, from device: Int,
+    at now: UInt64
   ) -> [CANFrame] {
-    sendAll([acknowledgement.message(to: destination)], at: now)
+    sendAll([acknowledgement.message(to: destination)], from: device, at: now)
   }
 
   // MARK: - Requests
@@ -128,7 +140,7 @@ extension NodeEngine {
   ) -> [CANFrame] {
     var transmissionError = GroupFunction.transmissionError(interval: interval, offset: offset)
     var pgnError = GroupFunction.PGNError.pgnNotSupported
-    if !isTransmitted(request.pgn) {
+    if !isTransmitted(request.pgn, by: request.device) {
       transmissionError = .acknowledge
     } else if transmissionError == .intervalOrPriorityNotSupported {
       pgnError = .acknowledge
@@ -141,7 +153,7 @@ extension NodeEngine {
       .uniform(
         pgn: request.pgn, pgnError: pgnError, transmissionError: transmissionError,
         pairCount: pairCount),
-      to: request.requester, at: now)
+      to: request.requester, from: request.device, at: now)
   }
 
   /// Answers a request for a network management PGN whose parameter pairs
@@ -173,7 +185,8 @@ extension NodeEngine {
         // Without knowing the invalid field's length, the rest can't be read.
         error = .temporarilyUnableToComply
       } else if let fieldError = matchField(
-        fields.readUInt8(), of: request.pgn, from: &fields, in: &filter, listKind: &listKind)
+        fields.readUInt8(), of: request.pgn, for: request.device, from: &fields, in: &filter,
+        listKind: &listKind)
       {
         error = fieldError
       } else {
@@ -187,7 +200,8 @@ extension NodeEngine {
 
     guard filter.matches && transmissionError == .acknowledge else {
       return request.isBroadcast
-        ? [] : sendAcknowledgement(acknowledgement, to: request.requester, at: now)
+        ? []
+        : sendAcknowledgement(acknowledgement, to: request.requester, from: request.device, at: now)
     }
     let destination = request.replyDestination
     let usesTransportProtocol = request.message.isTransportProtocol
@@ -195,22 +209,22 @@ extension NodeEngine {
     case ISOAddressClaim.pgn:
       // Upstream puts the claim off by 2 ms, as some test tools couldn't
       // take a faster reply.
-      pendingClaim = now + 2
+      devices[request.device].pendingClaim = now + 2
       return []
     case PGNList.pgn:
       var lists: [Message] = []
-      if listKind != .receive { lists.append(transmitList(to: destination)) }
-      if listKind != .transmit { lists.append(receiveList(to: destination)) }
+      if listKind != .receive { lists.append(transmitList(of: request.device, to: destination)) }
+      if listKind != .transmit { lists.append(receiveList(of: request.device, to: destination)) }
       for index in lists.indices { lists[index].isTransportProtocol = usesTransportProtocol }
-      return sendAll(lists, at: now)
+      return sendAll(lists, from: request.device, at: now)
     case ProductInformation.pgn:
-      var reply = device.productInformation.makeMessage(destination: destination)
+      var reply = productInformation(of: request.device).makeMessage(destination: destination)
       reply.isTransportProtocol = usesTransportProtocol
-      return sendAll([reply], at: now)
+      return sendAll([reply], from: request.device, at: now)
     default:
       var reply = configurationReply(to: destination)
       reply.isTransportProtocol = usesTransportProtocol
-      return sendAll([reply], at: now)
+      return sendAll([reply], from: request.device, at: now)
     }
   }
 
@@ -241,9 +255,10 @@ extension NodeEngine {
   /// Reads one field's value and matches it, returning the answer, or `nil`
   /// if the PGN has no such field.
   private func matchField(
-    _ field: UInt8, of pgn: UInt32, from reader: inout MessageReader, in filter: inout FieldFilter,
-    listKind: inout PGNList.Kind?
+    _ field: UInt8, of pgn: UInt32, for device: Int, from reader: inout MessageReader,
+    in filter: inout FieldFilter, listKind: inout PGNList.Kind?
   ) -> GroupFunction.ParameterError? {
+    let name = devices[device].name
     switch (pgn, field) {
     case (ISOAddressClaim.pgn, 1):
       return filter.match(reader.readUInt24(), name.uniqueNumber, mask: 0x1f_ffff)
@@ -274,10 +289,11 @@ extension NodeEngine {
       }
       return .acknowledge
     case (ProductInformation.pgn, 1...8):
-      return matchProductField(field, from: &reader, in: &filter)
+      return matchProductField(
+        field, of: productInformation(of: device), from: &reader, in: &filter)
     case (ConfigurationInformation.pgn, 1...3):
       let value = Self.configurationText(reader.readVariableString() ?? "")
-      let configuration = device.configurationInformation
+      let configuration = configurationInformation
       let current =
         switch field {
         case 1: configuration?.installationDescription1
@@ -291,9 +307,9 @@ extension NodeEngine {
   }
 
   private func matchProductField(
-    _ field: UInt8, from reader: inout MessageReader, in filter: inout FieldFilter
+    _ field: UInt8, of product: ProductInformation, from reader: inout MessageReader,
+    in filter: inout FieldFilter
   ) -> GroupFunction.ParameterError {
-    let product = device.productInformation
     let count = ProductInformation.stringFieldCount
     switch field {
     case 1:
@@ -333,15 +349,15 @@ extension NodeEngine {
   }
 
   /// Ports `SendTxPGNList`.
-  func transmitList(to destination: UInt8) -> Message {
-    let pgns = MessageFramer.defaultTransmitPGNs + device.transmitPGNs
+  func transmitList(of device: Int, to destination: UInt8) -> Message {
+    let pgns = MessageFramer.defaultTransmitPGNs + devices[device].transmitPGNs
     return PGNList(kind: .transmit, pgns: Array(pgns.prefix(Self.maxPGNsInList)))
       .makeMessage(destination: destination)
   }
 
   /// Ports `SendRxPGNList`.
-  func receiveList(to destination: UInt8) -> Message {
-    let pgns = Self.defaultReceivePGNs + device.receivePGNs
+  func receiveList(of device: Int, to destination: UInt8) -> Message {
+    let pgns = Self.defaultReceivePGNs + devices[device].receivePGNs
     return PGNList(kind: .receive, pgns: Array(pgns.prefix(Self.maxPGNsInList)))
       .makeMessage(destination: destination)
   }
@@ -349,7 +365,7 @@ extension NodeEngine {
   /// The configuration information, or a negative acknowledgement if the
   /// node has none (`SendConfigurationInformation`).
   func configurationReply(to destination: UInt8) -> Message {
-    device.configurationInformation?.makeMessage(destination: destination)
+    configurationInformation?.makeMessage(destination: destination)
       ?? ISOAcknowledgement(control: 1, pgn: ConfigurationInformation.pgn)
       .makeMessage(destination: destination)
   }
@@ -372,7 +388,7 @@ extension NodeEngine {
         .uniform(
           pgn: Heartbeat.pgn, pgnError: .acknowledge, transmissionError: transmissionError,
           pairCount: pairCount, parameterError: .notSupported),
-        to: request.requester, at: now)
+        to: request.requester, from: request.device, at: now)
     }
     if interval == GroupFunction.unchangedInterval && offset == GroupFunction.unchangedOffset {
       // Asking for no change is prohibited, so the default answer applies.
@@ -383,24 +399,26 @@ extension NodeEngine {
       guard !request.isBroadcast else { return [] }
       return sendAcknowledgement(
         .uniform(pgn: Heartbeat.pgn, pgnError: .acknowledge, transmissionError: transmissionError),
-        to: request.requester, at: now)
+        to: request.requester, from: request.device, at: now)
     }
     // The offset comes in units of 10 ms.
     let newOffset =
       offset == GroupFunction.unchangedOffset || offset == 0 ? nil : UInt64(offset) * 10
-    setHeartbeat(interval: interval, offset: newOffset, at: now)
-    guard let schedule = heartbeat else { return [] }
+    setHeartbeat(of: request.device, interval: interval, offset: newOffset, at: now)
+    guard let schedule = devices[request.device].heartbeat else { return [] }
     return sendAll(
       [Heartbeat(interval: Double(schedule.period) / 1000, sequenceCounter: nil).makeMessage()],
-      at: now)
+      from: request.device, at: now)
   }
 
   /// Changes the heartbeat interval and offset, keeping whichever is
   /// unchanged, and reschedules the next heartbeat.
   ///
   /// Ports `SetHeartbeatIntervalAndOffset`.
-  private mutating func setHeartbeat(interval: UInt32, offset: UInt64?, at now: UInt64) {
-    guard var schedule = heartbeat else { return }
+  private mutating func setHeartbeat(
+    of device: Int, interval: UInt32, offset: UInt64?, at now: UInt64
+  ) {
+    guard var schedule = devices[device].heartbeat else { return }
     var period = schedule.period
     if interval == GroupFunction.defaultInterval {
       period = 60000
@@ -412,8 +430,8 @@ extension NodeEngine {
     schedule.period = period
     schedule.offset = newOffset
     schedule.scheduleNext(at: now)
-    heartbeat = schedule
-    device.heartbeatInterval = period
+    devices[device].heartbeat = schedule
+    devices[device].heartbeatInterval = period
   }
 
   // MARK: - Commands
@@ -431,12 +449,13 @@ extension NodeEngine {
         request, transmissionError: transmissionError, pairCount: pairCount, at: now)
     default:
       // Upstream's heartbeat handler says it doesn't support the PGN.
-      let isSupported = request.pgn != Heartbeat.pgn && isTransmitted(request.pgn)
+      let isSupported =
+        request.pgn != Heartbeat.pgn && isTransmitted(request.pgn, by: request.device)
       return sendAcknowledgement(
         .uniform(
           pgn: request.pgn, pgnError: isSupported ? .acknowledge : .pgnNotSupported,
           transmissionError: transmissionError, pairCount: pairCount),
-        to: request.requester, at: now)
+        to: request.requester, from: request.device, at: now)
     }
   }
 
@@ -468,12 +487,13 @@ extension NodeEngine {
       }
       acknowledgement.parameterErrors.append(error)
     }
-    let frames = sendAcknowledgement(acknowledgement, to: request.requester, at: now)
+    let frames = sendAcknowledgement(
+      acknowledgement, to: request.requester, from: request.device, at: now)
     // Ports `SetDeviceInformationInstances`.
-    if let lower { name.deviceInstanceLower = lower }
-    if let upper { name.deviceInstanceUpper = upper }
-    if let system { name.systemInstance = system }
-    pendingClaim = now + 2
+    if let lower { devices[request.device].name.deviceInstanceLower = lower }
+    if let upper { devices[request.device].name.deviceInstanceUpper = upper }
+    if let system { devices[request.device].name.systemInstance = system }
+    devices[request.device].pendingClaim = now + 2
     return frames
   }
 
@@ -490,7 +510,7 @@ extension NodeEngine {
       transmissionError: transmissionError, pairCount: pairCount)
     var fields = request.reader(at: GroupFunction.commandPairsOffset)
     var configuration =
-      device.configurationInformation
+      configurationInformation
       ?? ConfigurationInformation(
         manufacturerInformation: "", installationDescription1: "", installationDescription2: "")
     for _ in 0..<pairCount {
@@ -499,16 +519,17 @@ extension NodeEngine {
         configuration.installationDescription1 = Self.configurationText(
           fields.readVariableString() ?? "")
         acknowledgement.parameterErrors.append(.acknowledge)
-        device.configurationInformation = configuration
+        configurationInformation = configuration
       case 2:
         configuration.installationDescription2 = Self.configurationText(
           fields.readVariableString() ?? "")
         acknowledgement.parameterErrors.append(.acknowledge)
-        device.configurationInformation = configuration
+        configurationInformation = configuration
       default:
         acknowledgement.parameterErrors.append(.invalidField)
       }
     }
-    return sendAcknowledgement(acknowledgement, to: request.requester, at: now)
+    return sendAcknowledgement(
+      acknowledgement, to: request.requester, from: request.device, at: now)
   }
 }
