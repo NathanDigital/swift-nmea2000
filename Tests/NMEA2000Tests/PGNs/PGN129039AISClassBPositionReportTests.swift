@@ -103,4 +103,14 @@ struct AISClassBPositionReportTests {
   @Test func toleratesShortPayloadsAndRejectsOtherPGNs() {
     expectTolerantDecoding(AISClassBPositionReport.self, from: Self.vectors[0].1)
   }
+
+  @Test func decodesUnitTypeFromItsOwnBit() throws {
+    // The encoder masks the unit type to one bit, so a decoder that also picked up the
+    // neighbouring display flag would still re-encode identically. Check the value directly.
+    let bytes = try #require(
+      Self.vectors.first { $0.0.hasDisplay && $0.0.unitType == .classBSOTDMA }?.1)
+    let decoded = try AISClassBPositionReport(Message(pgn: 129039, data: bytes))
+    #expect(decoded.unitType == .classBSOTDMA)
+    #expect(decoded.hasDisplay)
+  }
 }
