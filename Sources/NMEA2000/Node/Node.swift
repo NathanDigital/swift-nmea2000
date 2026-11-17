@@ -83,10 +83,21 @@ public actor Node {
     public var heartbeatInterval: Duration?
 
     /// Creates a device.
+    ///
+    /// - Parameters:
+    ///   - address: The address to claim first.
+    ///   - name: The NAME to claim the address with, which must differ from
+    ///     every other device's on the bus.
+    ///   - productInformation: The product information the device sends
+    ///     when asked, or `nil` for the first device's, which needs its own.
+    ///   - transmitPGNs: The PGNs the device sends.
+    ///   - receivePGNs: The PGNs the device receives.
+    ///   - heartbeatInterval: How often to send a heartbeat, or `nil` for
+    ///     none.
     public init(
       address: UInt8 = 15,
-      name: DeviceName = .default,
-      productInformation: ProductInformation? = nil,
+      name: DeviceName,
+      productInformation: ProductInformation?,
       transmitPGNs: [UInt32] = [],
       receivePGNs: [UInt32] = [],
       heartbeatInterval: Duration? = .seconds(60)
@@ -217,97 +228,111 @@ public actor Node {
   private var timerDeadline: UInt64?
   private var isRunning = false
 
-  /// Creates a node hosting one device.
+  /// How a node takes part in the bus, and the devices it hosts.
   ///
-  /// - Parameters:
-  ///   - transport: The CAN bus connection.
-  ///   - mode: How the node takes part in the bus. Upstream defaults to
-  ///     listening only.
-  ///   - address: The address to claim first. If another device holds it,
-  ///     the node tries the following addresses. Pass 254 to start from 14.
-  ///     Save ``address`` when it changes and pass it here next time, so the
-  ///     device keeps its address across restarts.
-  ///   - name: The NAME to claim the address with. Every device on a bus
-  ///     needs a different NAME.
-  ///   - productInformation: The product information the node sends when
-  ///     asked.
-  ///   - configurationInformation: The configuration information the node
-  ///     sends when asked, or `nil` to refuse requests for it.
-  ///   - catalog: Which PGNs are sent and received as fast packets.
-  ///   - transmitPGNs: The PGNs the device sends, beyond the network
-  ///     management PGNs every node sends. The node lists them when asked.
-  ///   - receivePGNs: The PGNs the device receives, beyond the network
-  ///     management PGNs. The node lists them when asked.
-  ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
-  ///     PGN isn't in the catalog.
-  ///   - bufferCount: How many fast packets and transport protocol sessions
-  ///     can be reassembled at once. Upstream defaults to 5
-  ///     (`SetN2kCANMsgBufSize`).
-  ///   - discoversDevices: Whether to keep a ``DeviceList`` of the devices
-  ///     on the bus, asking them for their details as upstream's
-  ///     `tN2kDeviceList` does.
-  ///   - heartbeatInterval: How often to send a heartbeat, between 1 and
-  ///     655.32 seconds, or `nil` for none. The first is sent 10 seconds
-  ///     after the node opens.
-  ///   - clock: The clock that times the open sequence and address claim.
-  public init(
-    transport: some CANTransport,
-    mode: Mode = .listenOnly,
-    address: UInt8 = 15,
-    name: DeviceName = .default,
-    productInformation: ProductInformation = .default,
-    configurationInformation: ConfigurationInformation? = .default,
-    catalog: PGNCatalog = PGNCatalog(),
-    transmitPGNs: [UInt32] = [],
-    receivePGNs: [UInt32] = [],
-    handlesOnlyKnownMessages: Bool = false,
-    bufferCount: Int = 5,
-    discoversDevices: Bool = false,
-    heartbeatInterval: Duration? = .seconds(60),
-    clock: some Clock<Duration> = ContinuousClock()
-  ) {
-    self.init(
-      transport: transport, mode: mode,
-      devices: [
-        Device(
-          address: address, name: name, productInformation: productInformation,
-          transmitPGNs: transmitPGNs, receivePGNs: receivePGNs,
-          heartbeatInterval: heartbeatInterval)
-      ],
-      configurationInformation: configurationInformation, catalog: catalog,
-      handlesOnlyKnownMessages: handlesOnlyKnownMessages, bufferCount: bufferCount,
-      discoversDevices: discoversDevices, clock: clock)
+  /// Start from ``node(_:configurationInformation:)``,
+  /// ``listenOnly()`` or ``listenAndSend(address:)``, and change the other
+  /// properties as needed.
+  ///
+  /// Replaces upstream's settings before `Open`: `SetMode`, `SetN2kSource`,
+  /// `SetDeviceCount`, `SetDeviceInformation`, `SetProductInformation`,
+  /// `SetConfigurationInformation`, `Extend…Messages`,
+  /// `SetHandleOnlyKnownMessages` and `SetN2kCANMsgBufSize`.
+  public struct Configuration: Sendable {
+    /// How the node takes part in the bus.
+    public var mode: Mode
+
+    /// The devices the node hosts, at least one. Most nodes host one.
+    public var devices: [Device]
+
+    /// The configuration information the devices send when asked, or `nil`
+    /// to refuse requests for it.
+    public var configurationInformation: ConfigurationInformation?
+
+    /// Which PGNs are sent and received as fast packets.
+    public var catalog = PGNCatalog()
+
+    /// Whether to drop received messages whose PGN isn't in the catalog.
+    public var handlesOnlyKnownMessages = false
+
+    /// How many fast packets and transport protocol sessions can be
+    /// reassembled at once. Upstream defaults to 5 (`SetN2kCANMsgBufSize`).
+    public var bufferCount = 5
+
+    /// Whether to keep a ``DeviceList`` of the devices on the bus, asking
+    /// them for their details as upstream's `tN2kDeviceList` does. The
+    /// first device asks.
+    public var discoversDevices = false
+
+    /// Creates a configuration.
+    public init(
+      mode: Mode, devices: [Device], configurationInformation: ConfigurationInformation? = nil
+    ) {
+      precondition(!devices.isEmpty, "A node hosts at least one device")
+      precondition(
+        mode != .node || devices[0].productInformation != nil,
+        "A full node's first device needs product information")
+      self.mode = mode
+      self.devices = devices
+      self.configurationInformation = configurationInformation
+    }
+
+    /// A full node hosting one device: it claims an address, answers
+    /// requests and group functions, and sends heartbeats.
+    ///
+    /// - Parameters:
+    ///   - device: The device, with its own NAME and product information.
+    ///   - configurationInformation: The configuration information the
+    ///     device sends when asked, or `nil` to refuse requests for it.
+    public static func node(
+      _ device: Device, configurationInformation: ConfigurationInformation?
+    ) -> Configuration {
+      Configuration(
+        mode: .node, devices: [device], configurationInformation: configurationInformation)
+    }
+
+    /// A node that only receives, such as a logger or display.
+    public static func listenOnly() -> Configuration {
+      Configuration(mode: .listenOnly, devices: [Device(name: .default, productInformation: nil)])
+    }
+
+    /// A node that receives, and sends from an address it doesn't claim,
+    /// which no other device on the bus may use.
+    public static func listenAndSend(address: UInt8) -> Configuration {
+      Configuration(
+        mode: .listenAndSend,
+        devices: [Device(address: address, name: .default, productInformation: nil)])
+    }
   }
 
-  /// Creates a node hosting several devices.
+  /// Creates a node.
+  ///
+  /// ```swift
+  /// let device = Node.Device(
+  ///   name: DeviceName(uniqueNumber: 7, manufacturerCode: 2046, deviceFunction: 130, deviceClass: 25),
+  ///   productInformation: myProductInformation)
+  /// let node = Node(
+  ///   transport: transport,
+  ///   configuration: .node(device, configurationInformation: myConfigurationInformation))
+  /// ```
   ///
   /// - Parameters:
   ///   - transport: The CAN bus connection.
-  ///   - mode: How the node takes part in the bus. Upstream defaults to
-  ///     listening only.
-  ///   - devices: The devices the node hosts, at least one.
-  ///   - configurationInformation: The configuration information the
-  ///     devices send when asked, or `nil` to refuse requests for it.
-  ///   - catalog: Which PGNs are sent and received as fast packets.
-  ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
-  ///     PGN isn't in the catalog.
-  ///   - bufferCount: How many fast packets and transport protocol sessions
-  ///     can be reassembled at once. Upstream defaults to 5
-  ///     (`SetN2kCANMsgBufSize`).
-  ///   - discoversDevices: Whether to keep a ``DeviceList`` of the devices
-  ///     on the bus. The first device asks them for their details.
-  ///   - clock: The clock that times the open sequence and address claims.
+  ///   - configuration: How the node takes part in the bus, and its devices.
+  ///   - clock: The clock that times the open sequence, address claims and
+  ///     heartbeats.
   public init(
     transport: some CANTransport,
-    mode: Mode = .listenOnly,
-    devices: [Device],
-    configurationInformation: ConfigurationInformation? = .default,
-    catalog: PGNCatalog = PGNCatalog(),
-    handlesOnlyKnownMessages: Bool = false,
-    bufferCount: Int = 5,
-    discoversDevices: Bool = false,
+    configuration: Configuration,
     clock: some Clock<Duration> = ContinuousClock()
   ) {
+    let mode = configuration.mode
+    let devices = configuration.devices
+    let catalog = configuration.catalog
+    let handlesOnlyKnownMessages = configuration.handlesOnlyKnownMessages
+    let bufferCount = configuration.bufferCount
+    let configurationInformation = configuration.configurationInformation
+    let discoversDevices = configuration.discoversDevices
     self.mode = mode
     engine = NodeEngine(
       mode: mode, devices: devices, catalog: catalog,

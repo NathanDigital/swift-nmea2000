@@ -208,6 +208,19 @@ final class FakeTransport: CANTransport {
   }
 }
 
+/// A node with upstream's default device, as frames.cpp sets one up.
+func makeNode(
+  _ transport: FakeTransport, mode: Node.Mode = .listenOnly, address: UInt8 = 15,
+  clock: ManualClock
+) -> Node {
+  let device = Node.Device(address: address, name: .default, productInformation: .default)
+  return Node(
+    transport: transport,
+    configuration: Node.Configuration(
+      mode: mode, devices: [device], configurationInformation: .default),
+    clock: clock)
+}
+
 private let claim: CANFrame = CANFrame(
   id: 0x18ee_ff17, data: [0x01, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0])
 
@@ -217,7 +230,7 @@ struct NodeTests {
   @Test func claimsSendsAndReceives() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
     let messages = await node.messages()
     let run = Task { try await node.run() }
     let sent = transport.sent
@@ -250,7 +263,7 @@ struct NodeTests {
   @Test func defendsItsAddress() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
     let sent = transport.sent
     try await clock.waitForSleepers()
@@ -271,7 +284,7 @@ struct NodeTests {
   @Test func retriesOpeningEverySecond() async throws {
     let clock = ManualClock()
     let transport = FakeTransport(failingOpens: 2)
-    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
     let sent = transport.sent
 
@@ -293,7 +306,7 @@ struct NodeTests {
   @Test func stopsOpeningWhenCancelled() async throws {
     let clock = ManualClock()
     let transport = FakeTransport(failingOpens: .max)
-    let node = Node(transport: transport, clock: clock)
+    let node = makeNode(transport, clock: clock)
     let run = Task { try await node.run() }
     try await clock.waitForSleepers()
     run.cancel()
@@ -301,7 +314,7 @@ struct NodeTests {
   }
 
   @Test func refusesToSendBeforeRunning() async {
-    let node = Node(transport: FakeTransport(), mode: .node, clock: ManualClock())
+    let node = makeNode(FakeTransport(), mode: .node, clock: ManualClock())
     await #expect(throws: NodeError.notOpen) {
       try await node.send(Message(pgn: 129025, data: [1, 2, 3, 4, 5, 6, 7, 8]))
     }
@@ -310,7 +323,7 @@ struct NodeTests {
   @Test func keepsEachMessagesFramesTogether() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, mode: .listenAndSend, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .listenAndSend, address: 23, clock: clock)
     let run = Task { try await node.run() }
     try await clock.waitForSleepers()
     clock.advance(to: 200)
@@ -338,7 +351,7 @@ struct NodeTests {
   @Test func sendsTransportProtocolPacketsOnTime() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
     let sent = transport.sent
     try await clock.waitForSleepers()
@@ -368,7 +381,7 @@ struct NodeTests {
     // 187 ms plus 8 ms for each unit of the address later.
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
     let run = Task { try await node.run() }
     let sent = transport.sent
     try await clock.waitForSleepers()
@@ -391,7 +404,7 @@ struct NodeTests {
   @Test func sendsHeartbeatsAndAnswersRequests() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
     await node.setISORequestHandler { request in
       guard request.pgn == 130306 else { return nil }
       return [Message(pgn: 130306, destination: request.requester, data: [request.requester])]
@@ -425,8 +438,14 @@ struct NodeTests {
     let second = DeviceName(
       uniqueNumber: 2, manufacturerCode: 2046, deviceFunction: 130, deviceClass: 25)
     let node = Node(
-      transport: transport, mode: .node,
-      devices: [Node.Device(address: 23), Node.Device(address: 24, name: second)], clock: clock)
+      transport: transport,
+      configuration: Node.Configuration(
+        mode: .node,
+        devices: [
+          Node.Device(address: 23, name: .default, productInformation: .default),
+          Node.Device(address: 24, name: second, productInformation: nil),
+        ]),
+      clock: clock)
     let run = Task { try await node.run() }
     let sent = transport.sent
     try await clock.waitForSleepers()
@@ -450,7 +469,7 @@ struct NodeTests {
   @Test func reportsEventsAndSentMessages() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let node = makeNode(transport, mode: .node, address: 23, clock: clock)
     let events = Recorder(await node.events())
     let traffic = Recorder(await node.messages(includingSent: true))
     let run = Task { try await node.run() }
@@ -488,7 +507,7 @@ struct NodeTests {
   @Test func deliversEveryMessageToEverySubscriber() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()
-    let node = Node(transport: transport, clock: clock)
+    let node = makeNode(transport, clock: clock)
     let first = Recorder(await node.messages())
     let second = Recorder(await node.messages())
     let run = Task { try await node.run() }

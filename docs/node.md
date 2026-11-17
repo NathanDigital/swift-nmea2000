@@ -59,14 +59,14 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 |---|---|
 | `CANOpen`, `CANSendFrame`, `CANGetFrame` (driver virtuals) | `CANTransport.open()`, `.send(_:)`, and the frame sequence `open()` returns |
 | `tNMEA2000` | `Node` actor, driving the internal `NodeEngine` |
-| `SetDeviceCount`, `tInternalDevice`, the `DeviceIndex` / `iDev` arguments | `Node(devices:)`, `Node.Device`, `Node.devices`, `send(_:from:)` |
+| `SetDeviceCount`, `tInternalDevice`, the `DeviceIndex` / `iDev` arguments | `Node.Configuration.devices`, `Node.Device`, `Node.devices`, `send(_:from:)` |
 | `SetOnOpen`, `ReadResetAddressChanged`, `ReadResetDeviceInformationChanged`, `ReadResetInstallationDescriptionChanged` | `Node.events()` |
 | `SetForwardOwnMessages` and the forward stream | `Node.messages(includingSent:)` |
 | `SendIsoAddressClaim`, `SendProductInformation`, `SendConfigurationInformation`, `SendTxPGNList`, `SendRxPGNList`, `SendHeartbeat`, `Restart` | `Node.sendAddressClaim`, `sendProductInformation`, `sendConfigurationInformation`, `sendPGNList`, `sendHeartbeat`, `restartAddressClaim` |
 | `SetHeartbeatIntervalAndOffset`, `SetDeviceInformationInstances`, `SetProductInformation`, `SetConfigurationInformation` at run time | `Node.setHeartbeatInterval`, `setInstances`, `setProductInformation`, `setConfigurationInformation` |
-| `SetN2kCANMsgBufSize` | `Node(bufferCount:)` |
+| `SetN2kCANMsgBufSize` | `Node.Configuration.bufferCount` |
 | `Open`, `OpenState`, `OpenScheduler` | `Node.run()`; `NodeEngine.openState` |
-| `SetMode` | `Node(mode:address:)` |
+| `SetMode` | `Node.Configuration.mode`, `Node.Device.address` |
 | `N2km_ListenOnly` | `Node.Mode.listenOnly` |
 | `N2km_SendOnly`, `N2km_ListenAndSend` | `Node.Mode.listenAndSend` |
 | `N2km_NodeOnly`, `N2km_ListenAndNode` | `Node.Mode.node` |
@@ -76,7 +76,7 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 | `SetN2kPGN60928` / `SetN2kISOAddressClaim` | `ISOAddressClaim` |
 | `StartAddressClaim`, `IsAddressClaimStarted`, `HandleISOAddressClaim`, `GetNextAddress`, `UpdateAddressClaimEndSource` | `NodeEngine` (internal) |
 | `GetN2kSource`, `ReadResetAddressChanged` | `Node.address` |
-| `millis()`, `tN2kScheduler` | the `Clock` passed to `Node(clock:)` |
+| `millis()`, `tN2kScheduler` | the `Clock` passed to `Node(transport:configuration:clock:)` |
 
 `NodeEngine` holds all the node's decisions and does no I/O: the actor feeds it the time, the result of opening the transport and the received frames, and sends the frames it returns. The tests drive it exactly as the harness drives upstream's node, so its timing can be compared millisecond for millisecond.
 
@@ -143,9 +143,9 @@ The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node ever
 | `SetN2kPGN126993` / `SetHeartbeat` | `Heartbeat` |
 | `SetN2kPGN126996`, `ParseN2kPGN126996`, `tProductInformation`, `DefProductInformation` | `ProductInformation`, `.default` |
 | `SetN2kPGN126998`, `ParseN2kPGN126998`, `DefManufacturerInformation` | `ConfigurationInformation`, `.default` |
-| `SetProductInformation`, `SetConfigurationInformation` | `Node(productInformation:configurationInformation:)` |
-| `ExtendTransmitMessages`, `ExtendReceiveMessages` | `Node(transmitPGNs:receivePGNs:)` |
-| `SetHeartbeatIntervalAndOffset` | `Node(heartbeatInterval:)` |
+| `SetProductInformation`, `SetConfigurationInformation` | `Node.Device.productInformation`, `Node.Configuration.configurationInformation` |
+| `ExtendTransmitMessages`, `ExtendReceiveMessages` | `Node.Device.transmitPGNs`, `.receivePGNs` |
+| `SetHeartbeatIntervalAndOffset` | `Node.Device.heartbeatInterval` |
 | `HandleISORequest`, `RespondISORequest`, `IgnoreBroadcastISORequest` | `NodeEngine` (internal) |
 | `SetISORqstHandler` | `Node.setISORequestHandler(_:)`, which returns the replies instead of sending them |
 | `SendHeartbeat` | `NodeEngine` (internal) |
@@ -206,7 +206,7 @@ An application answers group functions for its own PGNs with `Node.setGroupFunct
 
 | Upstream | Swift |
 |---|---|
-| `tN2kDeviceList` | `DeviceList`, a value type driven by `handle(_:at:sending:)`; `Node(discoversDevices: true)` keeps one in `Node.deviceList` |
+| `tN2kDeviceList` | `DeviceList`, a value type driven by `handle(_:at:sending:)`; `Node.Configuration.discoversDevices` keeps one in `Node.deviceList` |
 | `tN2kDeviceList::tInternalDevice`, `tNMEA2000::tDevice` | `DeviceList.Device` |
 | `FindDeviceBySource`, `FindDeviceByName`, `FindDeviceByIDs`, `FindDeviceByProduct` | `DeviceList[source:]`, `device(named:)`, `device(manufacturerCode:uniqueNumber:)`, `device(manufacturerCode:productCode:after:)` |
 | `Count`, `ReadResetIsListUpdated`, `GetDeviceLastMessageTime` | `count`, `resetUpdated()`, `Device.lastMessageTime` |

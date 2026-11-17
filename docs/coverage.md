@@ -8,7 +8,7 @@ Status: **done**, **to do**, or **by design** where the Swift API covers the nee
 
 | Upstream | Swift | Status |
 |---|---|---|
-| `SetMode`, `SetN2kSource`, `SetDeviceCount`, `SetDeviceInformation`, `SetProductInformation`, `SetConfigurationInformation`, `ExtendTransmitMessages`, `ExtendReceiveMessages` (before opening) | `Node(...)`, `Node.Device` | done |
+| `SetMode`, `SetN2kSource`, `SetDeviceCount`, `SetDeviceInformation`, `SetProductInformation`, `SetConfigurationInformation`, `ExtendTransmitMessages`, `ExtendReceiveMessages` (before opening) | `Node.Configuration`, `Node.Device` | done |
 | `Open`, `ParseMessages`, `IsOpen` | `Node.run()`, `Node.isOpen` | done |
 | `SetOnOpen` | `Node.events()` (`.opened`) | done |
 | `SendMsg(msg, DeviceIndex)` | `Node.send(_:from:)` | done |
@@ -24,8 +24,8 @@ Status: **done**, **to do**, or **by design** where the Swift API covers the nee
 | `SetForwardStream`, `SetForwardType`, `EnableForward`, `SetForwardOwnMessages` | `Node.messages(includingSent:)`, with `Actisense.encode` or `Message.description` for the output format | done |
 | `SetForwardSystemMessages`, `SetForwardOnlyKnownMessages` | | by design: filter the sequence |
 | `SetDebugMode` (`dm_ClearText`, `dm_Actisense`) | | by design: a `CANTransport` that prints or encodes frames instead of sending them |
-| `SetHandleOnlyKnownMessages`, `SetSingleFrameMessages`, `SetFastPacketMessages`, `Extend…Messages` | `Node(handlesOnlyKnownMessages:catalog:)`, `PGNCatalog` | done |
-| `SetN2kCANMsgBufSize` | `Node(bufferCount:)` | done |
+| `SetHandleOnlyKnownMessages`, `SetSingleFrameMessages`, `SetFastPacketMessages`, `Extend…Messages` | `Node.Configuration.handlesOnlyKnownMessages`, `.catalog`, `PGNCatalog` | done |
+| `SetN2kCANMsgBufSize` | `Node.Configuration.bufferCount` | done |
 | `SetN2kCANSendFrameBufSize`, `SetN2kCANReceiveFrameBufSize` | `CANTransport`, `Node` | by design: the transport buffers and suspends `send` when full; the node queues up to upstream's default 40 frames and handles a dropped or failed frame as upstream handles a failed send (`docs/node.md`) |
 | Priority `0x80` and up sends a fast-packet PGN in one frame | `Message.Framing.singleFrame` | done |
 | `IsBroadcast`, `IsProprietaryMessage` and the other PGN classifiers | `Message.broadcastAddress`, `PGNCatalog` | done |

@@ -128,6 +128,7 @@ struct EngineDriver {
         name: DeviceName(
           uniqueNumber: 1 + UInt32(index), manufacturerCode: 2046, deviceFunction: 130,
           deviceClass: 25),
+        productInformation: index == 0 ? .default : nil,
         transmitPGNs: index == 0 ? transmitPGNs : [], receivePGNs: index == 0 ? receivePGNs : [])
     }
     engine = NodeEngine(mode: mode, devices: devices, configurationInformation: configuration)
