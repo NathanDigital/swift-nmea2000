@@ -29,7 +29,7 @@ Upstream reads and writes gateway formats straight from and to streams (`N2kStre
 
 | Upstream | Swift |
 |---|---|
-| `N2kToSeasmart(msg, timestamp, buffer, size)` | `Seasmart.encode(_:)`, which takes the time stamp from `Message.timestamp` and returns a `String` |
+| `N2kToSeasmart(msg, timestamp, buffer, size)` | `Seasmart.encode(_:)`, which takes the time stamp from `Message.timestamp` and returns a `String`, or `nil` for a payload over 223 bytes (upstream returns 0 when the buffer is too small) |
 | `SeasmartToN2k(buffer, timestamp, msg)` | `Seasmart.decode(_:)`, which returns the time stamp in `Message.timestamp` |
 
 ### Kept upstream behaviour
