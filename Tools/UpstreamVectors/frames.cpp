@@ -145,6 +145,12 @@ const std::vector<Case> cases = {
       for (int round = 0; round < 2; round++)
         for (unsigned long pgn : pgns) send(n, pgn, 7);
     }),
+    SENDS("first PDU2 PGN", send(n, 61440, 8, 6, 0x42)),
+    SENDS("widest PGN", send(n, 0x3ffff, 3)),
+    {"Frames send from address 251", [](TestNode &n) {
+       open(n, tNMEA2000::N2km_NodeOnly, 251);
+       send(n, 129025, 8, 2);
+     }},
     SENDS("listen only sends nothing", {
       TestNode quiet;
       open(quiet, tNMEA2000::N2km_ListenOnly);
@@ -216,6 +222,18 @@ const std::vector<Case> cases = {
       receive(n, 0x0df80517, fp(0x00, {230, 1, 2, 3, 4, 5, 6}));
       for (unsigned char i = 1; i < 32; i++)
         receive(n, 0x0df80517, fp(i, {7, 7, 7, 7, 7, 7, 7}));
+    }),
+    RECEIVES("first PDU2 PGN", receive(n, 0x18f00017, {1, 2, 3, 4, 5, 6, 7, 8})),
+    RECEIVES("empty fast packet", receive(n, 0x0df80517, {0x00, 0x00})),
+    RECEIVES("busy buffers half a clock cycle later", {
+      // Buffers that look more than half the 32-bit clock old count as newer,
+      // so they're never taken over.
+      for (unsigned long source = 1; source <= 5; source++)
+        receive(n, 0x0df80500 | source, fp(0x00, {9, 1, 2, 3, 4, 5, 6}));
+      now += 0x7fffffff;
+      receive(n, 0x0df80506, fp(0x00, {9, 1, 2, 3, 4, 5, 6}));
+      receive(n, 0x0df80506, fp(0x01, {7, 8, 6}));
+      receive(n, 0x0df80501, fp(0x01, {7, 8, 1}));
     }),
     RECEIVES("unknown PGN", receive(n, 0x1cff1417, {1, 2, 3, 4, 5, 6, 7, 8})),
     RECEIVES("long unknown PGN frame", receive(n, 0x1cff1417, {1, 2, 3})),

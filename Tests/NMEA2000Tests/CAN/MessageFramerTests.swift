@@ -279,6 +279,24 @@ struct MessageFramerTests {
         CANFrame(id: 0x19fb_0217, data: [0x80, 0x07, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05]),
         CANFrame(id: 0x19fb_0217, data: [0x81, 0x06, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
       ]),
+    FramerCase(
+      "first PDU2 PGN",
+      messages: [message(61440, count: 8, priority: 6, destination: 0x42)],
+      frames: [
+        CANFrame(id: 0x18f0_0017, data: [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07])
+      ]),
+    FramerCase(
+      "widest PGN",
+      messages: [message(0x3_ffff, count: 3, priority: 6)],
+      frames: [CANFrame(id: 0x1bff_ff17, data: [0x00, 0x01, 0x02])]),
+    FramerCase(
+      "from address 251",
+      messages: [
+        Message(pgn: 129025, priority: 2, source: 251, data: [0, 1, 2, 3, 4, 5, 6, 7])
+      ],
+      frames: [
+        CANFrame(id: 0x09f8_01fb, data: [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07])
+      ]),
   ]
 
   @Test("Frames messages as upstream does", arguments: cases)

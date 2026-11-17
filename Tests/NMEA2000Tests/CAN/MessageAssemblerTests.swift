@@ -260,6 +260,29 @@ struct MessageAssemblerTests {
           pgn: 129025, priority: 2, source: 23,
           data: [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
       ]),
+    AssemblerCase(
+      "first PDU2 PGN",
+      frames: [frame(0x18f0_0017, [1, 2, 3, 4, 5, 6, 7, 8])],
+      messages: [
+        Message(pgn: 61440, priority: 6, source: 23, data: [1, 2, 3, 4, 5, 6, 7, 8])
+      ]),
+    AssemblerCase(
+      "empty fast packet",
+      frames: [frame(0x0df8_0517, [0x00, 0x00])],
+      messages: [Message(pgn: 129029, priority: 3, source: 23, data: [])]),
+    AssemblerCase(
+      "busy buffers half a clock cycle later",
+      // Buffers that look more than half the 32-bit clock old count as newer,
+      // so they're never taken over.
+      frames: (1...5).map { frame(0x0df8_0500 | $0, [0x00, 9, 1, 2, 3, 4, 5, 6]) }
+        + [
+          frame(0x0df8_0506, [0x00, 9, 1, 2, 3, 4, 5, 6], at: 0x7fff_ffff),
+          frame(0x0df8_0506, [0x01, 7, 8, 6]),
+          frame(0x0df8_0501, [0x01, 7, 8, 1]),
+        ],
+      messages: [
+        Message(pgn: 129029, priority: 3, source: 1, data: [1, 2, 3, 4, 5, 6, 7, 8, 1])
+      ]),
   ]
 
   @Test("Reassembles frames as upstream does", arguments: cases)

@@ -36,7 +36,8 @@ DEFAULT_TARGETS = [
     "Sources/NMEA2000/Message/ParameterGroup.swift",
 ]
 
-MASKS = {"0f": "07", "07": "03", "03": "01", "01": "03"}
+MASKS = {"1f": "0f", "0f": "07", "07": "03", "7": "3", "03": "01", "01": "03"}
+BOUNDARIES = {"<": "<=", "<=": "<", ">": ">=", ">=": ">"}
 FLAGS = {"40": "20", "10": "08", "04": "02", "e0": "f0", "c0": "80", "f0": "e0", "fc": "f8"}
 
 
@@ -47,7 +48,7 @@ def flip_sign(m):
 # (name, pattern, replacement). Patterns match within one source line.
 OPERATORS = [
     ("resolution", r"resolution: ([0-9.e+-]+)", lambda m: f"resolution: {m.group(1)} * 10"),
-    ("mask", r"& 0x(0f|07|03|01)\b", lambda m: "& 0x" + MASKS[m.group(1)]),
+    ("mask", r"& 0x(1f|0f|07|7|03|01)\b", lambda m: "& 0x" + MASKS[m.group(1)]),
     ("shift", r"(<<|>>) (\d+)\b", lambda m: f"{m.group(1)} {int(m.group(2)) + 1}"),
     ("flag-bit", r"0x(40|10|04|e0|c0|f0|fc)\b", lambda m: "0x" + FLAGS[m.group(1)]),
     ("reserved", r"appendUInt8\(0xff\)", lambda m: "appendUInt8(0xfe)"),
@@ -63,6 +64,9 @@ OPERATORS = [
     ("condition", r"\? 0x(\w+) : 0\)", lambda m: f"? 0 : 0x{m.group(1)})"),
     ("limit", r"(static let \w+(?:Count|Length) = )(\d+)", lambda m: f"{m.group(1)}{int(m.group(2)) - 1}"),
     ("capacity", r" < Message\.maxDataCount", lambda m: " <= Message.maxDataCount"),
+    # Comparisons with spaces on both sides, so generic brackets don't match.
+    ("boundary", r"(?<=[\w)\]]) (<=|>=|<|>) (?=[\w(.])", lambda m: f" {BOUNDARIES[m.group(1)]} "),
+    ("arithmetic", r"(?<=[\w)\]]) ([+-]|&\+|&-) (\d+)\b", lambda m: f" {m.group(1)} {int(m.group(2)) + 1}"),
     ("not-available", r"\?\? 0x(\w+)", lambda m: "?? 0x00"),
     (
         "drop-field",
@@ -110,8 +114,8 @@ def run_tests():
         "error: Build failed" in output and "Test run started" not in output
     ):
         return "invalid", output  # The mutant doesn't compile.
-    if "✘" in output:
-        return "killed", output  # A test failed.
+    if "✘" in output or "exited with unexpected signal" in output:
+        return "killed", output  # A test failed, or the mutant crashed the tests.
     if result.returncode != 0:
         # Neither a compile error nor a test failure, e.g. Docker failed. Don't
         # count it as killed, or a broken environment would look like success.
