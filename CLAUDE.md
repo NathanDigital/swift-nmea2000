@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A pure-Swift port of [ttlappalainen/NMEA2000](https://github.com/ttlappalainen/NMEA2000), the C++ NMEA 2000 library for Arduino. It is a port, not a transliteration: keep the upstream library's protocol behaviour and wire format exactly, and write the API in idiomatic Swift. The repository will be public on GitHub, so code, commits, docs and the README all need to look professional.
+A pure-Swift port of [ttlappalainen/NMEA2000](https://github.com/ttlappalainen/NMEA2000), the C++ NMEA 2000 library for Arduino. It is a port, not a transliteration: send exactly the bytes upstream sends, decode what the wire format means, and write the API in idiomatic Swift (see "Fidelity to upstream" below). The repository will be public on GitHub, so code, commits, docs and the README all need to look professional.
 
 **Names:** the repo is `NathanDigital/swift-nmea2000`. The package name is `swift-nmea2000`, and the library product/module is `NMEA2000` (`import NMEA2000`).
 
@@ -51,7 +51,18 @@ When porting a feature, read the corresponding upstream file in `src/` (and its 
 
 ## PGN definitions: bus compatibility and easy porting from upstream
 
-Goal: every PGN's **wire format** (field order, widths, resolutions, signedness, reserved bits, "not available" encodings) is byte-identical to upstream, and a new PGN or PGN bugfix added upstream can be ported quickly and mechanically. The Swift API and internals do **not** mirror upstream. They follow Swift best practice.
+### Fidelity to upstream
+
+Upstream's bytes are proven on real buses, so matching them is how we know we interoperate. Its decoders and enum names are less reliable. Apply these rules in order:
+
+1. **Encoding is byte-identical to upstream by default**, including odd but harmless choices (e.g. an empty waypoint name sent as a single NUL, UCS-2 strings leaving two bytes unused). Tests check this against `scripts/upstream-vectors`.
+2. **Exception: upstream sends the wrong meaning.** If upstream puts a value on the bus that means something other than what its API promises (e.g. `N2kDCVS_Low` defined as 3, which is "not available"), send the correct value instead. Confirm the correct value from canboat (`canboat/canboat`, `analyzer/*-generated-data.h`) or upstream's own sibling definitions, never the NMEA standard text.
+3. **Decoding follows what the wire format means, not upstream's accidents.** Keep deliberate filtering (masking reserved bits, `SetEvents`), but fix decoders that lose information or produce values that can't round-trip (e.g. reading one bit of a two-bit field). Decoder fixes never change the bytes we send.
+4. **The Swift API is ours to design**: idiomatic names, `Optional` for not available, upstream's default arguments ported as Swift defaults, parameters in a sensible order. Wire order lives in `encode(to:)`.
+
+Every divergence under rules 2 and 3 gets a test, a note in the type's doc comment, and a row in the divergence table of `docs/field-codec.md` (PGNs and codec) or `docs/types.md` (enums).
+
+Goal: every PGN's **wire format** (field order, widths, resolutions, signedness, reserved bits, "not available" encodings) is byte-identical to upstream (apart from rule 2 above), and a new PGN or PGN bugfix added upstream can be ported quickly and mechanically. The Swift API and internals do **not** mirror upstream. They follow Swift best practice.
 
 - **One idiomatic type per PGN.** Each PGN is a `Sendable` struct conforming to a shared message protocol (PGN number, default priority, decode from and encode to a message). Name types by meaning (`PositionRapidUpdate`), not `SetN2kPGN129025`. Each file is named after its PGN, e.g. `PGN129025PositionRapidUpdate.swift`, so it can be found by number.
 - **Traceability.** Each PGN type's doc comment names the upstream functions it ports (e.g. "Ports `SetN2kPGN129025` / `ParseN2kPGN129025`"), so grepping an upstream diff's function name leads straight to the Swift file.
