@@ -62,12 +62,14 @@ struct EngineParametersDynamicTests {
     expectTolerantDecoding(EngineParametersDynamic.self, from: Self.vectors[0].1)
   }
 
-  @Test func decodesOnlyLowByteOfStatus2() throws {
-    // Upstream assigns through tN2kDD223::operator=, which keeps the low byte only.
+  @Test func decodesTheManufacturerFlagsOfStatus2() throws {
+    // Deliberate divergence: upstream assigns through tN2kDD223::operator=,
+    // which keeps the low byte only, though its encoder sends all sixteen bits.
     var bytes = Self.vectors[0].1
-    bytes[22] = 0xff  // Discrete status 2.
-    bytes[23] = 0xff
+    bytes[22] = 0x01  // Discrete status 2.
+    bytes[23] = 0x81
     let decoded = try EngineParametersDynamic(Message(pgn: 127489, data: bytes))
-    #expect(decoded.status2.rawValue == 0x00ff)
+    #expect(decoded.status2 == [.warningLevel1, .manufacturer1, .manufacturer8])
+    #expect(decoded.makeMessage().data == bytes)
   }
 }

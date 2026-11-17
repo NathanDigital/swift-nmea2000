@@ -47,8 +47,11 @@ public struct EngineParametersDynamic: ParameterGroup, Hashable {
   /// The first set of engine warning flags.
   public var status1: EngineDiscreteStatus1
 
-  /// The second set of engine warning flags. As upstream does, decoding keeps only the low eight
-  /// bits, so the manufacturer-defined flags are always clear.
+  /// The second set of engine warning flags.
+  ///
+  /// Upstream's decoder keeps only the low eight bits, so it loses the
+  /// manufacturer-defined flags its encoder sends. This type decodes all
+  /// sixteen.
   public var status2: EngineDiscreteStatus2
 
   /// Creates a dynamic engine parameters message.
@@ -96,8 +99,9 @@ public struct EngineParametersDynamic: ParameterGroup, Hashable {
     fuelPressure = reader.readUInt16(resolution: 1000)
     _ = reader.readUInt8()  // Reserved.
     status1 = EngineDiscreteStatus1(rawValue: reader.readUInt16())
-    // Upstream assigns through tN2kDD223::operator=, which keeps only the low byte.
-    status2 = EngineDiscreteStatus2(rawValue: reader.readUInt16() & 0x00ff)
+    // Deliberate divergence: upstream assigns through tN2kDD223::operator=,
+    // which keeps only the low byte.
+    status2 = EngineDiscreteStatus2(rawValue: reader.readUInt16())
     load = reader.readOptionalInt8()
     torque = reader.readOptionalInt8()
   }

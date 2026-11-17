@@ -18,7 +18,8 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 
 ## Upstream quirks kept
 
-- `tN2kDD223` (`EngineDiscreteStatus2`) keeps only the low eight bits when assigned in upstream, and `tN2kDD471`'s `SetEvents` clears bit 6. These are applied in the PGN ports that use them, not in the types.
+- `tN2kDD471`'s `SetEvents` clears bit 6. This is applied in the PGN ports that use it, not in the type.
+- `tN2kDD223` (`EngineDiscreteStatus2`) keeps only the low eight bits when assigned in upstream, so `ParseN2kPGN127489` loses the manufacturer flags that `SetN2kPGN127489` sends. `EngineParametersDynamic` decodes all sixteen bits instead (see the divergence table in `docs/field-codec.md`).
 
 ## Checked against canboat
 
