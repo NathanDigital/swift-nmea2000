@@ -441,8 +441,7 @@ struct NodeEngine: Sendable {
       throw .invalidMessage(error)
     }
     if message.isTransportProtocol
-      && (message.data.count > CANFrame.maxDataCount
-        || devices[device].framer.catalog.isFastPacket(message.pgn))
+      && !MessageFramer.fitsSingleFrame(message, catalog: devices[device].framer.catalog)
     {
       return try startTransfer(message, from: device, at: now)
     }

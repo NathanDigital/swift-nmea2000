@@ -43,6 +43,13 @@ public struct Message: Sendable, Hashable {
   /// received using the ISO transport protocol rather than fast packet.
   public var isTransportProtocol: Bool
 
+  /// A Boolean value that indicates whether a message of up to eight bytes
+  /// is sent in a single frame even if its PGN is a fast-packet PGN, as some
+  /// devices expect. Longer messages are sent as fast packets regardless.
+  ///
+  /// Upstream asks for this with a priority of `0x80` or more.
+  public var forcesSingleFrame: Bool = false
+
   /// Creates a message.
   ///
   /// - Parameters:
@@ -76,5 +83,15 @@ public struct Message: Sendable, Hashable {
   /// non-empty payload.
   public var isValid: Bool {
     pgn != 0 && !data.isEmpty
+  }
+}
+
+extension Message: CustomStringConvertible {
+  /// The message's header and payload, as upstream's `tN2kMsg::Print` writes
+  /// them without its time prefix: `Pri:2 PGN:127250 Source:1 Dest:255
+  /// Len:4 Data:1,a,ff,0`, with the payload in hex.
+  public var description: String {
+    "Pri:\(priority) PGN:\(pgn) Source:\(source) Dest:\(destination) Len:\(data.count) Data:"
+      + data.map { String($0, radix: 16) }.joined(separator: ",")
   }
 }

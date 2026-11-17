@@ -533,6 +533,9 @@ const std::vector<Case> cases = {
         for (unsigned long pgn : pgns) send(n, pgn, 7);
     }),
     SENDS("first PDU2 PGN", send(n, 61440, 8, 6, 0x42)),
+    // Priority 0x80 and up sends a fast-packet PGN of up to 8 bytes in one
+    // frame.
+    SENDS("forced single frame", send(n, 129029, 6, 0x83); send(n, 129029, 8, 0x83); send(n, 129029, 9, 0x83)),
     SENDS("widest PGN", send(n, 0x3ffff, 3)),
     {"Frames send from address 251", [](TestNode &n) {
        open(n, tNMEA2000::N2km_NodeOnly, 251);
@@ -1341,6 +1344,21 @@ const std::vector<Case> cases = {
       claim(n, 0x43, otherName(8));
       chatter(n, 0x43, 2000);
     }),
+    // tN2kMsg::Print, through upstream's own N2kStream.
+    {"Print message", [](TestNode &) {
+       ByteStream stream;
+       tN2kMsg a = makeMsg(127250, 2, 1, 255, 0, {0x01, 0x0a, 0xff, 0x00});
+       a.Print(&stream);
+       a.Print(&stream, true);
+       makeMsg(0, 2, 1, 255, 0, {1}).Print(&stream);
+       makeMsg(59904, 6, 0x42, 0x17, 0, {0x00, 0xee, 0x00}).Print(&stream);
+       std::string text(stream.output.begin(), stream.output.end());
+       char time[16];
+       snprintf(time, sizeof time, "%u", now);
+       for (size_t at; (at = text.find(time)) != std::string::npos;) text.replace(at, strlen(time), "<time>");
+       for (size_t at; (at = text.find("\r\n")) != std::string::npos;) text.replace(at, 2, "|");
+       events.push_back("print " + text);
+     }},
     // Actisense gateway format. A decoded time of 4294967295 means the
     // reader used the current time.
     {"Actisense write typical", [](TestNode &) {

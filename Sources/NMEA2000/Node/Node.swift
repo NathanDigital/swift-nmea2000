@@ -301,7 +301,8 @@ public actor Node {
   ///
   /// The message's source is replaced with the device's address. A message of
   /// up to eight bytes is sent in one frame unless its PGN is a fast-packet
-  /// PGN; anything longer is sent as a fast packet.
+  /// PGN (see ``Message/forcesSingleFrame``); anything longer is sent as a
+  /// fast packet.
   ///
   /// A message marked ``Message/isTransportProtocol`` that doesn't fit in
   /// one frame is sent by ISO transport protocol instead, which only a full

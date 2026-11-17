@@ -50,9 +50,10 @@ public struct MessageFramer: Sendable {
 
   /// Returns the frames that carry a message.
   ///
-  /// A message of up to eight bytes whose PGN isn't a fast-packet PGN goes in
-  /// one frame. Any other message goes in a fast packet, which advances that
-  /// PGN's sequence counter.
+  /// A message of up to eight bytes whose PGN isn't a fast-packet PGN, or
+  /// that sets ``Message/forcesSingleFrame``, goes in one frame. Any other
+  /// message goes in a fast packet, which advances that PGN's sequence
+  /// counter.
   ///
   /// A fast packet shorter than six bytes is padded with `0xff`. Upstream
   /// sends whatever its message buffer held in those bytes.
@@ -65,7 +66,7 @@ public struct MessageFramer: Sendable {
     let id = try Self.validate(message)
 
     let data = message.data
-    if data.count <= CANFrame.maxDataCount && !catalog.isFastPacket(message.pgn) {
+    if Self.fitsSingleFrame(message, catalog: catalog) {
       return [CANFrame(id: id, data: data)]
     }
 
@@ -84,6 +85,14 @@ public struct MessageFramer: Sendable {
       offset += 7
     }
     return frames
+  }
+
+  /// Whether a message goes in one frame: up to eight bytes, and a PGN that
+  /// isn't a fast-packet PGN unless the message forces a single frame
+  /// (upstream's `IsFastPacket`).
+  static func fitsSingleFrame(_ message: Message, catalog: PGNCatalog) -> Bool {
+    message.data.count <= CANFrame.maxDataCount
+      && (message.forcesSingleFrame || !catalog.isFastPacket(message.pgn))
   }
 
   /// Checks that a message can be sent, and returns its CAN identifier.

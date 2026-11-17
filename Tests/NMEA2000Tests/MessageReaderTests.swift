@@ -265,6 +265,16 @@ struct MessageTests {
     #expect(Message(pgn: 1, priority: 0xff).priority == 7)
   }
 
+  @Test func describesItselfAsUpstreamPrints() {
+    // upstream-vectors "Print message", without the time prefix and CR LF.
+    #expect(
+      Message(pgn: 127250, priority: 2, source: 1, data: [0x01, 0x0a, 0xff, 0x00]).description
+        == "Pri:2 PGN:127250 Source:1 Dest:255 Len:4 Data:1,a,ff,0")
+    #expect(
+      Message(pgn: 59904, priority: 6, source: 0x42, destination: 0x17, data: [0x00, 0xee, 0x00])
+        .description == "Pri:6 PGN:59904 Source:66 Dest:23 Len:3 Data:0,ee,0")
+  }
+
   @Test func validity() {
     #expect(!Message(pgn: 0, data: [1]).isValid)
     #expect(!Message(pgn: 1).isValid)

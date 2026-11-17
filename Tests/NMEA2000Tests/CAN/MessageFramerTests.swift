@@ -286,6 +286,19 @@ struct MessageFramerTests {
         CANFrame(id: 0x18f0_0017, data: [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07])
       ]),
     FramerCase(
+      "forced single frame",
+      messages: [
+        with(message(129029, count: 6, priority: 3)) { $0.forcesSingleFrame = true },
+        with(message(129029, count: 8, priority: 3)) { $0.forcesSingleFrame = true },
+        with(message(129029, count: 9, priority: 3)) { $0.forcesSingleFrame = true },
+      ],
+      frames: [
+        CANFrame(id: 0x0df8_0517, data: [0x00, 0x01, 0x02, 0x03, 0x04, 0x05]),
+        CANFrame(id: 0x0df8_0517, data: [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]),
+        CANFrame(id: 0x0df8_0517, data: [0x00, 0x09, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05]),
+        CANFrame(id: 0x0df8_0517, data: [0x01, 0x06, 0x07, 0x08, 0xff, 0xff, 0xff, 0xff]),
+      ]),
+    FramerCase(
       "widest PGN",
       messages: [message(0x3_ffff, count: 3, priority: 6)],
       frames: [CANFrame(id: 0x1bff_ff17, data: [0x00, 0x01, 0x02])]),
