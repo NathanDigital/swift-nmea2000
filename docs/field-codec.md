@@ -122,6 +122,7 @@ All of these are cases where upstream's behaviour is a bug or undefined. Rows ma
 | `SetN2kPGN127510` documents the equalization time in seconds but sends the number unscaled; canboat defines the field in minutes | `ChargerConfigurationStatus` takes seconds and sends minutes | Same as above. **Changes the bytes sent** for a non-zero time. |
 | `ParseN2kPGN127510` masks the four-bit battery temperature with `0x04` | Decodes all four bits | The bytes sent are unchanged. |
 | `ParseN2kPGN127513` reads the unsigned capacity as signed, and decodes a not-available Peukert exponent as -999999999 (its NA sentinel plus 1) | Reads the capacity unsigned, and a missing Peukert exponent as `nil` | The bytes sent are unchanged. |
+| `SetN2kPGN126993` accepts heartbeat intervals up to 655 320 ms but sends the low 16 bits of the milliseconds, so 70 s goes out as 4.464 s; canboat defines the field as 16-bit milliseconds (`DURATION_UFIX16_MS`) | `Heartbeat` sends `0xfffe`, upstream's own value for an interval over its limit, for any interval over 65.535 s | Upstream puts a much shorter interval on the bus. **Changes the bytes sent** only for intervals over 65.535 s; the default of 60 s is unchanged. |
 | Fixed-width `Add…` past `MaxDataLen` overflows the buffer | Traps (`precondition`) | It's a programming error in an encoder. |
 
 ## Not ported

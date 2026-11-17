@@ -87,6 +87,50 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) { SetN2kPGN60928(m, 0, 0, 0, 0, 0, 0, 0); }},
   {"PGN60928 NAME",
    [](tN2kMsg &m) { SetN2kPGN60928(m, 0x0123456789abcdefULL); }},
+  {"PGN59392 typical",
+   [](tN2kMsg &m) { SetN2kPGN59392(m, 1, 0xff, 126998); }},
+  {"PGN59392 high bits",
+   [](tN2kMsg &m) { SetN2kPGN59392(m, 0xf2, 0x81, 0x3ffff); }},
+  {"PGN59904 typical",
+   [](tN2kMsg &m) { SetN2kPGN59904(m, 0x42, 126996); }},
+  {"PGN59904 high bits",
+   [](tN2kMsg &m) { SetN2kPGN59904(m, 0xff, 0xfedcba); }},
+  {"PGN126464 transmit",
+   [](tN2kMsg &m) {
+     static const unsigned long pgns[] = {59392, 126996, 0x3ffff, 0};
+     SetN2kPGN126464(m, 0x42, N2kpgnl_transmit, pgns);
+   }},
+  {"PGN126464 receive empty",
+   [](tN2kMsg &m) {
+     static const unsigned long pgns[] = {0};
+     SetN2kPGN126464(m, 0xff, N2kpgnl_receive, pgns);
+   }},
+  {"PGN126993 typical",
+   [](tN2kMsg &m) { SetN2kPGN126993(m, 60000, 3); }},
+  {"PGN126993 widest field",
+   [](tN2kMsg &m) { SetN2kPGN126993(m, 65535, 0); }},
+  {"PGN126993 over the field",
+   [](tN2kMsg &m) { SetN2kPGN126993(m, 65536, 252); }},
+  {"PGN126993 at the limit",
+   [](tN2kMsg &m) { SetN2kPGN126993(m, 655320, 0xff); }},
+  {"PGN126993 over the limit",
+   [](tN2kMsg &m) { SetN2kPGN126993(m, 655321, 0xff); }},
+  {"PGN126996 typical",
+   [](tN2kMsg &m) { SetN2kPGN126996(m, 2101, 666, "Swift Gateway", "1.2.3", "Rev A", "SN-0042", 2, 3); }},
+  {"PGN126996 defaults",
+   [](tN2kMsg &m) { SetN2kPGN126996(m, 0xffff, 0xffff, "", "", "", ""); }},
+  {"PGN126996 long strings",
+   [](tN2kMsg &m) {
+     SetN2kPGN126996(m, 1, 2, "0123456789abcdef0123456789ABCDEFxyz", "W\xc3\xa4rtsil\xc3\xa4", "v", "s", 0, 0xff);
+   }},
+  {"PGN126998 typical",
+   [](tN2kMsg &m) { SetN2kPGN126998(m, "Kave Oy", "Mast head", "Starboard side"); }},
+  {"PGN126998 empty",
+   [](tN2kMsg &m) { SetN2kPGN126998(m, "", 0, ""); }},
+  {"PGN126998 unicode and long",
+   [](tN2kMsg &m) {
+     SetN2kPGN126998(m, "0123456789012345678901234567890123456789012345678901234567890123456789XYZ", "B\xc3\xa5t", "a");
+   }},
   {"PGN129025 position",
    [](tN2kMsg &m) { SetN2kPGN129025(m, 60.1234567, -151.2093); }},
   {"PGN129025 not available",
