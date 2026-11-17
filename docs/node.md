@@ -47,7 +47,7 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 | `SendMsg` copies six bytes into a fast packet's first frame even when the payload is shorter, sending stale buffer bytes | `MessageFramer` pads with `0xff` | Upstream's bytes are undefined, so there's nothing to match. `0xff` matches its padding of later frames. |
 | `SetN2kCANBufMsg` reads the frame counter and length from leftover buffer bytes when a fast-packet frame is too short to hold them | `MessageAssembler` ignores the frame | Upstream's result is undefined. |
 | `N2ktoCanID` shifts PGNs wider than 18 bits into the priority bits | `CANIdentifier.frameID` returns `nil` | No valid PGN is that wide. |
-| `IsFastPacket` sends a message as a single frame when its priority is `0x80` or more | Not ported | `Message.priority` holds three bits. If a use comes up, it would be an explicit option rather than an out-of-range priority. |
+| `IsFastPacket` sends a message as a single frame when its priority is `0x80` or more | `Message.forcesSingleFrame` | `Message.priority` holds three bits, so the option is explicit rather than an out-of-range priority. |
 
 ### Testing
 
@@ -89,10 +89,15 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 - Received system messages, address claims included, are delivered to the application as well as handled.
 - Deadlines are reached at their exact millisecond, as on upstream's 32-bit Arduino timer. Upstream's 64-bit builds (ESP32, Linux) reach them a millisecond later.
 
-### Not yet ported
+### Sending frames
 
-- Forwarding to a stream (`SetForwardStream`, debug modes): gateway formats will be separate codecs.
-- The send frame buffer (`SetN2kCANSendFrameBufSize`): `CANTransport.send(_:)` suspends while the transport is busy instead.
+Upstream hands each frame to its CAN driver, and keeps the ones the driver can't take yet in a send frame buffer of 40 frames (`SetN2kCANSendFrameBufSize`). When that buffer is full the frame is lost and `SendMsg` fails, so product and configuration information go pending and are sent again later, and a transport protocol send ends.
+
+`Node` queues frames for `CANTransport.send(_:)`, which suspends while the transport is busy. Up to 40 frames can wait. Beyond that the frames the node sends on its own (claims, heartbeats, answers, transport protocol packets) are dropped, and messages sent with `send(_:from:)` wait for the transport. A dropped frame and a frame the transport fails to send are handled as upstream handles a failed send (`NodeEngine.transmissionFailed`): product and configuration information are tried again 187 ms plus 8 or 10 ms per unit of the address later, a transport protocol send ends when its request to send or BAM fails, or when an addressed data packet fails, and a broadcast send carries on, as upstream sends the next packet regardless. An application's own message that fails isn't retried: `send(_:from:)` throws.
+
+### Not ported
+
+- Forwarding to a stream (`SetForwardStream`, debug modes): see `docs/coverage.md`.
 
 ### Testing
 

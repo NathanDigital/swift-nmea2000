@@ -147,6 +147,12 @@ public actor Node {
   /// How the node takes part in the bus.
   public nonisolated let mode: Mode
 
+  /// The most frames the node queues to send before it drops the frames it
+  /// sends on its own, as upstream's send frame buffer holds 40 by default
+  /// (`SetN2kCANSendFrameBufSize`). Messages sent with ``send(_:from:)``
+  /// wait for the transport instead.
+  static let maxQueuedFrames = 40
+
   private var engine: NodeEngine
   private let clock: NodeClock
   private let openTransport: @Sendable () async throws -> FrameSource
@@ -157,6 +163,8 @@ public actor Node {
   private var eventSubscribers: [Int: AsyncStream<Event>.Continuation] = [:]
   private var nextSubscriberID = 0
   private var lastTransmission: Task<Void, any Error>?
+  /// How many frames are queued to send and not yet sent.
+  private var queuedFrameCount = 0
   private var timer: Task<Void, Never>?
   private var timerDeadline: UInt64?
   private var isRunning = false
@@ -412,7 +420,7 @@ public actor Node {
     defer { scheduleTimer() }
     defer { deliverEngineOutput() }
     let frames = try engine.send(message, from: device, at: now)
-    try await enqueue(frames).value
+    try await enqueue(frames, retriesInformation: false).value
   }
 
   /// Sends a parameter group from one of the node's devices.
@@ -530,7 +538,9 @@ public actor Node {
       scheduleTimer()
     }
     let frames = try operation(&engine, now)
-    try await enqueue(frames).value
+    // Upstream's on-demand sends of product and configuration information
+    // try again later too.
+    try await enqueue(frames, retriesInformation: true).value
   }
 
   private func checkDevice(_ device: Int) throws(NodeError) {
@@ -678,24 +688,61 @@ public actor Node {
   // MARK: - Transmitting
 
   /// Sends frames the node sends on its own, such as address claims.
-  /// Transport errors are dropped, as upstream drops them.
+  ///
+  /// When more than ``maxQueuedFrames`` would be waiting, the frames are
+  /// dropped, as upstream drops frames when its send buffer is full. Frames
+  /// that are dropped or fail to send are handled as upstream handles a
+  /// failed send: product and configuration information go out again later,
+  /// and a transport protocol send ends.
   private func transmit(_ frames: [CANFrame]) {
     guard !frames.isEmpty else { return }
-    enqueue(frames)
+    guard queuedFrameCount + frames.count <= Self.maxQueuedFrames else {
+      engine.transmissionFailed(frames, retriesInformation: true, at: clock.now())
+      return
+    }
+    enqueue(frames, retriesInformation: true)
   }
 
   /// Queues frames to send after every frame queued before them, so one
   /// message's frames never interleave with another's.
+  ///
+  /// - Parameter retriesInformation: Whether product and configuration
+  ///   information among the frames are sent again if they fail.
   @discardableResult
-  private func enqueue(_ frames: [CANFrame]) -> Task<Void, any Error> {
+  private func enqueue(_ frames: [CANFrame], retriesInformation: Bool) -> Task<Void, any Error> {
     let previous = lastTransmission
     let sendFrame = sendFrame
+    queuedFrameCount += frames.count
     let transmission = Task {
       _ = await previous?.result
-      for frame in frames { try await sendFrame(frame) }
+      var sentCount = 0
+      do {
+        for frame in frames {
+          try await sendFrame(frame)
+          sentCount += 1
+        }
+      } catch {
+        transmissionEnded(
+          frames, sentCount: sentCount, retriesInformation: retriesInformation)
+        throw error
+      }
+      transmissionEnded(
+        frames, sentCount: sentCount, retriesInformation: retriesInformation)
     }
     lastTransmission = transmission
     return transmission
+  }
+
+  /// Updates the queue once a transmission ends, and tells the engine about
+  /// the frames it couldn't send.
+  private func transmissionEnded(
+    _ frames: [CANFrame], sentCount: Int, retriesInformation: Bool
+  ) {
+    queuedFrameCount -= frames.count
+    guard sentCount < frames.count, isRunning else { return }
+    engine.transmissionFailed(
+      Array(frames[sentCount...]), retriesInformation: retriesInformation, at: clock.now())
+    scheduleTimer()
   }
 }
 

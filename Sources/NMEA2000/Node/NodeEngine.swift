@@ -595,6 +595,56 @@ struct NodeEngine: Sendable {
     return []
   }
 
+  /// Records that frames the engine returned couldn't be sent, as upstream's
+  /// `SendMsg` fails when its frame buffer is full.
+  ///
+  /// As upstream does then, a transport protocol send ends, unless it's
+  /// broadcast and only a data packet failed. When `retriesInformation`,
+  /// product and configuration information go out again later.
+  ///
+  /// - Parameters:
+  ///   - frames: The frames that weren't sent, starting with the one that
+  ///     failed.
+  ///   - retriesInformation: Whether the frames are the node's own, so
+  ///     product and configuration information among them are tried again,
+  ///     rather than an application's.
+  mutating func transmissionFailed(
+    _ frames: [CANFrame], retriesInformation: Bool, at now: UInt64
+  ) {
+    var failedPGNs: [Int: Set<UInt32>] = [:]
+    for frame in frames {
+      let id = CANIdentifier(frameID: frame.id)
+      guard let device = device(at: id.source) else { continue }
+      switch id.pgn {
+      case TransportProtocol.connectionManagementPGN:
+        // Only the frame that starts a transfer names its PGN and counts:
+        // a request to send or a BAM.
+        guard frame.data.count >= 8, frame.data[0] == 16 || frame.data[0] == 32 else { continue }
+        let pgn = UInt32(frame.data[5]) | UInt32(frame.data[6]) << 8 | UInt32(frame.data[7]) << 16
+        failedPGNs[device, default: []].insert(pgn)
+        if devices[device].transfer?.message.pgn == pgn { devices[device].transfer = nil }
+      case TransportProtocol.dataTransferPGN:
+        if let transfer = devices[device].transfer, !transfer.isBroadcast {
+          devices[device].transfer = nil
+        }
+      default:
+        failedPGNs[device, default: []].insert(id.pgn)
+      }
+    }
+    guard retriesInformation else { return }
+    for (device, pgns) in failedPGNs {
+      let address = UInt64(devices[device].address)
+      if pgns.contains(ProductInformation.pgn), devices[device].pendingProductInformation == nil {
+        devices[device].pendingProductInformation = now + 187 + address * 8
+      }
+      if pgns.contains(ConfigurationInformation.pgn),
+        devices[device].pendingConfigurationInformation == nil
+      {
+        devices[device].pendingConfigurationInformation = now + 187 + address * 10
+      }
+    }
+  }
+
   // MARK: - Transport protocol
 
   /// Starts sending a message by transport protocol: a BAM followed by a

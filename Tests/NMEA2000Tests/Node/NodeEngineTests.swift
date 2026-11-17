@@ -2791,6 +2791,61 @@ struct NodeEngineTests {
     #expect(driver.engine.nextDeadline == 71201)
   }
 
+  @Test func sendsInformationAgainWhenTheTransportFails() {
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.until(500)
+    let product = driver.engine.sendProductInformation(from: 0, to: 255, at: 500)
+    let configuration = driver.engine.sendConfigurationInformation(from: 0, to: 255, at: 500)
+    driver.engine.transmissionFailed(
+      Array(product.dropFirst(2)) + configuration, retriesInformation: true, at: 510)
+    #expect(driver.engine.devices[0].pendingProductInformation == 510 + 187 + 23 * 8)
+    #expect(driver.engine.devices[0].pendingConfigurationInformation == 510 + 187 + 23 * 10)
+  }
+
+  @Test func leavesApplicationFailuresToTheApplication() {
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.until(500)
+    let frames = driver.engine.sendProductInformation(from: 0, to: 255, at: 500)
+    driver.engine.transmissionFailed(frames, retriesInformation: false, at: 510)
+    #expect(driver.engine.devices[0].pendingProductInformation == nil)
+  }
+
+  @Test func endsATransferWhoseRequestToSendFails() throws {
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.until(500)
+    let message = Message(
+      pgn: 126464, destination: 0x42, data: Array(0..<20), isTransportProtocol: true)
+    let frames = try driver.engine.send(message, at: 500)
+    driver.engine.transmissionFailed(frames, retriesInformation: false, at: 510)
+    #expect(driver.engine.devices[0].transfer == nil)
+  }
+
+  @Test func keepsABroadcastTransferWhoseDataPacketFails() throws {
+    // Upstream sends the next broadcast packet regardless.
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.until(500)
+    let message = Message(pgn: 126464, data: Array(0..<20), isTransportProtocol: true)
+    _ = try driver.engine.send(message, at: 500)
+    let packet = driver.engine.poll(at: 550)
+    #expect(packet.first?.id == 0x18eb_ff17)
+    driver.engine.transmissionFailed(packet, retriesInformation: true, at: 560)
+    #expect(driver.engine.devices[0].transfer != nil)
+  }
+
+  @Test func endsAnAddressedTransferWhoseDataPacketFails() throws {
+    var driver = EngineDriver(mode: .node, address: 23)
+    driver.until(500)
+    let message = Message(
+      pgn: 126464, destination: 0x42, data: Array(0..<20), isTransportProtocol: true)
+    _ = try driver.engine.send(message, at: 500)
+    let packets = driver.engine.receive(
+      CANFrame(id: 0x18ec_1742, data: [17, 3, 1, 0xff, 0xff, 0x00, 0xee, 0x01]), at: 510
+    ).frames
+    #expect(packets.first?.id == 0x18eb_4217)
+    driver.engine.transmissionFailed(packets, retriesInformation: false, at: 520)
+    #expect(driver.engine.devices[0].transfer == nil)
+  }
+
   @Test(arguments: [Node.Mode.listenOnly, .listenAndSend, .node])
   func neverLeavesADeadlineInThePast(mode: Node.Mode) {
     // A deadline that polling doesn't move would make the node's timer fire

@@ -165,8 +165,15 @@ final class FakeTransport: CANTransport {
   private let sentContinuation: AsyncStream<CANFrame>.Continuation
   private let failures: Mutex<Int>
   private let opens = Mutex(0)
+  private let sendFailures = Mutex(0)
 
   struct OpenFailed: Error {}
+  struct SendFailed: Error {}
+
+  /// Makes the next sends fail.
+  func failSends(_ count: Int) {
+    sendFailures.withLock { $0 = count }
+  }
 
   init(failingOpens: Int = 0) {
     (received, receive) = AsyncStream.makeStream(of: CANFrame.self)
@@ -192,6 +199,11 @@ final class FakeTransport: CANTransport {
   func send(_ frame: CANFrame) async throws {
     // Give other tasks a chance to interleave their frames.
     await Task.yield()
+    let fails = sendFailures.withLock { failures in
+      defer { failures = max(failures - 1, 0) }
+      return failures > 0
+    }
+    if fails { throw SendFailed() }
     sentContinuation.yield(frame)
   }
 }
@@ -346,6 +358,31 @@ struct NodeTests {
     #expect(
       try await sent.next()
         == CANFrame(id: 0x18eb_ff17, data: [2, 7, 8, 9, 0xff, 0xff, 0xff, 0xff]))
+
+    transport.receive.finish()
+    try await finish(run)
+  }
+
+  @Test func sendsProductInformationAgainAfterTheTransportFails() async throws {
+    // Upstream's SendProductInformation tries again when its send fails:
+    // 187 ms plus 8 ms for each unit of the address later.
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let run = Task { try await node.run() }
+    let sent = transport.sent
+    try await clock.waitForSleepers()
+    clock.advance(to: 200)
+    #expect(try await sent.next() == claim)
+    clock.advance(to: 450)
+
+    transport.failSends(1)
+    await #expect(throws: FakeTransport.SendFailed.self) {
+      try await node.sendProductInformation()
+    }
+    try await clock.waitForSleepers()
+    clock.advance(to: 450 + 187 + 23 * 8)
+    #expect(try await sent.next()?.id == 0x19f0_1417)
 
     transport.receive.finish()
     try await finish(run)
