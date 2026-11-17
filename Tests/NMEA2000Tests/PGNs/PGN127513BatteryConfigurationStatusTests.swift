@@ -39,6 +39,16 @@ struct BatteryConfigurationStatusTests {
         chargeEfficiencyFactor: nil),
       [0xff, 0xc0, 0x00, 0xff, 0xff, 0x7f, 0xff, 0x7f]
     ),
+    // unknown voltage and chemistry
+    (
+      BatteryConfigurationStatus(
+        batteryInstance: 3, type: .gel, supportsEqualization: .error,
+        nominalVoltage: BatteryNominalVoltage(rawValue: 9),
+        chemistry: BatteryChemistry(rawValue: 12),
+        capacity: 360000, temperatureCoefficient: 0, peukertExponent: 1.4,
+        chargeEfficiencyFactor: 100),
+      [0x03, 0xe1, 0xc9, 0x64, 0x00, 0x00, 0xc8, 0x64]
+    ),
   ]
 
   @Test("Encodes as upstream does", arguments: vectors)

@@ -523,6 +523,10 @@ const std::vector<Case> cases = {
    [](tN2kMsg &m) { SetN2kPGN127751(m, 0xff, N2kDoubleNA, N2kDoubleNA, 0xff); }},
   {"PGN127751 defaults",
    [](tN2kMsg &m) { SetN2kDCVoltageCurrent(m, 0, 13.1); }},
+  {"PGN127513 unknown voltage and chemistry",
+   [](tN2kMsg &m) {
+     SetN2kPGN127513(m, 3, N2kDCbt_Gel, N2kDCES_Error, (tN2kBatNomVolt)9, (tN2kBatChem)12, 360000, 0, 1.4, 100);
+   }},
 };
 
 void print(const Case &c) {
