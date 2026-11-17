@@ -60,6 +60,11 @@ Time in the frame layer is a wrapping millisecond counter, as upstream's `millis
 | `CANOpen`, `CANSendFrame`, `CANGetFrame` (driver virtuals) | `CANTransport.open()`, `.send(_:)`, and the frame sequence `open()` returns |
 | `tNMEA2000` | `Node` actor, driving the internal `NodeEngine` |
 | `SetDeviceCount`, `tInternalDevice`, the `DeviceIndex` / `iDev` arguments | `Node(devices:)`, `Node.Device`, `Node.devices`, `send(_:from:)` |
+| `SetOnOpen`, `ReadResetAddressChanged`, `ReadResetDeviceInformationChanged`, `ReadResetInstallationDescriptionChanged` | `Node.events()` |
+| `SetForwardOwnMessages` and the forward stream | `Node.messages(includingSent:)` |
+| `SendIsoAddressClaim`, `SendProductInformation`, `SendConfigurationInformation`, `SendTxPGNList`, `SendRxPGNList`, `SendHeartbeat`, `Restart` | `Node.sendAddressClaim`, `sendProductInformation`, `sendConfigurationInformation`, `sendPGNList`, `sendHeartbeat`, `restartAddressClaim` |
+| `SetHeartbeatIntervalAndOffset`, `SetDeviceInformationInstances`, `SetProductInformation`, `SetConfigurationInformation` at run time | `Node.setHeartbeatInterval`, `setInstances`, `setProductInformation`, `setConfigurationInformation` |
+| `SetN2kCANMsgBufSize` | `Node(bufferCount:)` |
 | `Open`, `OpenState`, `OpenScheduler` | `Node.run()`; `NodeEngine.openState` |
 | `SetMode` | `Node(mode:address:)` |
 | `N2km_ListenOnly` | `Node.Mode.listenOnly` |

@@ -402,34 +402,17 @@ extension NodeEngine {
     // The offset comes in units of 10 ms.
     let newOffset =
       offset == GroupFunction.unchangedOffset || offset == 0 ? nil : UInt64(offset) * 10
-    setHeartbeat(of: request.device, interval: interval, offset: newOffset, at: now)
+    let period: UInt64? =
+      switch interval {
+      case GroupFunction.unchangedInterval: devices[request.device].heartbeat?.period
+      case GroupFunction.defaultInterval: 60000
+      default: UInt64(interval)
+      }
+    setHeartbeat(of: request.device, interval: period, offset: newOffset, at: now)
     guard let schedule = devices[request.device].heartbeat else { return [] }
     return sendAll(
       [Heartbeat(interval: Double(schedule.period) / 1000, sequenceCounter: nil).makeMessage()],
       from: request.device, at: now)
-  }
-
-  /// Changes the heartbeat interval and offset, keeping whichever is
-  /// unchanged, and reschedules the next heartbeat.
-  ///
-  /// Ports `SetHeartbeatIntervalAndOffset`.
-  private mutating func setHeartbeat(
-    of device: Int, interval: UInt32, offset: UInt64?, at now: UInt64
-  ) {
-    guard var schedule = devices[device].heartbeat else { return }
-    var period = schedule.period
-    if interval == GroupFunction.defaultInterval {
-      period = 60000
-    } else if interval != GroupFunction.unchangedInterval {
-      period = min(max(UInt64(interval), 1000), 655_320)
-    }
-    let newOffset = offset ?? schedule.offset
-    guard period != schedule.period || newOffset != schedule.offset else { return }
-    schedule.period = period
-    schedule.offset = newOffset
-    schedule.scheduleNext(at: now)
-    devices[device].heartbeat = schedule
-    devices[device].heartbeatInterval = period
   }
 
   // MARK: - Commands
@@ -487,11 +470,7 @@ extension NodeEngine {
     }
     let frames = sendAcknowledgement(
       acknowledgement, to: request.requester, from: request.device, at: now)
-    // Ports `SetDeviceInformationInstances`.
-    if let lower { devices[request.device].name.deviceInstanceLower = lower }
-    if let upper { devices[request.device].name.deviceInstanceUpper = upper }
-    if let system { devices[request.device].name.systemInstance = system }
-    devices[request.device].pendingClaim = now + 2
+    setInstances(of: request.device, lower: lower, upper: upper, system: system, at: now)
     return frames
   }
 
@@ -518,11 +497,13 @@ extension NodeEngine {
           fields.readVariableString() ?? "")
         acknowledgement.parameterErrors.append(.acknowledge)
         configurationInformation = configuration
+        events.append(.installationDescriptionChanged)
       case 2:
         configuration.installationDescription2 = Self.configurationText(
           fields.readVariableString() ?? "")
         acknowledgement.parameterErrors.append(.acknowledge)
         configurationInformation = configuration
+        events.append(.installationDescriptionChanged)
       default:
         acknowledgement.parameterErrors.append(.invalidField)
       }

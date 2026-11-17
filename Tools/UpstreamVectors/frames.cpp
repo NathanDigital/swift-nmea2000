@@ -1623,6 +1623,37 @@ const std::vector<Case> cases = {
       groupFunction(n, 0x18, gfRequest(126993, 2000, 0xffff, 0));
       until(n, 10300);
     }),
+    // Network management the application asks for.
+    GF_NODE("application sends an address claim", {
+      n.SendIsoAddressClaim(0xff, 0);
+      n.SendIsoAddressClaim(0x42, 0);
+    }),
+    GF_NODE("application sends PGN lists and information", {
+      n.SendTxPGNList(0x42, 0);
+      n.SendRxPGNList(0xff, 0, true);
+      until(n, 700);
+      n.SendProductInformation(0x42, 0, false);
+      n.SendConfigurationInformation(0xff, 0, false);
+    }),
+    GF_NODE("application sends a heartbeat", n.SendHeartbeat(0)),
+    GF_NODE("application changes the heartbeat", {
+      n.SetHeartbeatIntervalAndOffset(2000, 1500);
+      until(n, 3800);
+      n.SetHeartbeatIntervalAndOffset(0, 0);
+      until(n, 6000);
+    }),
+    GF_NODE("application changes the instances", {
+      n.SetDeviceInformationInstances(5, 0x1f, 7);
+      until(n, 520);
+      n.SetDeviceInformationInstances(0xff, 0xff, 0xff);
+      until(n, 540);
+    }),
+    GF_NODE("application restarts the address claim", {
+      n.Restart();
+      send(n, 129025, 8, 2);
+      until(n, 760);
+      send(n, 129025, 8, 2);
+    }),
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);
       until(n, 300);

@@ -409,6 +409,44 @@ struct NodeTests {
     try await finish(run)
   }
 
+  @Test func reportsEventsAndSentMessages() async throws {
+    let clock = ManualClock()
+    let transport = FakeTransport()
+    let node = Node(transport: transport, mode: .node, address: 23, clock: clock)
+    let events = Recorder(await node.events())
+    let traffic = Recorder(await node.messages(includingSent: true))
+    let run = Task { try await node.run() }
+    try await clock.waitForSleepers()
+    #expect(await !node.isOpen)
+    clock.advance(to: 200)
+    #expect(try await events.next() == .opened)
+    #expect(await node.isOpen)
+    #expect(try await traffic.next()?.pgn == ISOAddressClaim.pgn)
+
+    // A lower NAME takes address 23.
+    transport.receive.yield(
+      CANFrame(id: 0x18ee_ff17, data: [0x00, 0x00, 0xc0, 0xff, 0x00, 0x82, 0x32, 0xc0]))
+    #expect(try await events.next() == .addressChanged(device: 0))
+    // The claim received, then the node's own claim from its new address.
+    #expect(try await traffic.next()?.source == 23)
+    #expect(try await traffic.next()?.source == 24)
+
+    try await node.setInstances(device: 9, system: 3)
+    #expect(try await events.next() == .deviceInformationChanged(device: 0))
+    #expect(await node.name.deviceInstance == 9)
+    #expect(await node.name.systemInstance == 3)
+
+    try await node.setHeartbeatInterval(.seconds(5))
+    #expect(try await events.next() == .deviceInformationChanged(device: 0))
+    #expect(await node.devices[0].heartbeatInterval == .seconds(5))
+    #expect(await node.isTransmitted(126993))
+    #expect(await !node.isTransmitted(129025))
+
+    transport.receive.finish()
+    try await finish(run)
+    #expect(try await events.next() == nil)
+  }
+
   @Test func deliversEveryMessageToEverySubscriber() async throws {
     let clock = ManualClock()
     let transport = FakeTransport()

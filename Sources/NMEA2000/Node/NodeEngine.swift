@@ -188,18 +188,34 @@ struct NodeEngine: Sendable {
   /// The devices on the bus, if the node keeps track of them.
   var deviceList: DeviceList?
 
+  /// Events since ``Node`` last took them, for ``Node/events()``.
+  var events: [Node.Event] = []
+
+  /// Messages the node has sent since ``Node`` last took them, for
+  /// ``Node/messages(includingSent:)``.
+  var sentMessages: [Message] = []
+
+  /// When the node opened, which heartbeat schedules are synchronised to
+  /// (upstream's `tN2kSyncScheduler::SyncOffset`).
+  private var openTime: UInt64?
+
   init(
     mode: Node.Mode, devices: [Node.Device], catalog: PGNCatalog = PGNCatalog(),
-    handlesOnlyKnownMessages: Bool = false,
+    handlesOnlyKnownMessages: Bool = false, bufferCount: Int = 5,
     configurationInformation: ConfigurationInformation? = .default
   ) {
     precondition(!devices.isEmpty, "A node hosts at least one device")
     self.mode = mode
     self.devices = devices.map { DeviceState($0, catalog: catalog) }
     assembler = MessageAssembler(
-      catalog: catalog, handlesOnlyKnownMessages: handlesOnlyKnownMessages)
+      catalog: catalog, bufferCount: bufferCount,
+      handlesOnlyKnownMessages: handlesOnlyKnownMessages)
     self.configurationInformation = configurationInformation
   }
+
+  /// Whether the node is open: its transport is open and its devices have
+  /// started claiming their addresses.
+  var isOpen: Bool { openState == .open }
 
   /// The first device's address.
   var address: UInt8 { devices[0].address }
@@ -249,6 +265,7 @@ struct NodeEngine: Sendable {
   /// away the next time it runs, and claims its addresses again.
   mutating func transportClosed() {
     openState = .closed(retryAt: 0)
+    openTime = nil
     for index in devices.indices {
       devices[index].claimDeadline = nil
       devices[index].transfer = nil
@@ -291,6 +308,7 @@ struct NodeEngine: Sendable {
     case .waiting(let until):
       guard now >= until else { return [] }
       openState = .open
+      openTime = now
       var frames: [CANFrame] = []
       for index in devices.indices {
         // A device without an address starts again from the first one.
@@ -305,6 +323,7 @@ struct NodeEngine: Sendable {
             sync: now, offset: Self.heartbeatOffset, period: period, now: now)
         }
       }
+      events.append(.opened)
       return frames
     case .open:
       var frames: [CANFrame] = []
@@ -443,10 +462,14 @@ struct NodeEngine: Sendable {
     if message.isTransportProtocol
       && !MessageFramer.fitsSingleFrame(message, catalog: devices[device].framer.catalog)
     {
-      return try startTransfer(message, from: device, at: now)
+      let frames = try startTransfer(message, from: device, at: now)
+      sentMessages.append(message)
+      return frames
     }
     do {
-      return try devices[device].framer.frames(for: message)
+      let frames = try devices[device].framer.frames(for: message)
+      sentMessages.append(message)
+      return frames
     } catch {
       throw .invalidMessage(error)
     }
@@ -672,6 +695,7 @@ struct NodeEngine: Sendable {
     }
     if devices[device].name == claimant && isClaimingAddress(device, at: now) {
       devices[device].name.deviceInstance &+= 1
+      events.append(.deviceInformationChanged(device: device))
     } else {
       moveToNextAddress(device)
     }
@@ -696,6 +720,7 @@ struct NodeEngine: Sendable {
       }
       devices[device].address = newAddress
       devices[device].resetLastAddressToTry()
+      events.append(.addressChanged(device: device))
       return startAddressClaim(device, at: now)
     }
   }
@@ -706,6 +731,10 @@ struct NodeEngine: Sendable {
   ///
   /// Ports `GetNextAddress`.
   private mutating func moveToNextAddress(_ device: Int, restartingFromFirstAddress: Bool = false) {
+    let original = devices[device].address
+    defer {
+      if devices[device].address != original { events.append(.addressChanged(device: device)) }
+    }
     repeat {
       let address = devices[device].address
       if address == Self.nullAddress {
@@ -723,11 +752,114 @@ struct NodeEngine: Sendable {
     }
   }
 
+  // MARK: - Application requests
+
+  /// Claims every device's address again, starting from 14 for a device
+  /// without one.
+  ///
+  /// Ports `Restart`.
+  mutating func restartAddressClaim(at now: UInt64) -> [CANFrame] {
+    devices.indices.flatMap { index -> [CANFrame] in
+      if devices[index].address == Self.nullAddress {
+        moveToNextAddress(index, restartingFromFirstAddress: true)
+      }
+      return openState == .open ? startAddressClaim(index, at: now) : []
+    }
+  }
+
+  /// Sends a device's address claim, to one device or all.
+  ///
+  /// Ports `SendIsoAddressClaim`.
+  mutating func sendAddressClaim(from device: Int, to destination: UInt8, at now: UInt64)
+    throws(NodeError) -> [CANFrame]
+  {
+    guard devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    return try send(
+      ISOAddressClaim(name: devices[device].name).makeMessage(destination: destination),
+      from: device, at: now)
+  }
+
+  /// Sends one of a device's PGN lists.
+  ///
+  /// Ports `SendTxPGNList` and `SendRxPGNList`.
+  mutating func sendPGNList(
+    _ kind: PGNList.Kind, from device: Int, to destination: UInt8, transportProtocol: Bool,
+    at now: UInt64
+  ) throws(NodeError) -> [CANFrame] {
+    guard devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    var message =
+      kind == .receive
+      ? receiveList(of: device, to: destination) : transmitList(of: device, to: destination)
+    message.isTransportProtocol = transportProtocol
+    return try send(message, from: device, at: now)
+  }
+
+  /// Sends a heartbeat now, outside the schedule, with sequence number
+  /// `nil`.
+  ///
+  /// Ports `SendHeartbeat(int)`.
+  mutating func sendHeartbeat(from device: Int, at now: UInt64) throws(NodeError) -> [CANFrame] {
+    guard devices.indices.contains(device) else { throw .noSuchDevice(device) }
+    let period = devices[device].heartbeat?.period ?? devices[device].heartbeatInterval ?? 60000
+    return try send(
+      Heartbeat(interval: Double(period) / 1000, sequenceCounter: nil).makeMessage(), from: device,
+      at: now)
+  }
+
+  /// Changes a device's heartbeat interval and offset, or turns its
+  /// heartbeat off with an interval of `nil`. The interval is kept between 1
+  /// and 655.32 seconds, and a change reschedules the next heartbeat.
+  ///
+  /// Ports `SetHeartbeatIntervalAndOffset`.
+  mutating func setHeartbeat(
+    of device: Int, interval: UInt64?, offset: UInt64?, at now: UInt64
+  ) {
+    guard let interval else {
+      devices[device].heartbeat = nil
+      devices[device].heartbeatInterval = nil
+      return
+    }
+    let period = min(max(interval, 1000), 655_320)
+    devices[device].heartbeatInterval = period
+    guard let openTime else { return }
+    if var schedule = devices[device].heartbeat {
+      let newOffset = offset ?? schedule.offset
+      guard period != schedule.period || newOffset != schedule.offset else { return }
+      schedule.period = period
+      schedule.offset = newOffset
+      schedule.scheduleNext(at: now)
+      devices[device].heartbeat = schedule
+    } else {
+      devices[device].heartbeat = HeartbeatSchedule(
+        sync: openTime, offset: offset ?? Self.heartbeatOffset, period: period, now: now)
+    }
+    events.append(.deviceInformationChanged(device: device))
+  }
+
+  /// Sets a device's device and system instances, and claims its address
+  /// with the new NAME 2 ms later.
+  ///
+  /// Ports `SetDeviceInformationInstances`.
+  mutating func setInstances(
+    of device: Int, lower: UInt8?, upper: UInt8?, system: UInt8?, at now: UInt64
+  ) {
+    let original = devices[device].name
+    if let lower { devices[device].name.deviceInstanceLower = lower }
+    if let upper { devices[device].name.deviceInstanceUpper = upper }
+    if let system { devices[device].name.systemInstance = system }
+    if devices[device].name != original {
+      events.append(.deviceInformationChanged(device: device))
+    }
+    if openState == .open && mode == .node { devices[device].pendingClaim = now + 2 }
+  }
+
   /// Ports `SendIsoAddressClaim`.
   mutating func addressClaimFrames(_ device: Int) -> [CANFrame] {
     var message = ISOAddressClaim(name: devices[device].name).makeMessage()
     message.source = devices[device].address
-    return (try? devices[device].framer.frames(for: message)) ?? []
+    guard let frames = try? devices[device].framer.frames(for: message) else { return [] }
+    sentMessages.append(message)
+    return frames
   }
 }
 

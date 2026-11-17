@@ -113,6 +113,26 @@ public actor Node {
   public typealias ISORequestHandler =
     @Sendable (_ requestedPGN: UInt32, _ requester: UInt8, _ device: Int) -> [Message]?
 
+  /// Something that happened to the node, from ``events()``.
+  ///
+  /// Replaces upstream's `SetOnOpen` callback and its `ReadResetAddressChanged`,
+  /// `ReadResetDeviceInformationChanged` and
+  /// `ReadResetInstallationDescriptionChanged` flags.
+  public enum Event: Sendable, Hashable {
+    /// The transport opened and the devices started claiming their
+    /// addresses. Sending is possible once a claim ends, 250 ms later.
+    case opened
+    /// A device moved to another address. Save ``Node/devices`` so the
+    /// device starts from it next time.
+    case addressChanged(device: Int)
+    /// A device's NAME or heartbeat interval changed, from a clash with an
+    /// identical device or another device's group function command.
+    case deviceInformationChanged(device: Int)
+    /// Another device changed the installation descriptions in
+    /// ``Node/configurationInformation`` with a group function command.
+    case installationDescriptionChanged
+  }
+
   /// How the node takes part in the bus.
   public nonisolated let mode: Mode
 
@@ -120,7 +140,10 @@ public actor Node {
   private let clock: NodeClock
   private let openTransport: @Sendable () async throws -> FrameSource
   private let sendFrame: @Sendable (CANFrame) async throws -> Void
-  private var subscribers: [Int: AsyncStream<Message>.Continuation] = [:]
+  private var subscribers:
+    [Int: (continuation: AsyncStream<Message>.Continuation, includesSent: Bool)] =
+      [:]
+  private var eventSubscribers: [Int: AsyncStream<Event>.Continuation] = [:]
   private var nextSubscriberID = 0
   private var lastTransmission: Task<Void, any Error>?
   private var timer: Task<Void, Never>?
@@ -150,6 +173,9 @@ public actor Node {
   ///     management PGNs. The node lists them when asked.
   ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
   ///     PGN isn't in the catalog.
+  ///   - bufferCount: How many fast packets and transport protocol sessions
+  ///     can be reassembled at once. Upstream defaults to 5
+  ///     (`SetN2kCANMsgBufSize`).
   ///   - discoversDevices: Whether to keep a ``DeviceList`` of the devices
   ///     on the bus, asking them for their details as upstream's
   ///     `tN2kDeviceList` does.
@@ -168,6 +194,7 @@ public actor Node {
     transmitPGNs: [UInt32] = [],
     receivePGNs: [UInt32] = [],
     handlesOnlyKnownMessages: Bool = false,
+    bufferCount: Int = 5,
     discoversDevices: Bool = false,
     heartbeatInterval: Duration? = .seconds(60),
     clock: some Clock<Duration> = ContinuousClock()
@@ -181,8 +208,8 @@ public actor Node {
           heartbeatInterval: heartbeatInterval)
       ],
       configurationInformation: configurationInformation, catalog: catalog,
-      handlesOnlyKnownMessages: handlesOnlyKnownMessages, discoversDevices: discoversDevices,
-      clock: clock)
+      handlesOnlyKnownMessages: handlesOnlyKnownMessages, bufferCount: bufferCount,
+      discoversDevices: discoversDevices, clock: clock)
   }
 
   /// Creates a node hosting several devices.
@@ -197,6 +224,9 @@ public actor Node {
   ///   - catalog: Which PGNs are sent and received as fast packets.
   ///   - handlesOnlyKnownMessages: Whether to drop received messages whose
   ///     PGN isn't in the catalog.
+  ///   - bufferCount: How many fast packets and transport protocol sessions
+  ///     can be reassembled at once. Upstream defaults to 5
+  ///     (`SetN2kCANMsgBufSize`).
   ///   - discoversDevices: Whether to keep a ``DeviceList`` of the devices
   ///     on the bus. The first device asks them for their details.
   ///   - clock: The clock that times the open sequence and address claims.
@@ -207,13 +237,14 @@ public actor Node {
     configurationInformation: ConfigurationInformation? = .default,
     catalog: PGNCatalog = PGNCatalog(),
     handlesOnlyKnownMessages: Bool = false,
+    bufferCount: Int = 5,
     discoversDevices: Bool = false,
     clock: some Clock<Duration> = ContinuousClock()
   ) {
     self.mode = mode
     engine = NodeEngine(
       mode: mode, devices: devices, catalog: catalog,
-      handlesOnlyKnownMessages: handlesOnlyKnownMessages,
+      handlesOnlyKnownMessages: handlesOnlyKnownMessages, bufferCount: bufferCount,
       configurationInformation: configurationInformation)
     if discoversDevices { engine.deviceList = DeviceList() }
     self.clock = NodeClock(clock)
@@ -286,15 +317,45 @@ public actor Node {
   ///
   /// A message's ``Message/timestamp`` is the time its first frame arrived,
   /// in milliseconds since the node was created.
-  public func messages() -> AsyncStream<Message> {
+  ///
+  /// - Parameter includingSent: Whether to include the messages the node's
+  ///   devices send, as upstream forwards its own messages to its forward
+  ///   stream. A gateway logging all traffic wants them.
+  public func messages(includingSent: Bool = false) -> AsyncStream<Message> {
     let (stream, continuation) = AsyncStream.makeStream(of: Message.self)
     let id = nextSubscriberID
     nextSubscriberID += 1
-    subscribers[id] = continuation
+    subscribers[id] = (continuation, includingSent)
     continuation.onTermination = { [weak self] _ in
       Task { await self?.removeSubscriber(id) }
     }
     return stream
+  }
+
+  /// Returns a sequence of the node's events from now on: when it opens,
+  /// and when a device's address, NAME, heartbeat or the installation
+  /// descriptions change.
+  ///
+  /// Each call returns a new sequence, which finishes when ``run()``
+  /// returns.
+  public func events() -> AsyncStream<Event> {
+    let (stream, continuation) = AsyncStream.makeStream(of: Event.self)
+    let id = nextSubscriberID
+    nextSubscriberID += 1
+    eventSubscribers[id] = continuation
+    continuation.onTermination = { [weak self] _ in
+      Task { await self?.removeSubscriber(id) }
+    }
+    return stream
+  }
+
+  /// Whether the node is open: its transport is open and its devices have
+  /// started claiming their addresses.
+  public var isOpen: Bool { engine.isOpen }
+
+  /// Whether a device lists a PGN as one it transmits (`IsTxPGN`).
+  public func isTransmitted(_ pgn: UInt32, by device: Int = 0) -> Bool {
+    engine.devices.indices.contains(device) && engine.isTransmitted(pgn, by: device)
   }
 
   /// Sends a message from one of the node's devices.
@@ -322,6 +383,7 @@ public actor Node {
     transmit(engine.poll(at: now))
     // A transport protocol send sets a deadline for its next packet.
     defer { scheduleTimer() }
+    defer { deliverEngineOutput() }
     let frames = try engine.send(message, from: device, at: now)
     try await enqueue(frames).value
   }
@@ -366,10 +428,25 @@ public actor Node {
     let (frames, message, deliveredAfter) = engine.receive(frame, at: clock.now())
     transmit(Array(frames[..<deliveredAfter]))
     if let message {
-      for subscriber in subscribers.values { subscriber.yield(message) }
+      for subscriber in subscribers.values { subscriber.continuation.yield(message) }
     }
     transmit(Array(frames[deliveredAfter...]))
+    deliverEngineOutput()
     scheduleTimer()
+  }
+
+  /// Passes on the engine's events and the messages it sent.
+  private func deliverEngineOutput() {
+    for event in engine.events {
+      for subscriber in eventSubscribers.values { subscriber.yield(event) }
+    }
+    engine.events = []
+    for message in engine.sentMessages {
+      for subscriber in subscribers.values where subscriber.includesSent {
+        subscriber.continuation.yield(message)
+      }
+    }
+    engine.sentMessages = []
   }
 
   private func stop() {
@@ -378,12 +455,16 @@ public actor Node {
     timer?.cancel()
     timer = nil
     timerDeadline = nil
-    for subscriber in subscribers.values { subscriber.finish() }
+    deliverEngineOutput()
+    for subscriber in subscribers.values { subscriber.continuation.finish() }
     subscribers = [:]
+    for subscriber in eventSubscribers.values { subscriber.finish() }
+    eventSubscribers = [:]
   }
 
   private func removeSubscriber(_ id: Int) {
     subscribers[id] = nil
+    eventSubscribers[id] = nil
   }
 
   /// Makes sure a timer fires at the engine's next deadline.
@@ -405,7 +486,166 @@ public actor Node {
   private func timerFired() {
     timerDeadline = nil
     transmit(engine.poll(at: clock.now()))
+    deliverEngineOutput()
     scheduleTimer()
+  }
+
+  // MARK: - Network management on demand
+
+  /// Runs an engine operation at the current time and sends its frames.
+  private func perform(
+    _ operation: (inout NodeEngine, UInt64) throws(NodeError) -> [CANFrame]
+  ) async throws {
+    let now = clock.now()
+    transmit(engine.poll(at: now))
+    defer {
+      deliverEngineOutput()
+      scheduleTimer()
+    }
+    let frames = try operation(&engine, now)
+    try await enqueue(frames).value
+  }
+
+  private func checkDevice(_ device: Int) throws(NodeError) {
+    guard engine.devices.indices.contains(device) else { throw .noSuchDevice(device) }
+  }
+
+  /// Sends a device's address claim, to every device or to one.
+  ///
+  /// Ports `SendIsoAddressClaim`.
+  public func sendAddressClaim(
+    from device: Int = 0, to destination: UInt8 = Message.broadcastAddress
+  ) async throws {
+    try await perform { engine, now throws(NodeError) in
+      try engine.sendAddressClaim(from: device, to: destination, at: now)
+    }
+  }
+
+  /// Sends a device's product information. If the device can't send it now,
+  /// it tries again shortly, broadcast.
+  ///
+  /// Ports `SendProductInformation`.
+  public func sendProductInformation(
+    from device: Int = 0, to destination: UInt8 = Message.broadcastAddress,
+    transportProtocol: Bool = false
+  ) async throws {
+    try checkDevice(device)
+    try await perform { engine, now in
+      engine.sendProductInformation(
+        from: device, to: destination, transportProtocol: transportProtocol, at: now)
+    }
+  }
+
+  /// Sends the configuration information from a device. If the device
+  /// can't send it now, it tries again shortly, broadcast.
+  ///
+  /// Ports `SendConfigurationInformation`.
+  public func sendConfigurationInformation(
+    from device: Int = 0, to destination: UInt8 = Message.broadcastAddress,
+    transportProtocol: Bool = false
+  ) async throws {
+    try checkDevice(device)
+    try await perform { engine, now in
+      engine.sendConfigurationInformation(
+        from: device, to: destination, transportProtocol: transportProtocol, at: now)
+    }
+  }
+
+  /// Sends one of a device's PGN lists.
+  ///
+  /// Ports `SendTxPGNList` and `SendRxPGNList`.
+  public func sendPGNList(
+    _ kind: PGNList.Kind, from device: Int = 0, to destination: UInt8 = Message.broadcastAddress,
+    transportProtocol: Bool = false
+  ) async throws {
+    try await perform { engine, now throws(NodeError) in
+      try engine.sendPGNList(
+        kind, from: device, to: destination, transportProtocol: transportProtocol, at: now)
+    }
+  }
+
+  /// Sends a heartbeat from a device now, outside its schedule, with no
+  /// sequence number.
+  ///
+  /// Ports `SendHeartbeat`.
+  public func sendHeartbeat(from device: Int = 0) async throws {
+    try await perform { engine, now throws(NodeError) in
+      try engine.sendHeartbeat(from: device, at: now)
+    }
+  }
+
+  /// Claims every device's address again.
+  ///
+  /// Ports `Restart`.
+  public func restartAddressClaim() async throws {
+    try await perform { engine, now in engine.restartAddressClaim(at: now) }
+  }
+
+  // MARK: - Settings at run time
+
+  /// Changes how often a device sends its heartbeat, or turns it off.
+  ///
+  /// Ports `SetHeartbeatIntervalAndOffset`.
+  ///
+  /// - Parameters:
+  ///   - interval: The interval, kept between 1 and 655.32 seconds, or `nil`
+  ///     to stop sending heartbeats.
+  ///   - offset: How long after the node opened the first heartbeat was
+  ///     due, which later ones keep in step with, or `nil` to keep the
+  ///     current offset (10 seconds by default). Only takes effect once the
+  ///     node is open.
+  ///   - device: The index of the device, or `nil` for every device.
+  public func setHeartbeatInterval(
+    _ interval: Duration?, offset: Duration? = nil, for device: Int? = nil
+  ) throws {
+    if let device { try checkDevice(device) }
+    let now = clock.now()
+    for index in device.map({ [$0] }) ?? Array(engine.devices.indices) {
+      engine.setHeartbeat(
+        of: index, interval: interval.map(NodeClock.milliseconds),
+        offset: offset.map(NodeClock.milliseconds), at: now)
+    }
+    deliverEngineOutput()
+    scheduleTimer()
+  }
+
+  /// Changes a device's device and system instances, and announces its new
+  /// NAME with an address claim.
+  ///
+  /// Ports `SetDeviceInformationInstances`.
+  ///
+  /// - Parameters:
+  ///   - deviceInstance: The new device instance, or `nil` to keep it.
+  ///   - systemInstance: The new system instance (4 bits), or `nil` to keep
+  ///     it.
+  ///   - device: The index of the node's device.
+  public func setInstances(
+    device deviceInstance: UInt8? = nil, system systemInstance: UInt8? = nil, for device: Int = 0
+  ) throws {
+    try checkDevice(device)
+    engine.setInstances(
+      of: device, lower: deviceInstance.map { $0 & 0x07 }, upper: deviceInstance.map { $0 >> 3 },
+      system: systemInstance.map { $0 & 0x0f }, at: clock.now())
+    deliverEngineOutput()
+    scheduleTimer()
+  }
+
+  /// Changes the product information a device sends when asked.
+  ///
+  /// Ports `SetProductInformation`.
+  public func setProductInformation(_ information: ProductInformation, for device: Int = 0)
+    throws
+  {
+    try checkDevice(device)
+    engine.devices[device].productInformation = information
+  }
+
+  /// Changes the configuration information the node sends when asked, or
+  /// refuses requests for it with `nil`.
+  ///
+  /// Ports `SetConfigurationInformation`.
+  public func setConfigurationInformation(_ information: ConfigurationInformation?) {
+    engine.configurationInformation = information
   }
 
   // MARK: - Transmitting
