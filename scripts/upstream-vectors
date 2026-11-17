@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Print the payload bytes that upstream's encoders produce for the cases in
+# Tools/UpstreamVectors/vectors.cpp, for use as expected values in Swift tests.
+#
+#   scripts/upstream-vectors            # every case
+#   scripts/upstream-vectors 129029     # cases whose name contains "129029"
+#
+# Upstream sources are fetched once, at the commit recorded last in
+# docs/upstream-sync.md, into .upstream/<commit>/ (git-ignored). The harness is
+# compiled and run in the pinned build container, with the repository mounted
+# read-only.
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+image="nmea2000-swift-linux"
+
+commit="$(sed -nE 's/^\| [0-9-]+ \| `([0-9a-f]+)`.*/\1/p' "$repo/docs/upstream-sync.md" | tail -n 1)"
+if [[ -z "$commit" ]]; then
+  echo "error: no upstream commit found in docs/upstream-sync.md" >&2
+  exit 1
+fi
+
+sources=(
+  N2kDef.h N2kMsg.h N2kMsg.cpp N2kMessages.h N2kMessages.cpp N2kStream.h N2kStream.cpp
+  N2kTimer.h N2kTimer.cpp N2kTypes.h NMEA2000StdTypes.h
+)
+upstream="$repo/.upstream/$commit"
+if [[ ! -f "$upstream/.complete" ]]; then
+  mkdir -p "$upstream"
+  for file in "${sources[@]}"; do
+    curl -fsSL "https://raw.githubusercontent.com/ttlappalainen/NMEA2000/$commit/src/$file" \
+      -o "$upstream/$file"
+  done
+  touch "$upstream/.complete"
+fi
+
+docker build --quiet --tag "$image" "$repo/docker" >/dev/null
+
+exec docker run --rm \
+  --volume "$repo:/src:ro" \
+  --workdir /src \
+  "$image" bash -c '
+    set -euo pipefail
+    upstream=".upstream/$1"
+    shift
+    clang++ -std=c++17 -w -I"$upstream" -o /tmp/vectors \
+      Tools/UpstreamVectors/vectors.cpp \
+      "$upstream/N2kMsg.cpp" "$upstream/N2kMessages.cpp" \
+      "$upstream/N2kStream.cpp" "$upstream/N2kTimer.cpp"
+    /tmp/vectors "$@"
+  ' _ "$commit" "$@"

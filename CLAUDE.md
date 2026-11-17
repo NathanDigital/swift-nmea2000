@@ -26,6 +26,7 @@ scripts/linux-swift test
 scripts/linux-swift test --filter <SuiteOrTestName>     # run a single suite or test
 scripts/linux-swift format lint -s -r Sources Tests     # strict: warnings fail, as in CI
 scripts/linux-swift format -i -r Sources Tests          # format in place (no backup; commit first)
+scripts/upstream-vectors [filter]                       # bytes upstream's encoders produce (see Testing)
 ```
 
 `swift-format` ships with the toolchain. Formatting rules live in `.swift-format` at the repo root. Generate a starting config with `scripts/linux-swift format dump-configuration > .swift-format`.
@@ -74,3 +75,4 @@ Goal: every PGN's **wire format** (field order, widths, resolutions, signedness,
 - Use Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest.
 - **Wire-format parity with upstream is the main correctness bar.** For each ported PGN, add tests that encode known values and compare the bytes to what upstream produces, plus round-trip decode tests. Port the vectors from upstream `test/*.cpp` where they exist.
 - Use parameterized `@Test(arguments:)` for tables of PGN vectors rather than one test per case.
+- **Expected bytes come from upstream, not from hand calculation.** Add a case to `Tools/UpstreamVectors/vectors.cpp` that calls upstream's `SetN2kPGN…` (or a `tN2kMsg::Add…` helper), run `scripts/upstream-vectors <filter>`, and paste the printed bytes into the Swift test. The script fetches upstream at the commit in `docs/upstream-sync.md` into `.upstream/` (git-ignored) and compiles the harness with `clang++` in the same pinned container, with the repo mounted read-only. Don't run `docker` directly for this; use the script.

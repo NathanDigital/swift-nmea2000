@@ -14,8 +14,9 @@ Each PGN is one struct conforming to `ParameterGroup`, in its own file under `So
    - For `tN2k…` enum parameters, use the Swift type listed in [types.md](types.md). Unknown raw values are preserved automatically.
 6. Translate the `Set` body into `encode(to:)` line by line, using the mapping in [field-codec.md](field-codec.md). Write reserved bits and bytes exactly as upstream does.
 7. Translate the `Parse` body into `init(from:)` the same way. Leave out the PGN check, because `ParameterGroup.init(_:)` does it. Only throw where upstream's `Parse` returns `false` for a reason other than a PGN mismatch.
-8. Add `Tests/NMEA2000Tests/PGNs/PGN<number><Name>Tests.swift` with these tests:
-   - a parameterized table of values and the bytes upstream produces for them, used for both encoding and decoding, and including an all-not-available row
+8. Add cases for the PGN to `Tools/UpstreamVectors/vectors.cpp`, named `PGN<number> <description>`. Include typical values, an all-not-available case, and any edge cases the encoder handles specially. Run `scripts/upstream-vectors PGN<number>` to print the bytes upstream produces.
+9. Add `Tests/NMEA2000Tests/PGNs/PGN<number><Name>Tests.swift` with these tests:
+   - a parameterized table of values and the bytes printed in step 8, used for both encoding and decoding, and including the all-not-available case
    - any vectors from upstream `test/N2kMessagesTest.cpp` for this PGN
    - a short payload decoding its missing fields as `nil`
    - a message with a different PGN being rejected

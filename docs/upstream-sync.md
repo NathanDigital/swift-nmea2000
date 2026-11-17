@@ -11,3 +11,5 @@ To port newer upstream changes, review the diff since the last row (mainly `src/
 ```sh
 gh api repos/ttlappalainen/NMEA2000/compare/8d101b33e869...master --jq '.files[].filename'
 ```
+
+`scripts/upstream-vectors` reads the commit from the last row of the table above, so adding a row also moves the test-vector harness to that commit. Re-run it after a sync and check that the Swift tests still match.
