@@ -15,11 +15,11 @@ Each PGN is one struct conforming to `ParameterGroup`, in its own file under `So
 6. Translate the `Set` body into `encode(to:)` line by line, using the mapping in [field-codec.md](field-codec.md). Write reserved bits and bytes exactly as upstream does.
 7. Translate the `Parse` body into `init(from:)` the same way. Leave out the PGN check, because `ParameterGroup.init(_:)` does it. Only throw where upstream's `Parse` returns `false` for a reason other than a PGN mismatch.
 8. Add cases for the PGN to `Tools/UpstreamVectors/vectors.cpp`, named `PGN<number> <description>`. Include typical values, an all-not-available case, and any edge cases the encoder handles specially. Run `scripts/upstream-vectors PGN<number>` to print the bytes upstream produces.
-9. Add `Tests/NMEA2000Tests/PGNs/PGN<number><Name>Tests.swift` with these tests:
-   - a parameterized table of values and the bytes printed in step 8, used for both encoding and decoding, and including the all-not-available case
-   - any vectors from upstream `test/N2kMessagesTest.cpp` for this PGN
-   - a short payload decoding its missing fields as `nil`
-   - a message with a different PGN being rejected
+9. Add `Tests/NMEA2000Tests/PGNs/PGN<number><Name>Tests.swift` with a `vectors` table of values and the bytes from step 8, and these tests (helpers in `TestSupport.swift`):
+   - `expectEncodes(_:as:priority:)` for each vector, which checks the bytes and upstream's priority
+   - `expectDecodes(_:from:)` for each vector, which decodes upstream's bytes and checks that they re-encode identically
+   - `expectTolerantDecoding(_:from:)`, which checks that every prefix of a payload decodes and that another PGN is rejected
+   - a test for each upstream quirk the type documents
 
 ## Upstream patterns and their Swift equivalents
 
