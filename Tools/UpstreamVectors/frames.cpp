@@ -10,8 +10,10 @@
 // tests compare their frame layer against this output.
 //
 // Run it with scripts/upstream-vectors. Give each case a name that starts with
-// "Frames" so it can be filtered.
+// "Frames" or "Node" so it can be filtered. Node cases print each event's time
+// in milliseconds since the case started.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -31,6 +33,20 @@ namespace {
 
 std::vector<std::string> events;
 
+// Node cases stamp events with the time since the case started.
+bool timed = false;
+uint32_t origin = 0;
+
+void record(const std::string &event) {
+  if (!timed) {
+    events.push_back(event);
+    return;
+  }
+  char stamp[16];
+  snprintf(stamp, sizeof stamp, "t=%u ", unsigned(now - origin));
+  events.push_back(stamp + event);
+}
+
 std::string bytes(const unsigned char *buf, int len) {
   std::string s = "[";
   char hex[8];
@@ -49,16 +65,21 @@ struct Frame {
 class TestNode : public tNMEA2000 {
  public:
   std::deque<Frame> incoming;
+  int failedOpens = 0;  // How many times CANOpen fails before it succeeds.
 
  protected:
   bool CANSendFrame(unsigned long id, unsigned char len, const unsigned char *buf,
                     bool) override {
     char line[32];
     snprintf(line, sizeof line, "tx id=0x%08lx data=", id);
-    events.push_back(line + bytes(buf, len));
+    record(line + bytes(buf, len));
     return true;
   }
-  bool CANOpen() override { return true; }
+  bool CANOpen() override {
+    if (failedOpens == 0) return true;
+    failedOpens--;
+    return false;
+  }
   bool CANGetFrame(unsigned long &id, unsigned char &len, unsigned char *buf) override {
     if (incoming.empty()) return false;
     Frame f = incoming.front();
@@ -74,7 +95,7 @@ void handler(const tN2kMsg &m) {
   char line[96];
   snprintf(line, sizeof line, "rx pgn=%lu priority=%u source=%u destination=%u data=", m.PGN,
            m.Priority, m.Source, m.Destination);
-  events.push_back(line + bytes(m.Data, m.DataLen));
+  record(line + bytes(m.Data, m.DataLen));
 }
 
 // Opens the node and lets its address claim finish, then forgets the frames
@@ -110,12 +131,43 @@ std::vector<unsigned char> fp(unsigned char counter, std::vector<unsigned char> 
   return rest;
 }
 
+// Starts a node case: sets the mode and address, and polls once at t=0.
+void start(TestNode &node, tNMEA2000::tN2kMode mode, uint8_t source = 23) {
+  node.SetMode(mode, source);
+  node.SetMsgHandler(handler);
+  timed = true;
+  origin = now;
+  node.ParseMessages();
+}
+
+// Polls the node every 10 ms until t milliseconds into the case, as a main
+// loop calling ParseMessages would.
+void until(TestNode &node, uint32_t t) {
+  while (now - origin < t) {
+    now += std::min<uint32_t>(10, t - (now - origin));
+    node.ParseMessages();
+  }
+}
+
+// The NAME upstream's node claims with by default: unique number 1,
+// manufacturer 2046, function 130, class 25, industry group 4.
+const uint64_t ownName = 0xc0328200ffc00001ULL;
+
+// Receives an ISO address claim from a source, with the first count bytes of
+// a NAME.
+void claim(TestNode &node, uint8_t source, uint64_t name, int count = 8) {
+  std::vector<unsigned char> data;
+  for (int i = 0; i < count; i++) data.push_back(uint8_t(name >> (8 * i)));
+  receive(node, 0x18eeff00 | source, data);
+}
+
 struct Case {
   const char *name;
   std::function<void(TestNode &)> run;
 };
 
 #define SENDS(name, ...) {"Frames send " name, [](TestNode &n) { open(n, tNMEA2000::N2km_NodeOnly); __VA_ARGS__; }}
+#define NODE(name, ...) {"Node " name, [](TestNode &n) { __VA_ARGS__; }}
 #define RECEIVES(name, ...) {"Frames receive " name, [](TestNode &n) { open(n, tNMEA2000::N2km_ListenOnly); __VA_ARGS__; }}
 
 const std::vector<Case> cases = {
@@ -248,6 +300,110 @@ const std::vector<Case> cases = {
     }),
     RECEIVES("bits above the 29-bit identifier", receive(n, 0x89f80117, {1, 2, 3, 4, 5, 6, 7, 8})),
     RECEIVES("PDU2 with data page", receive(n, 0x0bf80117, {1, 2, 3, 4, 5, 6, 7, 8})),
+
+    // Opening and claiming an address.
+    NODE("open", start(n, tNMEA2000::N2km_NodeOnly); until(n, 600)),
+    NODE("open retries after a failure", {
+      n.failedOpens = 1;
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 1400);
+    }),
+    NODE("discards frames while opening", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 100);
+      receive(n, 0x09f80117, {1, 2, 3, 4, 5, 6, 7, 8});
+      until(n, 200);
+      receive(n, 0x09f80117, {1, 2, 3, 4, 5, 6, 7, 8});
+    }),
+    NODE("sends only after its address claim", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 190);
+      send(n, 129025, 8, 2);
+      until(n, 449);
+      send(n, 129025, 8, 2);
+      until(n, 450);
+      send(n, 129025, 8, 2);
+    }),
+    NODE("keeps its address against a higher NAME", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      claim(n, 23, ownName + 1);
+      send(n, 129025, 8, 2);
+    }),
+    NODE("moves on against a lower NAME", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      claim(n, 23, ownName - 1);
+      send(n, 129025, 8, 2);
+      until(n, 749);
+      send(n, 129025, 8, 2);
+      until(n, 750);
+      send(n, 129025, 8, 2);
+    }),
+    NODE("changes device instance against its own NAME while claiming", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 300);
+      claim(n, 23, ownName);
+      until(n, 549);
+      send(n, 129025, 8, 2);
+      until(n, 550);
+      send(n, 129025, 8, 2);
+    }),
+    NODE("moves on against its own NAME after claiming", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      claim(n, 23, ownName);
+    }),
+    NODE("ignores claims for other addresses", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      claim(n, 24, ownName - 1);
+      claim(n, 254, ownName - 1);
+    }),
+    NODE("reclaims against a short claim", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      claim(n, 23, ownName - 1, 7);
+    }),
+    NODE("wraps from address 251 to 0", {
+      start(n, tNMEA2000::N2km_NodeOnly, 251);
+      until(n, 500);
+      claim(n, 251, ownName - 1);
+    }),
+    NODE("gives up when every address is taken", {
+      start(n, tNMEA2000::N2km_NodeOnly);
+      until(n, 500);
+      // 250 conflicts move the node from 23 round to 21; print the last two.
+      for (int i = 0; i < 250; i++) claim(n, n.GetN2kSource(), ownName - 1);
+      events.clear();
+      claim(n, 21, ownName - 1);
+      claim(n, 22, ownName - 1);
+      until(n, 800);
+      send(n, 129025, 8, 2);
+    }),
+    NODE("starts from address 14 without one", {
+      start(n, tNMEA2000::N2km_NodeOnly, 254);
+      until(n, 300);
+    }),
+    NODE("listen and node mode claims", start(n, tNMEA2000::N2km_ListenAndNode); until(n, 300)),
+    NODE("listen only mode stays quiet", {
+      start(n, tNMEA2000::N2km_ListenOnly);
+      until(n, 500);
+      claim(n, 23, ownName - 1);
+      send(n, 129025, 8, 2);
+    }),
+    NODE("send only mode doesn't claim", {
+      start(n, tNMEA2000::N2km_SendOnly);
+      until(n, 200);
+      send(n, 129025, 8, 2);
+      claim(n, 23, ownName - 1);
+    }),
+    NODE("listen and send mode doesn't claim", {
+      start(n, tNMEA2000::N2km_ListenAndSend);
+      until(n, 200);
+      send(n, 129025, 8, 2);
+      claim(n, 23, ownName - 1);
+    }),
 };
 
 }  // namespace
@@ -261,6 +417,7 @@ int main(int argc, char **argv) {
     // counts a backwards step as a 32-bit rollover.
     TestNode node;
     events.clear();
+    timed = false;
     c.run(node);
     printf("%s:\n", c.name);
     for (const std::string &e : events) printf("  %s\n", e.c_str());

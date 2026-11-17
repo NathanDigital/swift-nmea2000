@@ -51,7 +51,8 @@ exec docker run --rm \
     clang++ -std=c++17 -w -I"$upstream" -o /tmp/vectors \
       Tools/UpstreamVectors/vectors.cpp \
       "$upstream/N2kMsg.cpp" "$upstream/N2kMessages.cpp" \
-      "$upstream/N2kStream.cpp" "$upstream/N2kTimer.cpp"
+      "$upstream/N2kStream.cpp" "$upstream/N2kTimer.cpp" "$upstream/NMEA2000.cpp" \
+      "$upstream/N2kGroupFunction.cpp" "$upstream/N2kGroupFunctionDefaultHandlers.cpp"
     # Without the Linux macros, upstream reads time from millis(), which the
     # frame harness defines so its cases control the clock.
     clang++ -std=c++17 -w -U__linux__ -U__linux -Ulinux -I"$upstream" -o /tmp/frames \

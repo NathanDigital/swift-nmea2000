@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "N2kMessages.h"
+#include "NMEA2000.h"
 
 namespace {
 
@@ -76,6 +77,16 @@ const std::vector<Case> cases = {
         m.AddVarStr("\xc3\xa9\xc3\xa9\xc3\xa9", 2, tN2kMsg::vss_SupportUnicode,
                     tN2kMsg::vsl_UseCharacters)),
 
+  {"PGN60928 typical",
+   [](tN2kMsg &m) { SetN2kPGN60928(m, 1, 2046, 130, 25); }},
+  {"PGN60928 every field",
+   [](tN2kMsg &m) { SetN2kPGN60928(m, 0x12345, 0x2a5, 0x91, 0x5a, 0xb3, 0x0c, 0x5); }},
+  {"PGN60928 fields at their limits",
+   [](tN2kMsg &m) { SetN2kPGN60928(m, 0xffffffff, 0xffff, 0xff, 0xff, 0xff, 0xff, 0xff); }},
+  {"PGN60928 zero",
+   [](tN2kMsg &m) { SetN2kPGN60928(m, 0, 0, 0, 0, 0, 0, 0); }},
+  {"PGN60928 NAME",
+   [](tN2kMsg &m) { SetN2kPGN60928(m, 0x0123456789abcdefULL); }},
   {"PGN129025 position",
    [](tN2kMsg &m) { SetN2kPGN129025(m, 60.1234567, -151.2093); }},
   {"PGN129025 not available",
