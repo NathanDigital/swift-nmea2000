@@ -23,7 +23,9 @@
 #include <vector>
 
 #include "ActisenseReader.h"
+#include "N2kCZone.h"
 #include "N2kDeviceList.h"
+#include "N2kMaretron.h"
 #include "Seasmart.h"
 #include "N2kMessages.h"
 #include "NMEA2000.h"
@@ -436,6 +438,36 @@ void seasmartRead(const char *sentence) {
   char line[96];
   snprintf(line, sizeof line, "message pgn=%lu source=%u time=%u data=", m.PGN, m.Source, timestamp);
   events.push_back(line + bytes(m.Data, m.DataLen));
+}
+
+// Records a message built by an upstream encoder.
+void encoded(const tN2kMsg &m) {
+  char line[48];
+  snprintf(line, sizeof line, "pgn=%lu priority=%u data=", m.PGN, m.Priority);
+  events.push_back(line + bytes(m.Data, m.DataLen));
+}
+
+// Records what upstream's CZone parsers make of a payload.
+void czone(unsigned long pgn, std::vector<unsigned char> data) {
+  tN2kMsg m;
+  m.SetPGN(pgn);
+  for (unsigned char b : data) m.AddByte(b);
+  tN2kCZoneSwitchStatus status;
+  bool ok = pgn == 65284 ? ParseN2kPGN65284CZoneSwitchStatus(m, status)
+                         : ParseN2kPGN65301CZoneSwitchStatus(m, status);
+  if (!ok) {
+    events.push_back("rejected");
+    return;
+  }
+  char line[160];
+  snprintf(line, sizeof line,
+           "bank=%u field=%u bits=%u valid=%d reserved=[%u, %u, %u] mask=%u on=%d%d%d%d%d%d%d%d raw=",
+           status.BankInstance, status.FieldIdentifier, status.SwitchBits, status.SwitchBitsValid,
+           status.Reserved[0], status.Reserved[1], status.Reserved[2], N2kCZoneSwitchMask(status),
+           N2kCZoneIsSwitchOn(status, 0), N2kCZoneIsSwitchOn(status, 1), N2kCZoneIsSwitchOn(status, 2),
+           N2kCZoneIsSwitchOn(status, 3), N2kCZoneIsSwitchOn(status, 4), N2kCZoneIsSwitchOn(status, 5),
+           N2kCZoneIsSwitchOn(status, 6), N2kCZoneIsSwitchOn(status, 7));
+  events.push_back(line + bytes(status.RawData, status.RawLen));
 }
 
 // The node a case runs, for the ISO request handler.
@@ -1448,6 +1480,45 @@ const std::vector<Case> cases = {
        for (char c : body) checksum ^= c;
        snprintf(tail, sizeof tail, "*%02X", checksum);
        seasmartRead(("$" + body + tail).c_str());
+     }},
+    // Maretron proprietary PGNs.
+    {"Maretron 130823", [](TestNode &) {
+       tN2kMsg a, b, c;
+       SetN2kMaretronPGN130823(a, 1, 2, N2kts_ExhaustGasTemperature, 873.15, 300.05);
+       SetN2kMaretronPGN130823(b, 0xff, 0xfe, (tN2kTempSource)0xab, N2kDoubleNA, 6553.4);
+       SetN2kMaretronPGN130823(c, 0, 0, N2kts_SeaTemperature, 6553.5, -1);
+       encoded(a);
+       encoded(b);
+       encoded(c);
+     }},
+    {"Maretron 65286", [](TestNode &) {
+       tN2kMsg a, b, c;
+       SetN2kMaretronPGN65286(a, 3, 1, N2kft_Fuel, 12.3);
+       SetN2kMaretronPGN65286(b, 0xff, 0xff, (tN2kFluidType)0x0e, -838860.7);
+       SetN2kMaretronPGN65286(c, 0, 0, N2kft_Water, N2kDoubleNA);
+       encoded(a);
+       encoded(b);
+       encoded(c);
+     }},
+    {"Maretron 65287", [](TestNode &) {
+       tN2kMsg a, b;
+       SetN2kMaretronPGN65287(a, 4, 2, N2kft_Fuel, 1234567);
+       SetN2kMaretronPGN65287(b, 0xff, 0xff, N2kft_Oil, N2kDoubleNA);
+       encoded(a);
+       encoded(b);
+     }},
+    // CZone proprietary switch status.
+    {"CZone 65284", [](TestNode &) {
+       czone(65284, {0x27, 0x99, 0x05, 0x1e, 0x2b, 0x01, 0x02, 0x03});
+       czone(65284, {0x27, 0x99, 0x05, 0x1d, 0xff});
+       czone(65284, {0x27, 0x99, 0x05, 0x1e, 0x01, 0xaa});
+       czone(65284, {0x27, 0x99, 0x05, 0x1e});
+       czone(65284, {0x28, 0x99, 0x05, 0x1e, 0x01});
+     }},
+    {"CZone 65301", [](TestNode &) {
+       czone(65301, {0x27, 0x99, 0x07, 0x1e, 0x3f, 0x00, 0x00, 0x00, 0x11, 0x22});
+       czone(65301, {0x27, 0x99, 0x07, 0x1d, 0x3f});
+       czone(65301, {0x27, 0x99, 0x07, 0x3e, 0x3f});
      }},
     NODE("starts from address 14 without one", {
       start(n, tNMEA2000::N2km_NodeOnly, 254);

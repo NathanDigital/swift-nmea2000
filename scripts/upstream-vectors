@@ -29,7 +29,7 @@ sources=(
   N2kGroupFunction.h N2kGroupFunction.cpp
   N2kGroupFunctionDefaultHandlers.h N2kGroupFunctionDefaultHandlers.cpp
   N2kDeviceList.h N2kDeviceList.cpp ActisenseReader.h ActisenseReader.cpp
-  Seasmart.h Seasmart.cpp
+  Seasmart.h Seasmart.cpp N2kMaretron.h N2kMaretron.cpp N2kCZone.h N2kCZone.cpp
 )
 upstream="$repo/.upstream/$commit"
 mkdir -p "$upstream"
@@ -63,7 +63,7 @@ exec docker run --rm --init \
       "$upstream/N2kTimer.cpp" "$upstream/N2kGroupFunction.cpp" \
       "$upstream/N2kGroupFunctionDefaultHandlers.cpp" "$upstream/N2kDeviceList.cpp" \
       "$upstream/N2kMessages.cpp" "$upstream/ActisenseReader.cpp" \
-      "$upstream/Seasmart.cpp"
+      "$upstream/Seasmart.cpp" "$upstream/N2kMaretron.cpp" "$upstream/N2kCZone.cpp"
     output="$(/tmp/vectors "$@"; /tmp/frames "$@")"
     if [[ -z "$output" ]]; then
       echo "no cases match" >&2
