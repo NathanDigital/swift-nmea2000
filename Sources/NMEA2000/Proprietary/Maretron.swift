@@ -12,15 +12,16 @@ let maretronHeader: UInt16 = 0x9889
 extension MessageReader {
   /// Reads and checks a Maretron header.
   mutating func readMaretronHeader(pgn: UInt32) throws(MessageDecodingError) {
-    guard readUInt16() == maretronHeader else {
-      throw .invalidPayload(pgn: pgn, reason: "not a Maretron message")
+    let header = readUInt16()
+    guard header == maretronHeader else {
+      throw .unexpectedProprietaryHeader(pgn: pgn, header: header, expected: maretronHeader)
     }
   }
 }
 
 /// PGN 130823, a high-range temperature from a Maretron TMP100.
 ///
-/// Decoding throws ``MessageDecodingError/invalidPayload(pgn:reason:)`` for a
+/// Decoding throws ``MessageDecodingError/unexpectedProprietaryHeader(pgn:header:expected:)`` for a
 /// message without Maretron's header, as upstream rejects it.
 ///
 /// Ports `SetN2kMaretronPGN130823` / `ParseN2kMaretronPGN130823`.
@@ -77,7 +78,7 @@ public struct MaretronTemperatureHighRange: ParameterGroup {
 
 /// PGN 65286, a fluid flow rate from a Maretron FFM100.
 ///
-/// Decoding throws ``MessageDecodingError/invalidPayload(pgn:reason:)`` for a
+/// Decoding throws ``MessageDecodingError/unexpectedProprietaryHeader(pgn:header:expected:)`` for a
 /// message without Maretron's header, as upstream rejects it.
 ///
 /// Ports `SetN2kMaretronPGN65286` / `ParseN2kMaretronPGN65286`.
@@ -127,7 +128,7 @@ public struct MaretronFluidFlowRate: ParameterGroup {
 
 /// PGN 65287, a trip volume from a Maretron FFM100.
 ///
-/// Decoding throws ``MessageDecodingError/invalidPayload(pgn:reason:)`` for a
+/// Decoding throws ``MessageDecodingError/unexpectedProprietaryHeader(pgn:header:expected:)`` for a
 /// message without Maretron's header, as upstream rejects it.
 ///
 /// Ports `SetN2kMaretronPGN65287` / `ParseN2kMaretronPGN65287`.

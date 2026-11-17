@@ -48,17 +48,22 @@ public struct CZoneSwitchStatus: Sendable, Codable, Hashable {
 
   /// Decodes a switch status message.
   ///
-  /// - Throws: ``MessageDecodingError/unexpectedPGN(expected:actual:)`` for
-  ///   another PGN, or ``MessageDecodingError/invalidPayload(pgn:reason:)``
-  ///   for a payload shorter than five bytes or without CZone's header, or a
-  ///   fast-packet message that isn't a switch summary.
+  /// - Throws: ``MessageDecodingError`` for another PGN, a payload shorter
+  ///   than five bytes, a payload without CZone's header, or a fast-packet
+  ///   message that isn't a switch summary.
   public init(_ message: Message) throws(MessageDecodingError) {
     guard message.pgn == Self.singleFramePGN || message.pgn == Self.fastPacketPGN else {
-      throw .unexpectedPGN(expected: Self.singleFramePGN, actual: message.pgn)
+      throw .unexpectedPGN(
+        actual: message.pgn, expected: [Self.singleFramePGN, Self.fastPacketPGN])
+    }
+    guard message.data.count >= 5 else {
+      throw .invalidLength(
+        pgn: message.pgn, count: message.data.count, allowed: 5...Message.maxDataCount)
     }
     var reader = MessageReader(message)
-    guard message.data.count >= 5, reader.readUInt16() == Self.header else {
-      throw .invalidPayload(pgn: message.pgn, reason: "not a CZone switch status")
+    let header = reader.readUInt16()
+    guard header == Self.header else {
+      throw .unexpectedProprietaryHeader(pgn: message.pgn, header: header, expected: Self.header)
     }
     rawData = Array(message.data.prefix(8))
     bankInstance = reader.readUInt8()
@@ -66,7 +71,7 @@ public struct CZoneSwitchStatus: Sendable, Codable, Hashable {
     switchBits = reader.readUInt8()
     reserved = (0..<3).map { _ in reader.remainingCount > 0 ? reader.readUInt8() : 0 }
     guard message.pgn == Self.singleFramePGN || isSwitchSummary else {
-      throw .invalidPayload(pgn: message.pgn, reason: "not a switch summary")
+      throw .unexpectedRecord(pgn: message.pgn, identifier: fieldIdentifier)
     }
   }
 

@@ -114,7 +114,7 @@ func expectTolerantDecoding<P: ParameterGroup>(
     }
   }
   #expect(
-    throws: MessageDecodingError.unexpectedPGN(expected: P.pgn, actual: P.pgn + 1),
+    throws: MessageDecodingError.unexpectedPGN(actual: P.pgn + 1, expected: [P.pgn]),
     sourceLocation: sourceLocation
   ) {
     _ = try P(Message(pgn: P.pgn + 1, data: bytes))

@@ -83,7 +83,10 @@ struct MaretronTests {
   }
 
   @Test func rejectsMessagesWithoutMaretronsHeader() {
-    #expect(throws: MessageDecodingError.self) {
+    #expect(
+      throws: MessageDecodingError.unexpectedProprietaryHeader(
+        pgn: 130823, header: 0x9989, expected: 0x9889)
+    ) {
       _ = try MaretronTemperatureHighRange(
         Message(pgn: 130823, data: [0x89, 0x99, 1, 2, 0, 0, 0, 0, 0]))
     }

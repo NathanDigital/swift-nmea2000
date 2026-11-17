@@ -43,7 +43,10 @@ struct ISORequestTests {
 
   @Test func rejectsOtherLengthsAsUpstreamDoes() {
     for count in [0, 1, 2, 9] {
-      #expect(throws: MessageDecodingError.self, "\(count) bytes") {
+      #expect(
+        throws: MessageDecodingError.invalidLength(pgn: 59904, count: count, allowed: 3...8),
+        "\(count) bytes"
+      ) {
         _ = try ISORequest(Message(pgn: 59904, data: Array(repeating: 0x14, count: count)))
       }
     }

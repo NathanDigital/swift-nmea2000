@@ -48,15 +48,21 @@ struct CZoneTests {
 
   @Test func rejectsWhatUpstreamRejects() {
     // upstream-vectors "CZone 65284" and "CZone 65301"
-    let cases: [(UInt32, [UInt8])] = [
-      (65284, [0x27, 0x99, 0x05, 0x1e]),
-      (65284, [0x28, 0x99, 0x05, 0x1e, 0x01]),
-      (65301, [0x27, 0x99, 0x07, 0x1d, 0x3f]),
-      (65301, [0x27, 0x99, 0x07, 0x3e, 0x3f]),
-      (65285, [0x27, 0x99, 0x05, 0x1e, 0x01]),
+    let cases: [(UInt32, [UInt8], MessageDecodingError)] = [
+      (65284, [0x27, 0x99, 0x05, 0x1e], .invalidLength(pgn: 65284, count: 4, allowed: 5...223)),
+      (
+        65284, [0x28, 0x99, 0x05, 0x1e, 0x01],
+        .unexpectedProprietaryHeader(pgn: 65284, header: 0x9928, expected: 0x9927)
+      ),
+      (65301, [0x27, 0x99, 0x07, 0x1d, 0x3f], .unexpectedRecord(pgn: 65301, identifier: 0x1d)),
+      (65301, [0x27, 0x99, 0x07, 0x3e, 0x3f], .unexpectedRecord(pgn: 65301, identifier: 0x3e)),
+      (
+        65285, [0x27, 0x99, 0x05, 0x1e, 0x01],
+        .unexpectedPGN(actual: 65285, expected: [65284, 65301])
+      ),
     ]
-    for (pgn, data) in cases {
-      #expect(throws: MessageDecodingError.self, "\(pgn) \(data)") {
+    for (pgn, data, error) in cases {
+      #expect(throws: error, "\(pgn) \(data)") {
         _ = try CZoneSwitchStatus(Message(pgn: pgn, data: data))
       }
     }

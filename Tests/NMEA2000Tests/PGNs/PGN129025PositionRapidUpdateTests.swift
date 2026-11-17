@@ -50,7 +50,7 @@ struct PositionRapidUpdateTests {
   }
 
   @Test func rejectsOtherPGN() {
-    #expect(throws: MessageDecodingError.unexpectedPGN(expected: 129025, actual: 129026)) {
+    #expect(throws: MessageDecodingError.unexpectedPGN(actual: 129026, expected: [129025])) {
       try PositionRapidUpdate(Message(pgn: 129026, data: [UInt8](repeating: 0, count: 8)))
     }
   }

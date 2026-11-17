@@ -22,11 +22,11 @@ public struct ISORequest: ParameterGroup {
     self.requestedPGN = requestedPGN
   }
 
-  /// - Throws: ``MessageDecodingError/invalidPayload(pgn:reason:)`` if the
-  ///   payload isn't 3 to 8 bytes long, as upstream requires.
+  /// - Throws: ``MessageDecodingError/invalidLength(pgn:count:allowed:)`` if
+  ///   the payload isn't 3 to 8 bytes long, as upstream requires.
   public init(decoding reader: inout MessageReader) throws(MessageDecodingError) {
     guard (3...8).contains(reader.remainingCount) else {
-      throw .invalidPayload(pgn: Self.pgn, reason: "an ISO request is 3 to 8 bytes long")
+      throw .invalidLength(pgn: Self.pgn, count: reader.remainingCount, allowed: 3...8)
     }
     requestedPGN = reader.readUInt24()
   }
