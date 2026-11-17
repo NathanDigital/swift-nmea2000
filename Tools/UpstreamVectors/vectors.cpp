@@ -261,6 +261,92 @@ const std::vector<Case> cases = {
      }
      AppendN2kPGN130074(m, 10, (char *)"Twenty-one characters", 60.2, 25.0);
    }},
+  {"PGN127233 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127233(m, 1, 0x12345678, ManualOnBoardMOBButtonActivation, 43200.5, PositionReportedByMOBEmitter, 19000, 43210.25, -33.8688, -151.2093, N2khr_magnetic, 2.5, 1.25, 230123456, Low);
+   }},
+  {"PGN127233 unknown values",
+   [](tN2kMsg &m) {
+     SetN2kPGN127233(m, 2, 7, (tN2kMOBStatus)5, 0, (tN2kMOBPositionSource)6, 0, 0, 0, 0, N2khr_Unavailable, 0, 0, 0, (tN2kMOBEmitterBatteryStatus)4);
+   }},
+  {"PGN127233 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127233(m, 0xff, 0xffffffff, MOBNotActive, N2kDoubleNA, PositionEstimatedByVessel, 0xffff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2khr_true, N2kDoubleNA, N2kDoubleNA, 0xffffffff, Good);
+   }},
+  {"PGN127237 typical",
+   [](tN2kMsg &m) {
+     SetN2kPGN127237(m, N2kOnOff_On, N2kOnOff_Off, N2kOnOff_Error, N2kOnOff_Unavailable, N2kSM_TrackControl, N2kTM_RadiusControlled, N2khr_magnetic, N2kRDO_MoveToPort, -0.1, 1.2, 1.25, 0.6, 0.2, -250, -0.05, -40, 1.3);
+   }},
+  {"PGN127237 unknown values",
+   [](tN2kMsg &m) {
+     SetN2kPGN127237(m, N2kOnOff_Off, N2kOnOff_Unavailable, N2kOnOff_On, N2kOnOff_Error, (tN2kSteeringMode)6, N2kTM_Unavailable, N2khr_error, (tN2kRudderDirectionOrder)6, 0.1, 0, 0, 0, 0, 250, 0.05, 40, 0);
+   }},
+  {"PGN127237 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127237(m, N2kOnOff_Unavailable, N2kOnOff_Unavailable, N2kOnOff_Unavailable, N2kOnOff_Unavailable, N2kSM_Unavailable, N2kTM_Unavailable, N2khr_Unavailable, N2kRDO_Unavailable, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA);
+   }},
+  {"PGN127245 typical",
+   [](tN2kMsg &m) { SetN2kPGN127245(m, -0.1, 2, N2kRDO_MoveToStarboard, 0.25); }},
+  {"PGN127245 unknown direction",
+   [](tN2kMsg &m) { SetN2kPGN127245(m, 0.1, 0, (tN2kRudderDirectionOrder)6, -0.25); }},
+  {"PGN127245 not available",
+   [](tN2kMsg &m) {
+     SetN2kPGN127245(m, N2kDoubleNA, 0xff, N2kRDO_Unavailable, N2kDoubleNA);
+   }},
+  {"PGN128000 typical",
+   [](tN2kMsg &m) { SetN2kPGN128000(m, 3, -0.05); }},
+  {"PGN128000 not available",
+   [](tN2kMsg &m) { SetN2kPGN128000(m, 0xff, N2kDoubleNA); }},
+  {"PGN128776 typical",
+   [](tN2kMsg &m) {
+     tN2kWindlassControlEvents ev;
+     ev.SetEvents(0x01);
+     SetN2kPGN128776(m, 4, 1, N2kDD484_Up, 75, N2kDD488_ProportionalSpeed, N2kDD002_Yes, N2kDD002_Yes, N2kDD002_Error, N2kDD002_Unavailable, N2kDD002_No, 1.25, ev);
+   }},
+  {"PGN128776 other values",
+   [](tN2kMsg &m) {
+     tN2kWindlassControlEvents ev;
+     SetN2kPGN128776(m, 5, 2, N2kDD484_Reserved, 0, N2kDD488_DataNotAvailable, N2kDD002_Unavailable, N2kDD002_Error, N2kDD002_Unavailable, N2kDD002_Yes, N2kDD002_Error, 0.5, ev);
+   }},
+  {"PGN128776 not available",
+   [](tN2kMsg &m) {
+     tN2kWindlassControlEvents ev;
+     SetN2kPGN128776(m, 0xff, 0xff, N2kDD484_Off, 0xff, N2kDD488_SingleSpeed, N2kDD002_No, N2kDD002_No, N2kDD002_No, N2kDD002_No, N2kDD002_No, N2kDoubleNA, ev);
+   }},
+  {"PGN128777 typical",
+   [](tN2kMsg &m) {
+     tN2kWindlassOperatingEvents ev;
+     ev.SetEvents(0x11);
+     SetN2kPGN128777(m, 6, 1, 45.6, 0.35, N2kDD480_RetrievalOccurring, N2kDD481_RopePresentlyDetected, N2kDD482_FullyDocked, ev);
+   }},
+  {"PGN128777 other values",
+   [](tN2kMsg &m) {
+     tN2kWindlassOperatingEvents ev;
+     ev.SetEvents(0x1f);
+     SetN2kPGN128777(m, 7, 2, 0, 0, N2kDD480_Unavailable, N2kDD481_Unavailable, N2kDD482_Error, ev);
+   }},
+  {"PGN128777 not available",
+   [](tN2kMsg &m) {
+     tN2kWindlassOperatingEvents ev;
+     SetN2kPGN128777(m, 0xff, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDD480_WindlassStopped, N2kDD481_ChainPresentlyDetected, N2kDD482_DataNotAvailable, ev);
+   }},
+  {"PGN128778 typical",
+   [](tN2kMsg &m) {
+     tN2kWindlassMonitoringEvents ev;
+     ev.SetEvents(0x05);
+     SetN2kPGN128778(m, 8, 1, 3600, 12.6, 85, ev);
+   }},
+  {"PGN128778 other values",
+   [](tN2kMsg &m) {
+     tN2kWindlassMonitoringEvents ev;
+     ev.SetEvents(0x06);
+     SetN2kPGN128778(m, 9, 2, 60, 0.2, 1, ev);
+   }},
+  {"PGN128778 not available",
+   [](tN2kMsg &m) {
+     tN2kWindlassMonitoringEvents ev;
+     SetN2kPGN128778(m, 0xff, 0xff, N2kDoubleNA, N2kDoubleNA, N2kDoubleNA, ev);
+   }},
 };
 
 void print(const Case &c) {
