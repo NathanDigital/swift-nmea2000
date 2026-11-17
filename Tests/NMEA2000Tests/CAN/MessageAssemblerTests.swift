@@ -392,4 +392,36 @@ struct MessageAssemblerTests {
       assembler.receive(CANFrame(id: 0x18eb_ff42, data: [1, 1, 2, 3]), at: 0)?.message.data
         == [1, 2, 3])
   }
+
+  @Test func keepsSystemPGNsAddedToTheCatalog() throws {
+    // Upstream's CheckKnownMessage tries the system PGNs before the
+    // application's lists, so listing one there changes nothing.
+    var catalog = PGNCatalog()
+    catalog.singleFramePGNs.formUnion([59904, 126208])
+    var assembler = MessageAssembler(catalog: catalog)
+    let received = assembler.receive(CANFrame(id: 0x18ea_ff42, data: [0x14, 0xf0, 0x01]), at: 0)
+    let request = try #require(received)
+    #expect(request.isSystemMessage)
+    // A group function stays a fast packet: its first frame alone isn't a
+    // message.
+    #expect(
+      assembler.receive(CANFrame(id: 0x19ed_ff42, data: [0x40, 9, 1, 2, 3, 4, 5, 6]), at: 0)
+        == nil)
+    let completed = assembler.receive(CANFrame(id: 0x19ed_ff42, data: [0x41, 7, 8, 9]), at: 0)
+    let groupFunction = try #require(completed)
+    #expect(groupFunction.isSystemMessage)
+    #expect(groupFunction.message.data == Array(1...9))
+  }
+
+  @Test func keepsMandatoryPGNsFastPacket() throws {
+    var catalog = PGNCatalog()
+    catalog.singleFramePGNs.insert(126996)
+    var assembler = MessageAssembler(catalog: catalog)
+    #expect(
+      assembler.receive(CANFrame(id: 0x19f0_1442, data: [0x20, 9, 1, 2, 3, 4, 5, 6]), at: 0)
+        == nil)
+    let completed = assembler.receive(CANFrame(id: 0x19f0_1442, data: [0x21, 7, 8, 9]), at: 0)
+    let message = try #require(completed)
+    #expect(message.message.data == Array(1...9))
+  }
 }

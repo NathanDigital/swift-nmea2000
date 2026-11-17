@@ -110,10 +110,12 @@ public struct PGNCatalog: Sendable, Hashable {
     if pgn == 0 {
       return Classification(isKnown: false, isSystem: false, isFastPacket: false)
     }
-    if singleFramePGNs.contains(pgn) {
-      return Classification(isKnown: true, isSystem: false, isFastPacket: false)
-    }
-    if Self.mandatoryFastPacketPGNs.contains(pgn) || fastPacketPGNs.contains(pgn) {
+    // Upstream checks its default lists, then the mandatory and system
+    // PGNs, then the application's lists. No default PGN is mandatory or a
+    // system PGN, so checking those first keeps upstream's order even though
+    // the catalog's sets hold the defaults and the application's PGNs
+    // together.
+    if Self.mandatoryFastPacketPGNs.contains(pgn) {
       return Classification(isKnown: true, isSystem: false, isFastPacket: true)
     }
     if Self.singleFrameSystemPGNs.contains(pgn) {
@@ -121,6 +123,12 @@ public struct PGNCatalog: Sendable, Hashable {
     }
     if Self.fastPacketSystemPGNs.contains(pgn) {
       return Classification(isKnown: true, isSystem: true, isFastPacket: true)
+    }
+    if singleFramePGNs.contains(pgn) {
+      return Classification(isKnown: true, isSystem: false, isFastPacket: false)
+    }
+    if fastPacketPGNs.contains(pgn) {
+      return Classification(isKnown: true, isSystem: false, isFastPacket: true)
     }
     return Classification(
       isKnown: false, isSystem: false, isFastPacket: Self.isProprietaryFastPacket(pgn))
