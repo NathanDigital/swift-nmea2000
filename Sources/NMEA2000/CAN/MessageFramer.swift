@@ -116,7 +116,7 @@ public struct MessageFramer: Sendable {
 
   /// The ISO address claim PGN, the one PGN a device may send without a
   /// valid address.
-  static let addressClaimPGN: UInt32 = 60928
+  private static let addressClaimPGN: UInt32 = 60928
 }
 
 /// Why a message can't be split into frames.
@@ -130,13 +130,24 @@ public enum FramingError: Error, Sendable, Hashable {
   case payloadTooLong(Int)
 }
 
+extension FramingError: CustomStringConvertible {
+  public var description: String {
+    switch self {
+    case .invalidPGN(let pgn): "PGN \(pgn) can't be sent"
+    case .invalidSource(let source): "Source \(source) isn't a bus address"
+    case .payloadTooLong(let count):
+      "Payload of \(count) bytes is longer than \(Message.maxDataCount) bytes"
+    }
+  }
+}
+
 /// Fast-packet sequence counters, three bits per PGN.
 ///
 /// Ports `tNMEA2000::GetSequenceCounter`, including its quirks: a PGN's first
 /// fast packet uses sequence 0, PGNs get dedicated counters in the order they
 /// are first sent until the dedicated slots run out, and the remaining PGNs
 /// share one counter that is advanced before its first use.
-struct SequenceCounters: Sendable {
+private struct SequenceCounters: Sendable {
   private var dedicated: [(pgn: UInt32, counter: UInt8)?]
   private var shared: UInt8 = 0
 

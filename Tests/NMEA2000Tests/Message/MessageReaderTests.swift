@@ -135,6 +135,19 @@ struct MessageReaderTests {
     #expect(reader.readUInt8() == 0x03)
   }
 
+  @Test func skipStaysWithinThePayload() {
+    var reader = MessageReader([0x01, 0x02, 0x03])
+    reader.skip(.max)
+    #expect(reader.index == 3)
+    #expect(reader.readUInt8() == 0xff)
+    #expect(reader.readBytes(count: 1) == nil)
+    reader.skip(-1)
+    #expect(reader.readUInt8() == 0x03)
+    reader.skip(.min)
+    #expect(reader.index == 0)
+    #expect(reader.readBytes(count: 2) == [0x01, 0x02])
+  }
+
   @Test func decodesOutOfRangeAsValue() {
     // Upstream only maps "not available" to its sentinel; "out of range"
     // decodes as an ordinary value.

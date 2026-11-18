@@ -33,7 +33,7 @@ public struct MeteorologicalStationData: ParameterGroup {
   /// The station longitude, in degrees, positive east, or `nil` if not available.
   public var longitude: Double?
 
-  /// The wind speed, in meters per second, or `nil` if not available.
+  /// The wind speed, in metres per second, or `nil` if not available.
   public var windSpeed: Double?
 
   /// The wind direction, in radians, or `nil` if not available.
@@ -42,7 +42,7 @@ public struct MeteorologicalStationData: ParameterGroup {
   /// What the wind direction is referenced to.
   public var windReference: WindReference
 
-  /// The wind gust speed, in meters per second, or `nil` if not available.
+  /// The wind gust speed, in metres per second, or `nil` if not available.
   public var windGusts: Double?
 
   /// The atmospheric pressure, in pascals, or `nil` if not available.
@@ -65,7 +65,7 @@ public struct MeteorologicalStationData: ParameterGroup {
 
   /// Creates a meteorological station data message.
   ///
-  /// The defaults match the initial values of upstream's `tN2kMeteorlogicalStationData`.
+  /// Defaults that aren't `nil` match the initial values of upstream's `tN2kMeteorlogicalStationData`.
   public init(
     mode: AISMode = .autonomous,
     daysSince1970: UInt16? = nil,

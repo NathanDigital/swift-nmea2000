@@ -15,8 +15,9 @@ struct GNSSPositionDataTests {
     // one reference station
     (
       GNSSPositionData(
-        sequenceID: 10, daysSince1970: 19000, secondsSinceMidnight: 43200.5, latitude: 60.1234567,
-        longitude: -151.2093, altitude: 12.5, gnssType: .gpsSBAS, method: .dgnss, satelliteCount: 9,
+        gnssType: .gpsSBAS, method: .dgnss, sequenceID: 10, daysSince1970: 19000,
+        secondsSinceMidnight: 43200.5, latitude: 60.1234567, longitude: -151.2093, altitude: 12.5,
+        satelliteCount: 9,
         horizontalDilution: 0.8, positionDilution: 1.6, geoidalSeparation: 18.2,
         referenceStations: [.init(type: .gps, id: 42, ageOfCorrection: 3.5)]),
       [
@@ -29,8 +30,9 @@ struct GNSSPositionDataTests {
     // no reference stations
     (
       GNSSPositionData(
-        sequenceID: 10, daysSince1970: 19000, secondsSinceMidnight: 43200.5, latitude: 60.1234567,
-        longitude: -151.2093, altitude: 12.5, gnssType: .gpsSBAS, method: .dgnss, satelliteCount: 9,
+        gnssType: .gpsSBAS, method: .dgnss, sequenceID: 10, daysSince1970: 19000,
+        secondsSinceMidnight: 43200.5, latitude: 60.1234567, longitude: -151.2093, altitude: 12.5,
+        satelliteCount: 9,
         horizontalDilution: 0.8, positionDilution: 1.6, geoidalSeparation: 18.2,
         referenceStations: []),
       [
@@ -42,9 +44,9 @@ struct GNSSPositionDataTests {
     // not available
     (
       GNSSPositionData(
-        sequenceID: nil, daysSince1970: nil, secondsSinceMidnight: nil, latitude: nil,
-        longitude: nil,
-        altitude: nil, gnssType: .gps, method: .unavailable, satelliteCount: nil,
+        gnssType: .gps, method: .unavailable, sequenceID: nil, daysSince1970: nil,
+        secondsSinceMidnight: nil,
+        latitude: nil, longitude: nil, altitude: nil, satelliteCount: nil,
         horizontalDilution: nil,
         positionDilution: nil, geoidalSeparation: nil, referenceStations: nil),
       [
@@ -56,8 +58,8 @@ struct GNSSPositionDataTests {
     // Galileo with an old correction
     (
       GNSSPositionData(
-        sequenceID: 10, daysSince1970: 19000, secondsSinceMidnight: 43200.5, latitude: -33.8688,
-        longitude: 151.2093, altitude: -5.25, gnssType: .galileo, method: .rtkFixed,
+        gnssType: .galileo, method: .rtkFixed, sequenceID: 10, daysSince1970: 19000,
+        secondsSinceMidnight: 43200.5, latitude: -33.8688, longitude: 151.2093, altitude: -5.25,
         satelliteCount: 12,
         horizontalDilution: 0.6, positionDilution: 1.1, geoidalSeparation: -22.5,
         referenceStations: [.init(type: .galileo, id: 4000, ageOfCorrection: 400.0)]),
@@ -71,8 +73,9 @@ struct GNSSPositionDataTests {
     // defaults
     (
       GNSSPositionData(
-        sequenceID: 10, daysSince1970: 19000, secondsSinceMidnight: 43200.5, latitude: 60.1234567,
-        longitude: -151.2093, altitude: 12.5, gnssType: .gps, method: .gnssFix, satelliteCount: 9,
+        gnssType: .gps, method: .gnssFix, sequenceID: 10, daysSince1970: 19000,
+        secondsSinceMidnight: 43200.5, latitude: 60.1234567, longitude: -151.2093, altitude: 12.5,
+        satelliteCount: 9,
         horizontalDilution: 0.8),
       [
         0x0a, 0x38, 0x4a, 0x88, 0xdf, 0xbf, 0x19, 0x00, 0x86, 0xb8, 0x38, 0xa7, 0x03, 0x58, 0x08,

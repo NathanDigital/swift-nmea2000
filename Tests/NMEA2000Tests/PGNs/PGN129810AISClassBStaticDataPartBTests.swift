@@ -17,8 +17,8 @@ struct AISClassBStaticDataPartBTests {
       AISClassBStaticDataPartB(
         messageID: 24, repeatIndicator: .initial, userID: 230_123_456, vesselType: 36,
         vendor: "acme01", callsign: "oh2xyz",
-        length: 12.5, beam: 4.25, positionReferenceStarboard: 2.0, positionReferenceBow: 9.5,
-        mothershipID: 0, transceiverInformation: .channelATransmission, sequenceID: 4),
+        mothershipID: 0, length: 12.5, beam: 4.25, positionReferenceStarboard: 2.0,
+        positionReferenceBow: 9.5, transceiverInformation: .channelATransmission, sequenceID: 4),
       [
         0x18, 0xc0, 0x67, 0xb7, 0x0d, 0x24, 0x41, 0x43, 0x4d, 0x45, 0x30, 0x31, 0x40, 0x4f, 0x48,
         0x32, 0x58, 0x59, 0x5a, 0x40, 0x7d, 0x00, 0x2b, 0x00, 0x14, 0x00, 0x5f, 0x00, 0x00, 0x00,
@@ -30,8 +30,8 @@ struct AISClassBStaticDataPartBTests {
       AISClassBStaticDataPartB(
         messageID: 63, repeatIndicator: .final, userID: 0xffff_ffff, vesselType: 255,
         vendor: "VENDOR12", callsign: "CäLL",
-        length: 0, beam: 0, positionReferenceStarboard: 0, positionReferenceBow: 0,
-        mothershipID: 0xffff_ffff, transceiverInformation: AISTransceiverInformation(rawValue: 31),
+        mothershipID: 0xffff_ffff, length: 0, beam: 0, positionReferenceStarboard: 0,
+        positionReferenceBow: 0, transceiverInformation: AISTransceiverInformation(rawValue: 31),
         sequenceID: 0xfe),
       [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x56, 0x45, 0x4e, 0x44, 0x4f, 0x52, 0x31, 0x43, 0x3f,
@@ -44,8 +44,8 @@ struct AISClassBStaticDataPartBTests {
       AISClassBStaticDataPartB(
         messageID: 24, repeatIndicator: .initial, userID: 0, vesselType: 0, vendor: "",
         callsign: "",
-        length: nil, beam: nil, positionReferenceStarboard: nil, positionReferenceBow: nil,
-        mothershipID: 0, transceiverInformation: .channelAReception, sequenceID: nil),
+        mothershipID: 0, length: nil, beam: nil, positionReferenceStarboard: nil,
+        positionReferenceBow: nil, transceiverInformation: .channelAReception, sequenceID: nil),
       [
         0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
         0x40, 0x40, 0x40, 0x40, 0x40, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00,
@@ -57,8 +57,8 @@ struct AISClassBStaticDataPartBTests {
       AISClassBStaticDataPartB(
         messageID: 24, repeatIndicator: .initial, userID: 230_000_003, vesselType: 37, vendor: "V",
         callsign: "C",
-        length: 8, beam: 3, positionReferenceStarboard: 1, positionReferenceBow: 4,
-        mothershipID: 0),
+        mothershipID: 0, length: 8, beam: 3, positionReferenceStarboard: 1,
+        positionReferenceBow: 4),
       [
         0x18, 0x83, 0x85, 0xb5, 0x0d, 0x25, 0x56, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x43, 0x40,
         0x40, 0x40, 0x40, 0x40, 0x40, 0x50, 0x00, 0x1e, 0x00, 0x0a, 0x00, 0x28, 0x00, 0x00, 0x00,

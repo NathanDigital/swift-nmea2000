@@ -29,12 +29,12 @@ public struct TemperatureExtendedRange: ParameterGroup {
 
   /// Creates an extended range temperature message.
   ///
-  /// The default matches upstream's `SetN2kPGN130316`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN130316`.
   public init(
-    sequenceID: UInt8?,
     instance: UInt8,
     source: TemperatureSource,
-    actualTemperature: Double?,
+    sequenceID: UInt8? = nil,
+    actualTemperature: Double? = nil,
     setTemperature: Double? = nil
   ) {
     self.sequenceID = sequenceID

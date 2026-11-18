@@ -14,17 +14,19 @@ struct SetPressureTests {
   static let vectors: [(SetPressure, [UInt8])] = [
     // typical
     (
-      SetPressure(sequenceID: 1, instance: 2, source: .hydraulic, setPressure: 2_500_000.5),
+      SetPressure(
+        instance: 2, source: .hydraulic, sequenceID: 1, setPressure: 2_500_000.5),
       [0x01, 0x02, 0x04, 0x45, 0x78, 0x7d, 0x01, 0xff]
     ),
     // negative pressure
     (
-      SetPressure(sequenceID: 2, instance: 3, source: .error, setPressure: -5000),
+      SetPressure(instance: 3, source: .error, sequenceID: 2, setPressure: -5000),
       [0x02, 0x03, 0xfe, 0xb0, 0x3c, 0xff, 0xff, 0xff]
     ),
     // not available
     (
-      SetPressure(sequenceID: nil, instance: 0xff, source: .unavailable, setPressure: nil),
+      SetPressure(
+        instance: 0xff, source: .unavailable, sequenceID: nil, setPressure: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xff]
     ),
   ]

@@ -26,7 +26,7 @@ public struct Heartbeat: ParameterGroup {
   public var sequenceCounter: UInt8?
 
   /// Creates a heartbeat.
-  public init(interval: Double?, sequenceCounter: UInt8?) {
+  public init(interval: Double? = nil, sequenceCounter: UInt8? = nil) {
     self.interval = interval
     self.sequenceCounter = sequenceCounter
   }

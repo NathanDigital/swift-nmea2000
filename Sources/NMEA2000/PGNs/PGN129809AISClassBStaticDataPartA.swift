@@ -31,7 +31,7 @@ public struct AISClassBStaticDataPartA: ParameterGroup {
 
   /// Creates an AIS class B static data, part A message.
   ///
-  /// The defaults match upstream's `SetN2kPGN129809`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN129809`.
   public init(
     messageID: UInt8,
     repeatIndicator: AISRepeatIndicator,

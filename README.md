@@ -7,7 +7,7 @@ A pure-Swift port of **[Timo Lappalainen's NMEA2000 library](https://github.com/
 
 All of the protocol knowledge here comes from Timo Lappalainen's original C++ library: PGN definitions, field layouts, and address-claim and fast-packet behaviour. This project re-expresses that work as an idiomatic Swift package, written for Swift 6 with strict concurrency, value types and Swift Testing. Messages stay byte-for-byte compatible with the original on the NMEA 2000 bus.
 
-> **Status: in development.** The port covers upstream's library, and every part of it is tested against upstream's own code. The API is not stable yet, and there are no tagged releases.
+> **Status: in development.** The port covers upstream's library ([coverage](docs/coverage.md)), and every part of it is tested against upstream's own code. The API is not stable yet, and there are no tagged releases.
 
 ## What's included
 
@@ -23,7 +23,7 @@ CAN hardware drivers aren't part of this package: implement `CANTransport` for y
 - **Wire compatibility.** Every PGN encodes and decodes exactly as the upstream library does, so devices interoperate on the bus.
 - **Easy porting of upstream changes.** New PGNs and PGN fixes added upstream can be brought across directly. See [docs/upstream-sync.md](docs/upstream-sync.md).
 - **Idiomatic Swift.** Follows the [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/): typed messages, optionals for "data not available", and `async` APIs instead of callbacks.
-- **Linux first.** Ubuntu 26.04 LTS with the swift.org toolchain is the reference platform.
+- **Linux only.** The supported platform is Ubuntu 26.04 LTS with the swift.org toolchain, on a Raspberry Pi or in the included Docker image. macOS and other Apple platforms aren't supported.
 
 ## Installation
 
@@ -59,7 +59,7 @@ let device = Node.Device(
         modelVersion: "1", modelSerialCode: "0001"))
 let node = Node(
     transport: transport,  // your CANTransport
-    configuration: .node(device, configurationInformation: nil))
+    configuration: .node(device))
 
 try await withThrowingTaskGroup(of: Void.self) { group in
     group.addTask { try await node.run() }
@@ -93,19 +93,32 @@ for await message in await node.messages() {
 }
 ```
 
-The [docs](docs/) map each part of upstream's library to its Swift counterpart, and list where the port deliberately differs.
+## Documentation
+
+- **Guides and API reference** are a DocC catalog in [`Sources/NMEA2000/NMEA2000.docc`](Sources/NMEA2000/NMEA2000.docc). The guides cover [getting started](Sources/NMEA2000/NMEA2000.docc/GettingStarted.md), [implementing a CAN transport](Sources/NMEA2000/NMEA2000.docc/ImplementingACANTransport.md), [decoding and encoding messages](Sources/NMEA2000/NMEA2000.docc/DecodingAndEncodingMessages.md), [gateway formats](Sources/NMEA2000/NMEA2000.docc/UsingGatewayFormats.md), [discovering devices](Sources/NMEA2000/NMEA2000.docc/DiscoveringDevices.md) and [coming from the C++ library](Sources/NMEA2000/NMEA2000.docc/ComingFromTheCPPLibrary.md). [Parameter groups](Sources/NMEA2000/NMEA2000.docc/ParameterGroups.md) lists the type for each PGN.
+- **Examples** in [`Snippets`](Snippets) are complete programs that are compiled with the package. Run one in the build container with `scripts/linux-swift run GettingStarted`.
+- **Porting notes** in [`docs`](docs/README.md) map each part of upstream's library to its Swift counterpart, and list where the port deliberately differs.
+
+To build the documentation as a website:
+
+```sh
+scripts/linux-swift package --allow-writing-to-directory .docc-build \
+    generate-documentation --target NMEA2000 --output-path .docc-build
+```
 
 ## Building
 
-The reference build environment is a pinned Docker image: Ubuntu 26.04 LTS with the Swift 6.4.2 toolchain from swift.org. Everyone builds against the same OS and compiler:
+The reference build environment is a pinned Docker image: Ubuntu 26.04 LTS with the Swift 6.4.2 toolchain from swift.org. Everyone builds against the same OS and compiler.
+
+**Docker is required to build and test this repository.** `scripts/linux-swift` runs `swift` in that image, and every build, test, lint and documentation command goes through it. A Swift toolchain installed on the host isn't used and isn't supported, so Docker is the only thing to install:
 
 ```sh
 scripts/linux-swift build
 scripts/linux-swift test
-scripts/linux-swift format lint -s -r Sources
+scripts/linux-swift format lint -s -r Sources Tests Snippets Package.swift
 ```
 
-See [docs/linux.md](docs/linux.md) for what is pinned and how to update it.
+See [docs/linux.md](docs/linux.md) for what is pinned and how to update it, and [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) before sending a change.
 
 ## Acknowledgements
 
@@ -113,7 +126,7 @@ This project would not exist without [NMEA2000](https://github.com/ttlappalainen
 
 ## License
 
-MIT, the same license as the original library. [LICENSE](LICENSE) contains the copyright notices for this port (© NathanDigital) and for the original work (© Timo Lappalainen, Kave Oy).
+MIT, the same license as the original library. [LICENSE](LICENSE) carries both copyright notices: © NathanDigital for this port, and © Timo Lappalainen, Kave Oy for the original work it is derived from.
 
 ## Disclaimer
 

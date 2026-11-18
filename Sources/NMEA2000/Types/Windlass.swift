@@ -8,9 +8,7 @@
 ///
 /// Ports `tN2kDD480` (`tN2kWindlassMotionStates`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct WindlassMotionState: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct WindlassMotionState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -46,7 +44,7 @@ public struct WindlassMotionState: RawRepresentable, Codable, Hashable, Sendable
 ///
 /// Ports `tN2kDD481` (`tN2kRodeTypeStates`). Values without a name here are kept in ``rawValue``,
 /// so they decode and re-encode unchanged.
-public struct RodeType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct RodeType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -82,9 +80,7 @@ public struct RodeType: RawRepresentable, Codable, Hashable, Sendable, CustomStr
 ///
 /// Ports `tN2kDD482` (`tN2kAnchorDockingStates`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct AnchorDockingState: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct AnchorDockingState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -120,9 +116,7 @@ public struct AnchorDockingState: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kDD484` (`tN2kWindlassDirectionControl`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct WindlassDirectionControl: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct WindlassDirectionControl: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

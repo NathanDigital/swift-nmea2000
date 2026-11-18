@@ -14,12 +14,12 @@ struct MagneticVariationTests {
   static let vectors: [(MagneticVariation, [UInt8])] = [
     // typical
     (
-      MagneticVariation(sequenceID: 6, source: .wmm2020, daysSince1970: 19000, variation: -0.05),
+      MagneticVariation(source: .wmm2020, sequenceID: 6, daysSince1970: 19000, variation: -0.05),
       [0x06, 0x08, 0x38, 0x4a, 0x0c, 0xfe, 0xff, 0xff]
     ),
     // not available
     (
-      MagneticVariation(sequenceID: nil, source: .manual, daysSince1970: nil, variation: nil),
+      MagneticVariation(source: .manual, sequenceID: nil, daysSince1970: nil, variation: nil),
       [0xff, 0x00, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff]
     ),
   ]

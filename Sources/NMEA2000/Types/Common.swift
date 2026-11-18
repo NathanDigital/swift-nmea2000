@@ -8,7 +8,7 @@
 ///
 /// Ports `tN2kDD002` (`tN2kGenericStatusPair`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct BinaryStatus: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct BinaryStatus: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -50,7 +50,7 @@ public struct BinaryStatus: RawRepresentable, Codable, Hashable, Sendable, Custo
 ///
 /// Ports `tN2kDD374` (`tN2kDelaySource`). Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct DelaySource: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct DelaySource: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -94,7 +94,7 @@ public struct DelaySource: RawRepresentable, Codable, Hashable, Sendable, Custom
 ///
 /// Ports `tN2kOnOff`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct OnOffStatus: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct OnOffStatus: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

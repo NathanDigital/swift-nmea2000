@@ -10,7 +10,7 @@
 ///
 /// Ports the `TP_*` constants and `SendTPCM_*` / `SendTPDT` encoders of
 /// `NMEA2000.cpp`.
-enum TransportProtocol {
+enum ISOTransportProtocol {
   /// Connection management: announcements, requests and replies (`TP_CM`).
   static let connectionManagementPGN: UInt32 = 60416
 
@@ -26,7 +26,7 @@ enum TransportProtocol {
 
   /// The most packets a receiver asks for in one clear to send
   /// (`TP_MAX_FRAMES`).
-  static let maxPacketsPerClearToSend: UInt8 = 5
+  private static let maxPacketsPerClearToSend: UInt8 = 5
 
   /// How long a sender waits between broadcast data packets, and for the
   /// first clear to send.
@@ -59,12 +59,12 @@ enum TransportProtocol {
   }
 
   /// The number of data packets a payload needs.
-  static func packetCount(for byteCount: Int) -> UInt8 {
+  private static func packetCount(for byteCount: Int) -> UInt8 {
     UInt8(truncatingIfNeeded: (byteCount + 6) / 7)
   }
 
   /// A connection management message.
-  static func connectionManagement(
+  private static func connectionManagement(
     _ control: Control, _ bytes: (UInt8, UInt8, UInt8, UInt8), pgn: UInt32, to destination: UInt8
   ) -> Message {
     Message(

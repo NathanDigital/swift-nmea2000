@@ -20,8 +20,8 @@ public struct RateOfTurn: ParameterGroup {
 
   /// Creates a rate of turn message.
   public init(
-    sequenceID: UInt8?,
-    rate: Double?
+    sequenceID: UInt8? = nil,
+    rate: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.rate = rate

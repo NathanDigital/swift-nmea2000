@@ -26,15 +26,15 @@ public struct CrossTrackError: ParameterGroup {
   /// and sends `nil` as not available, which upstream's `bool` can't.
   public var isNavigationTerminated: Bool?
 
-  /// The distance from the planned track, in meters, or `nil` if not available.
+  /// The distance from the planned track, in metres, or `nil` if not available.
   public var crossTrackError: Double?
 
   /// Creates a cross-track error message.
   public init(
-    sequenceID: UInt8?,
     mode: CrossTrackErrorMode,
-    isNavigationTerminated: Bool?,
-    crossTrackError: Double?
+    sequenceID: UInt8? = nil,
+    isNavigationTerminated: Bool? = nil,
+    crossTrackError: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.mode = mode

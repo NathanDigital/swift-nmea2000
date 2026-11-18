@@ -12,8 +12,8 @@ private let manySatellites: [GNSSSatellitesInView.Satellite] = (0..<20).map { i 
   // Spelled out with explicit types to keep type-checking fast on slower CI machines.
   let x = Double(i)
   return GNSSSatellitesInView.Satellite(
-    prn: UInt8(i + 1), elevation: 0.1 * x, azimuth: 0.2 * x, signalToNoiseRatio: 30.0 + x,
-    rangeResidual: 0.01 * x, usageStatus: .trackedNotUsed)
+    usageStatus: .trackedNotUsed, prn: UInt8(i + 1), elevation: 0.1 * x, azimuth: 0.2 * x,
+    signalToNoiseRatio: 30.0 + x, rangeResidual: 0.01 * x)
 }
 
 @Suite("PGN 129540 GNSSSatellitesInView")
@@ -27,11 +27,13 @@ struct GNSSSatellitesInViewTests {
         sequenceID: 14, mode: .calculatedAfterPosition,
         satellites: [
           .init(
-            prn: 5, elevation: 0.5, azimuth: 2.5, signalToNoiseRatio: 42.25, rangeResidual: -1.5,
-            usageStatus: .usedWithoutDifferentialCorrections),
+            usageStatus: .usedWithoutDifferentialCorrections, prn: 5, elevation: 0.5, azimuth: 2.5,
+            signalToNoiseRatio: 42.25,
+            rangeResidual: -1.5),
           .init(
-            prn: nil, elevation: nil, azimuth: nil, signalToNoiseRatio: nil, rangeResidual: nil,
-            usageStatus: .unavailable),
+            usageStatus: .unavailable, prn: nil, elevation: nil, azimuth: nil,
+            signalToNoiseRatio: nil,
+            rangeResidual: nil),
         ]),
       [
         0x0e, 0xfd, 0x02, 0x05, 0x88, 0x13, 0xa8, 0x61, 0x81, 0x10, 0x10, 0xb6, 0xfd, 0xff, 0xf2,
@@ -103,8 +105,9 @@ struct GNSSSatellitesInViewTests {
   @Test func saysHowManySatellitesAreSent() throws {
     var satellites = GNSSSatellitesInView()
     let satellite = GNSSSatellitesInView.Satellite(
-      prn: 1, elevation: nil, azimuth: nil, signalToNoiseRatio: nil, rangeResidual: nil,
-      usageStatus: PRNUsageStatus(rawValue: 0))
+      usageStatus: PRNUsageStatus(rawValue: 0), prn: 1, elevation: nil, azimuth: nil,
+      signalToNoiseRatio: nil,
+      rangeResidual: nil)
     satellites.satellites = Array(repeating: satellite, count: 5)
     #expect(satellites.sentSatelliteCount == 5)
     satellites.satellites = Array(repeating: satellite, count: 20)

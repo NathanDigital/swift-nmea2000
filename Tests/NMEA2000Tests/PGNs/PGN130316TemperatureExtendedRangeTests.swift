@@ -15,28 +15,28 @@ struct TemperatureExtendedRangeTests {
     // typical
     (
       TemperatureExtendedRange(
-        sequenceID: 1, instance: 4, source: .exhaustGas, actualTemperature: 850.125,
+        instance: 4, source: .exhaustGas, sequenceID: 1, actualTemperature: 850.125,
         setTemperature: 900.5),
       [0x01, 0x04, 0x0e, 0xcd, 0xf8, 0x0c, 0x2d, 0x23]
     ),
     // high values
     (
       TemperatureExtendedRange(
-        sequenceID: 2, instance: 0xfe, source: TemperatureSource(rawValue: 0x80),
+        instance: 0xfe, source: TemperatureSource(rawValue: 0x80), sequenceID: 2,
         actualTemperature: 16000, setTemperature: 6000),
       [0x02, 0xfe, 0x80, 0x00, 0x24, 0xf4, 0x60, 0xea]
     ),
     // not available
     (
       TemperatureExtendedRange(
-        sequenceID: nil, instance: 0xff, source: TemperatureSource(rawValue: 0xff),
+        instance: 0xff, source: TemperatureSource(rawValue: 0xff), sequenceID: nil,
         actualTemperature: nil, setTemperature: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
     // defaults
     (
       TemperatureExtendedRange(
-        sequenceID: 1, instance: 0, source: .outside, actualTemperature: 278.15),
+        instance: 0, source: .outside, sequenceID: 1, actualTemperature: 278.15),
       [0x01, 0x00, 0x01, 0x86, 0x3e, 0x04, 0xff, 0xff]
     ),
   ]

@@ -26,7 +26,7 @@ public struct ISOAcknowledgement: ParameterGroup {
   public var pgn: UInt32
 
   /// Creates an acknowledgement.
-  public init(control: UInt8, groupFunction: UInt8 = 0xff, pgn: UInt32) {
+  public init(control: UInt8, pgn: UInt32, groupFunction: UInt8 = 0xff) {
     self.control = control
     self.groupFunction = groupFunction
     self.pgn = pgn

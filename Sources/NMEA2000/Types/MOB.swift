@@ -8,7 +8,7 @@
 ///
 /// Ports `tN2kMOBStatus`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct MOBStatus: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct MOBStatus: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -44,9 +44,7 @@ public struct MOBStatus: RawRepresentable, Codable, Hashable, Sendable, CustomSt
 ///
 /// Ports `tN2kMOBPositionSource`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct MOBPositionSource: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct MOBPositionSource: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -74,9 +72,7 @@ public struct MOBPositionSource: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kMOBEmitterBatteryStatus`. Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct MOBEmitterBatteryStatus: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct MOBEmitterBatteryStatus: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

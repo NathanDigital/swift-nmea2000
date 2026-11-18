@@ -20,74 +20,80 @@
 /// Ports `tN2kDeviceList`.
 public struct DeviceList: Sendable {
   /// A device on the bus.
-  public struct Device: Sendable, Hashable {
+  ///
+  /// Two entries are equal when everything they report about the device is
+  /// equal; the list's own record of what it has asked the device doesn't
+  /// count.
+  public struct Entry: Sendable, Hashable {
     /// The device's address.
-    public internal(set) var source: UInt8
+    public fileprivate(set) var address: UInt8
 
     /// The device's NAME, or `nil` until it has claimed its address.
     public var name: DeviceName? { rawName == 0 ? nil : DeviceName(rawValue: rawName) }
 
     /// The device's product information, or `nil` until it has sent it.
-    public internal(set) var productInformation: ProductInformation?
+    public fileprivate(set) var productInformation: ProductInformation?
 
     /// The device's configuration information, or `nil` until it has sent
     /// it.
-    public internal(set) var configurationInformation: ConfigurationInformation?
+    public fileprivate(set) var configurationInformation: ConfigurationInformation?
 
     /// The PGNs the device transmits, or `nil` until it has sent the list.
-    public internal(set) var transmitPGNs: [UInt32]?
+    public fileprivate(set) var transmitPGNs: [UInt32]?
 
     /// The PGNs the device receives, or `nil` until it has sent the list.
-    public internal(set) var receivePGNs: [UInt32]?
+    public fileprivate(set) var receivePGNs: [UInt32]?
 
     /// When the device last sent a message, in the time passed to
     /// ``DeviceList/handle(_:at:sending:)``.
-    public internal(set) var lastMessageTime: UInt32 = 0
+    public fileprivate(set) var lastMessageTime: Duration = .zero
 
-    var rawName: UInt64
-    let createTime: UInt32
-    var hasProductInformation = false
-    var hasConfigurationInformation = false
-    var nameRequests: UInt8 = 0
-    var productRequestTime: UInt32 = 0
-    var productRequests: UInt8 = 0
-    var configurationRequestTime: UInt32 = 0
-    var configurationRequests: UInt8 = 0
-    var pgnListRequestTime: UInt32 = 0
-    var pgnListRequests: UInt8 = 0
+    fileprivate var rawName: UInt64
+    fileprivate let createTime: UInt32
+    fileprivate var hasProductInformation = false
+    fileprivate var hasConfigurationInformation = false
+    fileprivate var nameRequests: UInt8 = 0
+    fileprivate var productRequestTime: UInt32 = 0
+    fileprivate var productRequests: UInt8 = 0
+    fileprivate var configurationRequestTime: UInt32 = 0
+    fileprivate var configurationRequests: UInt8 = 0
+    fileprivate var pgnListRequestTime: UInt32 = 0
+    fileprivate var pgnListRequests: UInt8 = 0
 
-    init(name: UInt64, source: UInt8, at time: UInt32) {
+    init(name: UInt64, address: UInt8, at time: UInt32) {
       rawName = name
-      self.source = source
+      self.address = address
       createTime = time
     }
 
-    var shouldRequestName: Bool { rawName == 0 && nameRequests < 20 }
+    fileprivate var shouldRequestName: Bool { rawName == 0 && nameRequests < 20 }
 
-    var shouldRequestProductInformation: Bool { !hasProductInformation && productRequests < 4 }
+    fileprivate var shouldRequestProductInformation: Bool {
+      !hasProductInformation && productRequests < 4
+    }
 
-    func isReadyToRequestProductInformation(at now: UInt32) -> Bool {
+    fileprivate func isReadyToRequestProductInformation(at now: UInt32) -> Bool {
       shouldRequestProductInformation
         && hasElapsed(DeviceList.requestInterval, since: productRequestTime, at: now)
         && hasElapsed(DeviceList.firstRequestDelay, since: createTime, at: now)
     }
 
-    var shouldRequestConfigurationInformation: Bool {
+    fileprivate var shouldRequestConfigurationInformation: Bool {
       !hasConfigurationInformation && configurationRequests < 4
     }
 
     /// Upstream tests these intervals with `>` rather than `N2kHasElapsed`.
-    func isReadyToRequestConfigurationInformation(at now: UInt32) -> Bool {
+    fileprivate func isReadyToRequestConfigurationInformation(at now: UInt32) -> Bool {
       shouldRequestConfigurationInformation
         && now &- configurationRequestTime > DeviceList.requestInterval
         && now &- createTime > DeviceList.firstRequestDelay
     }
 
-    var shouldRequestPGNLists: Bool {
+    fileprivate var shouldRequestPGNLists: Bool {
       (transmitPGNs == nil || receivePGNs == nil) && pgnListRequests < 4
     }
 
-    func isReadyToRequestPGNLists(at now: UInt32) -> Bool {
+    fileprivate func isReadyToRequestPGNLists(at now: UInt32) -> Bool {
       shouldRequestPGNLists
         && hasElapsed(DeviceList.requestInterval, since: pgnListRequestTime, at: now)
         && hasElapsed(DeviceList.firstRequestDelay, since: createTime, at: now)
@@ -95,29 +101,47 @@ public struct DeviceList: Sendable {
 
     /// Forgets that the product information arrived, so it's asked for
     /// again (`ClearProductInformationLoaded`).
-    mutating func clearProductInformationLoaded() {
+    fileprivate mutating func clearProductInformationLoaded() {
       hasProductInformation = false
       productRequestTime = 0
       productRequests = 0
     }
+
+    public static func == (lhs: Entry, rhs: Entry) -> Bool {
+      lhs.address == rhs.address && lhs.rawName == rhs.rawName
+        && lhs.productInformation == rhs.productInformation
+        && lhs.configurationInformation == rhs.configurationInformation
+        && lhs.transmitPGNs == rhs.transmitPGNs && lhs.receivePGNs == rhs.receivePGNs
+        && lhs.lastMessageTime == rhs.lastMessageTime
+    }
+
+    public func hash(into hasher: inout Hasher) {
+      hasher.combine(address)
+      hasher.combine(rawName)
+      hasher.combine(productInformation)
+      hasher.combine(configurationInformation)
+      hasher.combine(transmitPGNs)
+      hasher.combine(receivePGNs)
+      hasher.combine(lastMessageTime)
+    }
   }
 
   /// The number of addresses a device can hold (`N2kMaxBusDevices`).
-  static let addressCount = 254
+  private static let addressCount = 254
 
   /// How long a device must be known before the list asks it anything
   /// (`N2kDL_TimeForFirstRequest`).
-  static let firstRequestDelay: UInt32 = 1000
+  private static let firstRequestDelay: UInt32 = 1000
 
   /// How long to wait between repeats of a request
   /// (`N2kDL_TimeBetweenPIRequest`, `N2kDL_TimeBetweenCIRequest`).
-  static let requestInterval: UInt32 = 1000
+  private static let requestInterval: UInt32 = 1000
 
   /// How long a device must be silent before the list starts asking for its
   /// NAME again.
-  static let nameRequestReset: UInt32 = 60000
+  private static let nameRequestReset: UInt32 = 60000
 
-  private var sources: [Device?] = Array(repeating: nil, count: addressCount)
+  private var sources: [Entry?] = Array(repeating: nil, count: addressCount)
   /// One past the highest address the list has used (`MaxDevices`).
   private var sourceLimit = 0
   private var hasPendingRequests = true
@@ -129,24 +153,28 @@ public struct DeviceList: Sendable {
   public init() {}
 
   /// The devices, in address order.
-  public var devices: [Device] { sources.compactMap { $0 } }
+  ///
+  /// - Complexity: O(*n*), where *n* is the number of bus addresses (254).
+  public var devices: [Entry] { sources.compactMap { $0 } }
 
   /// The number of devices (`Count`).
+  ///
+  /// - Complexity: O(*n*), where *n* is the number of bus addresses (254).
   public var count: Int { sources.count { $0 != nil } }
 
   /// The device at an address, if any (`FindDeviceBySource`).
-  public subscript(source source: UInt8) -> Device? {
-    Int(source) < Self.addressCount ? sources[Int(source)] : nil
+  public subscript(address address: UInt8) -> Entry? {
+    Int(address) < Self.addressCount ? sources[Int(address)] : nil
   }
 
   /// The device with a NAME, if any (`FindDeviceByName`).
-  public func device(named name: DeviceName) -> Device? {
+  public func device(named name: DeviceName) -> Entry? {
     sources[..<sourceLimit].lazy.compactMap { $0 }.first { $0.rawName == name.rawValue }
   }
 
   /// The first device with a manufacturer code and unique number, either of
   /// which may be `nil` to match any (`FindDeviceByIDs`).
-  public func device(manufacturerCode: UInt16?, uniqueNumber: UInt32?) -> Device? {
+  public func device(manufacturerCode: UInt16?, uniqueNumber: UInt32?) -> Entry? {
     guard manufacturerCode != nil || uniqueNumber != nil else { return nil }
     return sources[..<sourceLimit].lazy.compactMap { $0 }.first {
       let name = DeviceName(rawValue: $0.rawName)
@@ -156,12 +184,12 @@ public struct DeviceList: Sendable {
   }
 
   /// The first device after an address with a manufacturer code and product
-  /// code, or from the start if `source` is `nil` (`FindDeviceByProduct`).
-  public func device(manufacturerCode: UInt16, productCode: UInt16, after source: UInt8? = nil)
-    -> Device?
+  /// code, or from the start if `address` is `nil` (`FindDeviceByProduct`).
+  public func device(manufacturerCode: UInt16, productCode: UInt16, after address: UInt8? = nil)
+    -> Entry?
   {
-    // From the start when there's no address after `source` (upstream).
-    let start = source.map { Int($0) < sourceLimit ? Int($0) + 1 : 0 } ?? 0
+    // From the start when there's no address after `address` (upstream).
+    let start = address.map { Int($0) < sourceLimit ? Int($0) + 1 : 0 } ?? 0
     return sources[start..<sourceLimit].lazy.compactMap { $0 }.first {
       DeviceName(rawValue: $0.rawName).manufacturerCode == manufacturerCode
         && $0.productInformation?.productCode == productCode
@@ -172,7 +200,7 @@ public struct DeviceList: Sendable {
   ///
   /// - Parameters:
   ///   - message: A message received from the bus.
-  ///   - time: The time it arrived, in milliseconds on a clock that may wrap.
+  ///   - time: The time it arrived, since any fixed moment.
   ///   - send: Sends a request, returning whether it could be sent. The
   ///     list only counts a request as made when it was sent.
   /// - Returns: Whether the message changed the list, which upstream's
@@ -181,15 +209,15 @@ public struct DeviceList: Sendable {
   /// Ports `tN2kDeviceList::HandleMsg`.
   @discardableResult
   public mutating func handle(
-    _ message: Message, at time: UInt32, sending send: (Message) -> Bool
+    _ message: Message, at time: Duration, sending send: (Message) -> Bool
   ) -> Bool {
     isUpdated = false
-    handleMessage(message, at: time, sending: send)
+    handleMessage(message, at: time.wrappingMilliseconds, stamp: time, sending: send)
     return isUpdated
   }
 
   private mutating func handleMessage(
-    _ message: Message, at time: UInt32, sending send: (Message) -> Bool
+    _ message: Message, at time: UInt32, stamp: Duration, sending send: (Message) -> Bool
   ) {
     let source = Int(message.source)
     guard source < Self.addressCount else { return }
@@ -212,12 +240,13 @@ public struct DeviceList: Sendable {
     }
     guard var device = sources[source] else { return }
     if device.rawName == 0 && device.nameRequests > 0
-      && hasElapsed(Self.nameRequestReset, since: device.lastMessageTime, at: time)
+      && hasElapsed(
+        Self.nameRequestReset, since: device.lastMessageTime.wrappingMilliseconds, at: time)
     {
       device.nameRequests = 0
       hasPendingRequests = true
     }
-    device.lastMessageTime = time
+    device.lastMessageTime = stamp
     sources[source] = device
   }
 
@@ -233,7 +262,7 @@ public struct DeviceList: Sendable {
     at source: UInt8, at time: UInt32, sending send: (Message) -> Bool
   ) {
     guard send(Self.request(ISOAddressClaim.pgn, from: source)) else { return }
-    save(Device(name: 0, source: source, at: time), at: source)
+    save(Entry(name: 0, address: source, at: time), at: source)
     hasPendingRequests = true
   }
 
@@ -257,7 +286,7 @@ public struct DeviceList: Sendable {
     for index in 0..<sourceLimit {
       guard let device = sources[index] else { continue }
       if device.isReadyToRequestProductInformation(at: time) {
-        if send(Self.request(ProductInformation.pgn, from: device.source)) {
+        if send(Self.request(ProductInformation.pgn, from: device.address)) {
           sources[index]?.productRequestTime = time
           sources[index]?.productRequests += 1
           hasPendingRequests = true
@@ -272,7 +301,7 @@ public struct DeviceList: Sendable {
     for index in 0..<sourceLimit {
       guard let device = sources[index] else { continue }
       if device.isReadyToRequestConfigurationInformation(at: time) {
-        if send(Self.request(ConfigurationInformation.pgn, from: device.source)) {
+        if send(Self.request(ConfigurationInformation.pgn, from: device.address)) {
           sources[index]?.configurationRequestTime = time
           sources[index]?.configurationRequests += 1
           hasPendingRequests = true
@@ -287,7 +316,7 @@ public struct DeviceList: Sendable {
     for index in 0..<sourceLimit {
       guard let device = sources[index] else { continue }
       if device.isReadyToRequestPGNLists(at: time) {
-        if send(Self.request(PGNList.pgn, from: device.source)) {
+        if send(Self.request(PGNList.pgn, from: device.address)) {
           sources[index]?.pgnListRequestTime = time
           sources[index]?.pgnListRequests += 1
           hasPendingRequests = true
@@ -302,9 +331,9 @@ public struct DeviceList: Sendable {
   // MARK: - Information
 
   /// Puts a device at an address (`SaveDevice`).
-  private mutating func save(_ device: Device, at source: UInt8) {
+  private mutating func save(_ device: Entry, at source: UInt8) {
     var device = device
-    device.source = source
+    device.address = source
     sources[Int(source)] = device
     sourceLimit = max(sourceLimit, Int(source) + 1)
   }
@@ -318,13 +347,13 @@ public struct DeviceList: Sendable {
   ) {
     let name = ISOAddressClaim(listMessage: message).name.rawValue
     let source = message.source
-    var claimant: Device?
+    var claimant: Entry?
     if let existing = sources[Int(source)] {
       if existing.rawName == 0 {
         // The address was reserved when the device was first heard.
         guard name != 0 else { return }
         if let moved = device(named: DeviceName(rawValue: name)) {
-          sources[Int(moved.source)] = nil
+          sources[Int(moved.address)] = nil
           save(moved, at: source)
           claimant = moved
         } else {
@@ -346,10 +375,10 @@ public struct DeviceList: Sendable {
     }
     if claimant == nil {
       if name != 0, let moved = device(named: DeviceName(rawValue: name)) {
-        sources[Int(moved.source)] = nil
+        sources[Int(moved.address)] = nil
         save(moved, at: source)
       } else {
-        save(Device(name: name, source: source, at: time), at: source)
+        save(Entry(name: name, address: source, at: time), at: source)
       }
     }
     sources[Int(source)]?.clearProductInformationLoaded()

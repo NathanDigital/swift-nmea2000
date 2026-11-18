@@ -52,16 +52,16 @@ public struct PGNCatalog: Sendable, Hashable {
   /// The fast-packet PGNs every device must support: PGN list, product
   /// information and configuration information
   /// (`IsMandatoryFastPacketMessage`).
-  public static let mandatoryFastPacketPGNs: Set<UInt32> = [126464, 126996, 126998]
+  static let mandatoryFastPacketPGNs: Set<UInt32> = [126464, 126996, 126998]
 
   /// The single-frame network management PGNs: ISO acknowledgement, ISO
   /// request, transport protocol data transfer and connection management, and
   /// ISO address claim (`IsSingleFrameSystemMessage`).
-  public static let singleFrameSystemPGNs: Set<UInt32> = [59392, 59904, 60160, 60416, 60928]
+  static let singleFrameSystemPGNs: Set<UInt32> = [59392, 59904, 60160, 60416, 60928]
 
   /// The fast-packet network management PGNs: commanded address and group
   /// function (`IsFastPacketSystemMessage`).
-  public static let fastPacketSystemPGNs: Set<UInt32> = [65240, 126208]
+  static let fastPacketSystemPGNs: Set<UInt32> = [65240, 126208]
 
   /// The single-frame application PGNs this catalog knows.
   public var singleFramePGNs: Set<UInt32>
@@ -85,7 +85,7 @@ public struct PGNCatalog: Sendable, Hashable {
 
   /// Whether a PGN is in a proprietary fast-packet range: 126720, or
   /// 130816 through 131071 (`IsProprietaryFastPacketMessage`).
-  public static func isProprietaryFastPacket(_ pgn: UInt32) -> Bool {
+  static func isProprietaryFastPacket(_ pgn: UInt32) -> Bool {
     pgn == 126720 || (130816...131071).contains(pgn)
   }
 

@@ -15,10 +15,10 @@ public struct BoatSpeed: ParameterGroup {
   /// not available.
   public var sequenceID: UInt8?
 
-  /// The speed through water, in meters per second, or `nil` if not available.
+  /// The speed through water, in metres per second, or `nil` if not available.
   public var waterReferenced: Double?
 
-  /// The speed over ground, in meters per second, or `nil` if not available.
+  /// The speed over ground, in metres per second, or `nil` if not available.
   public var groundReferenced: Double?
 
   /// The kind of sensor that measures speed through water.
@@ -31,10 +31,10 @@ public struct BoatSpeed: ParameterGroup {
 
   /// Creates a speed message.
   ///
-  /// The defaults match upstream's `SetN2kPGN128259`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN128259`.
   public init(
-    sequenceID: UInt8?,
-    waterReferenced: Double?,
+    sequenceID: UInt8? = nil,
+    waterReferenced: Double? = nil,
     groundReferenced: Double? = nil,
     referenceType: SpeedWaterReferenceType = .paddleWheel
   ) {

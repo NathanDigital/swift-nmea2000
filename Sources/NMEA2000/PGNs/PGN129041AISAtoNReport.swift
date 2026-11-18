@@ -39,17 +39,17 @@ public struct AISAtoNReport: ParameterGroup {
   /// The UTC second when the position was determined. Only the low six bits are sent.
   public var timestampSecond: UInt8
 
-  /// The length of the aid, in meters, or `nil` if not available.
+  /// The length of the aid, in metres, or `nil` if not available.
   public var length: Double?
 
-  /// The beam of the aid, in meters, or `nil` if not available.
+  /// The beam of the aid, in metres, or `nil` if not available.
   public var beam: Double?
 
-  /// The distance of the position reference point from starboard, in meters, or `nil` if not
+  /// The distance of the position reference point from starboard, in metres, or `nil` if not
   /// available.
   public var positionReferenceStarboard: Double?
 
-  /// The distance of the position reference point from true north, in meters, or `nil` if not
+  /// The distance of the position reference point from true north, in metres, or `nil` if not
   /// available.
   public var positionReferenceTrueNorth: Double?
 
@@ -82,7 +82,7 @@ public struct AISAtoNReport: ParameterGroup {
 
   /// Creates an AIS aids to navigation report message.
   ///
-  /// The defaults match the initial values of upstream's `tN2kAISAtoNReportData`.
+  /// Defaults that aren't `nil` match the initial values of upstream's `tN2kAISAtoNReportData`.
   public init(
     messageID: UInt8 = 0xff,
     repeatIndicator: AISRepeatIndicator = .initial,

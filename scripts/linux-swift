@@ -6,8 +6,7 @@
 #   scripts/linux-swift format lint -s -r Sources Tests
 #
 # The image is (re)built from docker/ when its inputs change (Docker layer cache).
-# Linux build products live in a named volume so they never clash with the
-# host's macOS .build directory.
+# Build products live in a named volume, not in the host's .build directory.
 #
 # Each command normally starts a fresh container. A caller that runs many
 # commands (scripts/mutation-test) can keep one container running instead,

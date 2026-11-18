@@ -15,27 +15,27 @@ struct WindlassMonitoringStatusTests {
     // typical
     (
       WindlassMonitoringStatus(
-        sequenceID: 8, windlassID: 1, totalMotorTime: 3600, controllerVoltage: 12.6,
+        windlassID: 1, sequenceID: 8, totalMotorTime: 3600, controllerVoltage: 12.6,
         motorCurrent: 85, monitoringEvents: WindlassMonitoringEvents(rawValue: 0x05)),
       [0x08, 0x01, 0x05, 0x3f, 0x55, 0x3c, 0x00, 0xff]
     ),
     // other values
     (
       WindlassMonitoringStatus(
-        sequenceID: 9, windlassID: 2, totalMotorTime: 60, controllerVoltage: 0.2,
+        windlassID: 2, sequenceID: 9, totalMotorTime: 60, controllerVoltage: 0.2,
         motorCurrent: 1, monitoringEvents: WindlassMonitoringEvents(rawValue: 0x06)),
       [0x09, 0x02, 0x06, 0x01, 0x01, 0x01, 0x00, 0xff]
     ),
     // not available
     (
       WindlassMonitoringStatus(
-        sequenceID: nil, windlassID: 0xff, totalMotorTime: nil, controllerVoltage: nil,
+        windlassID: 0xff, sequenceID: nil, totalMotorTime: nil, controllerVoltage: nil,
         motorCurrent: nil, monitoringEvents: []),
       [0xff, 0xff, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
     // defaults
     (
-      WindlassMonitoringStatus(sequenceID: 8, windlassID: 1, totalMotorTime: 3600),
+      WindlassMonitoringStatus(windlassID: 1, sequenceID: 8, totalMotorTime: 3600),
       [0x08, 0x01, 0x00, 0xff, 0xff, 0x3c, 0x00, 0xff]
     ),
   ]

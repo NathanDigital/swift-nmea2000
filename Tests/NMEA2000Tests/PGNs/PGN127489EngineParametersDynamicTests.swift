@@ -30,7 +30,8 @@ struct EngineParametersDynamicTests {
     (
       EngineParametersDynamic(
         instance: 0xff, oilPressure: nil, oilTemperature: nil, coolantTemperature: nil,
-        alternatorVoltage: nil, fuelRateLitresPerHour: nil, engineHours: nil, coolantPressure: nil,
+        alternatorVoltage: nil, fuelRateLitresPerHour: nil, engineHours: nil,
+        coolantPressure: nil,
         fuelPressure: nil, load: nil, torque: nil, discreteStatus: [], warningStatus: []),
       [
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff,

@@ -29,12 +29,12 @@ public struct Temperature: ParameterGroup {
 
   /// Creates a temperature message.
   ///
-  /// The default matches upstream's `SetN2kPGN130312`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN130312`.
   public init(
-    sequenceID: UInt8?,
     instance: UInt8,
     source: TemperatureSource,
-    actualTemperature: Double?,
+    sequenceID: UInt8? = nil,
+    actualTemperature: Double? = nil,
     setTemperature: Double? = nil
   ) {
     self.sequenceID = sequenceID

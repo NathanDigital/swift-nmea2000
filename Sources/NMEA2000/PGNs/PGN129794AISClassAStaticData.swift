@@ -33,17 +33,17 @@ public struct AISClassAStaticData: ParameterGroup {
   /// The vessel type code.
   public var vesselType: UInt8
 
-  /// The vessel length, in meters, or `nil` if not available.
+  /// The vessel length, in metres, or `nil` if not available.
   public var length: Double?
 
-  /// The vessel beam, in meters, or `nil` if not available.
+  /// The vessel beam, in metres, or `nil` if not available.
   public var beam: Double?
 
-  /// The distance of the position reference point from starboard, in meters, or `nil` if not
+  /// The distance of the position reference point from starboard, in metres, or `nil` if not
   /// available.
   public var positionReferenceStarboard: Double?
 
-  /// The distance of the position reference point from the bow, in meters, or `nil` if not
+  /// The distance of the position reference point from the bow, in metres, or `nil` if not
   /// available.
   public var positionReferenceBow: Double?
 
@@ -53,7 +53,7 @@ public struct AISClassAStaticData: ParameterGroup {
   /// The estimated time of arrival, in seconds since midnight UTC, or `nil` if not available.
   public var etaSecondsSinceMidnight: Double?
 
-  /// The maximum present static draught, in meters, or `nil` if not available.
+  /// The maximum present static draught, in metres, or `nil` if not available.
   public var draught: Double?
 
   /// The destination, up to 20 AIS characters.
@@ -76,7 +76,7 @@ public struct AISClassAStaticData: ParameterGroup {
 
   /// Creates an AIS class A static and voyage related data message.
   ///
-  /// The defaults match upstream's `SetN2kPGN129794`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN129794`.
   public init(
     messageID: UInt8,
     repeatIndicator: AISRepeatIndicator,
@@ -85,17 +85,17 @@ public struct AISClassAStaticData: ParameterGroup {
     callsign: String,
     name: String,
     vesselType: UInt8,
-    length: Double?,
-    beam: Double?,
-    positionReferenceStarboard: Double?,
-    positionReferenceBow: Double?,
-    etaDaysSince1970: UInt16?,
-    etaSecondsSinceMidnight: Double?,
-    draught: Double?,
     destination: String,
     aisVersion: AISVersion,
     gnssType: GNSSType,
     dte: AISDTEStatus,
+    length: Double? = nil,
+    beam: Double? = nil,
+    positionReferenceStarboard: Double? = nil,
+    positionReferenceBow: Double? = nil,
+    etaDaysSince1970: UInt16? = nil,
+    etaSecondsSinceMidnight: Double? = nil,
+    draught: Double? = nil,
     transceiverInformation: AISTransceiverInformation = .channelAReception,
     sequenceID: UInt8? = nil
   ) {

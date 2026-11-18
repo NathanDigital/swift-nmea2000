@@ -35,11 +35,11 @@ public struct EnvironmentalParameters: ParameterGroup {
 
   /// Creates an environmental parameters message.
   ///
-  /// The defaults match upstream's `SetN2kPGN130311`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN130311`.
   public init(
-    sequenceID: UInt8?,
     temperatureSource: TemperatureSource,
-    temperature: Double?,
+    sequenceID: UInt8? = nil,
+    temperature: Double? = nil,
     humiditySource: HumiditySource = .undefined,
     humidity: Double? = nil,
     atmosphericPressure: Double? = nil

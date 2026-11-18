@@ -36,13 +36,13 @@ public struct ConverterStatus: ParameterGroup {
 
   /// Creates a converter status message.
   public init(
-    sequenceID: UInt8?,
     connectionNumber: UInt8,
     operatingState: ConverterOperatingState,
     temperatureState: TemperatureState,
     overloadState: OverloadState,
     lowDCVoltageState: DCVoltageState,
-    rippleState: RippleState
+    rippleState: RippleState,
+    sequenceID: UInt8? = nil
   ) {
     self.sequenceID = sequenceID
     self.connectionNumber = connectionNumber

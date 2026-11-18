@@ -22,9 +22,9 @@ public struct TimeAndDate: ParameterGroup {
 
   /// Creates a time and date message.
   public init(
-    daysSince1970: UInt16?,
-    secondsSinceMidnight: Double?,
-    localOffset: Int16?
+    daysSince1970: UInt16? = nil,
+    secondsSinceMidnight: Double? = nil,
+    localOffset: Int16? = nil
   ) {
     self.daysSince1970 = daysSince1970
     self.secondsSinceMidnight = secondsSinceMidnight

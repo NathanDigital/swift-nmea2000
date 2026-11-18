@@ -14,17 +14,17 @@ struct ActualPressureTests {
   static let vectors: [(ActualPressure, [UInt8])] = [
     // typical
     (
-      ActualPressure(sequenceID: 1, instance: 2, source: .hydraulic, pressure: 2_500_000.5),
+      ActualPressure(instance: 2, source: .hydraulic, sequenceID: 1, pressure: 2_500_000.5),
       [0x01, 0x02, 0x04, 0x45, 0x78, 0x7d, 0x01, 0xff]
     ),
     // negative pressure
     (
-      ActualPressure(sequenceID: 2, instance: 3, source: .error, pressure: -5000),
+      ActualPressure(instance: 3, source: .error, sequenceID: 2, pressure: -5000),
       [0x02, 0x03, 0xfe, 0xb0, 0x3c, 0xff, 0xff, 0xff]
     ),
     // not available
     (
-      ActualPressure(sequenceID: nil, instance: 0xff, source: .unavailable, pressure: nil),
+      ActualPressure(instance: 0xff, source: .unavailable, sequenceID: nil, pressure: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xff]
     ),
   ]

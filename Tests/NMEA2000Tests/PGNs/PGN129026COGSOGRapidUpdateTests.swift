@@ -15,13 +15,13 @@ struct COGSOGRapidUpdateTests {
     // typical
     (
       COGSOGRapidUpdate(
-        sequenceID: 9, reference: .true, courseOverGround: 1.234, speedOverGround: 5.67),
+        reference: .true, sequenceID: 9, courseOverGround: 1.234, speedOverGround: 5.67),
       [0x09, 0xfc, 0x34, 0x30, 0x37, 0x02, 0xff, 0xff]
     ),
     // not available
     (
       COGSOGRapidUpdate(
-        sequenceID: nil, reference: .unavailable, courseOverGround: nil, speedOverGround: nil),
+        reference: .unavailable, sequenceID: nil, courseOverGround: nil, speedOverGround: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
   ]

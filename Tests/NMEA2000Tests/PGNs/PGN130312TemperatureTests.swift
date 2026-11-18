@@ -15,27 +15,27 @@ struct TemperatureTests {
     // typical
     (
       Temperature(
-        sequenceID: 1, instance: 3, source: .freezer, actualTemperature: 255.15,
+        instance: 3, source: .freezer, sequenceID: 1, actualTemperature: 255.15,
         setTemperature: 253.15),
       [0x01, 0x03, 0x0d, 0xab, 0x63, 0xe3, 0x62, 0xff]
     ),
     // unknown source
     (
       Temperature(
-        sequenceID: 2, instance: 0xfe, source: TemperatureSource(rawValue: 0xc8),
+        instance: 0xfe, source: TemperatureSource(rawValue: 0xc8), sequenceID: 2,
         actualTemperature: 600, setTemperature: nil),
       [0x02, 0xfe, 0xc8, 0x60, 0xea, 0xff, 0xff, 0xff]
     ),
     // not available
     (
       Temperature(
-        sequenceID: nil, instance: 0xff, source: TemperatureSource(rawValue: 0xff),
+        instance: 0xff, source: TemperatureSource(rawValue: 0xff), sequenceID: nil,
         actualTemperature: nil, setTemperature: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
     // defaults
     (
-      Temperature(sequenceID: 1, instance: 0, source: .engineRoom, actualTemperature: 320),
+      Temperature(instance: 0, source: .engineRoom, sequenceID: 1, actualTemperature: 320),
       [0x01, 0x00, 0x03, 0x00, 0x7d, 0xff, 0xff, 0xff]
     ),
   ]

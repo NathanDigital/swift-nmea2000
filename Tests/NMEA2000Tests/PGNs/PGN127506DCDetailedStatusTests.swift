@@ -15,14 +15,14 @@ struct DCDetailedStatusTests {
     // typical
     (
       DCDetailedStatus(
-        sequenceID: 1, dcInstance: 2, dcType: .windGenerator, stateOfCharge: 87, stateOfHealth: 95,
+        dcInstance: 2, dcType: .windGenerator, sequenceID: 1, stateOfCharge: 87, stateOfHealth: 95,
         timeRemaining: 7200, rippleVoltage: 0.025, capacity: 720000),
       [0x01, 0x02, 0x04, 0x57, 0x5f, 0x78, 0x00, 0x19, 0x00, 0xc8, 0x00]
     ),
     // not available
     (
       DCDetailedStatus(
-        sequenceID: nil, dcInstance: 0xff, dcType: DCSourceType(rawValue: 0xff), stateOfCharge: nil,
+        dcInstance: 0xff, dcType: DCSourceType(rawValue: 0xff), sequenceID: nil, stateOfCharge: nil,
         stateOfHealth: nil,
         timeRemaining: nil, rippleVoltage: nil, capacity: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
@@ -30,7 +30,7 @@ struct DCDetailedStatusTests {
     // defaults
     (
       DCDetailedStatus(
-        sequenceID: 1, dcInstance: 0, dcType: .battery, stateOfCharge: 50, stateOfHealth: 100,
+        dcInstance: 0, dcType: .battery, sequenceID: 1, stateOfCharge: 50, stateOfHealth: 100,
         timeRemaining: 3600),
       [0x01, 0x00, 0x00, 0x32, 0x64, 0x3c, 0x00, 0xff, 0xff, 0xff, 0xff]
     ),

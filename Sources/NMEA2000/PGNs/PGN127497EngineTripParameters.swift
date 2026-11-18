@@ -28,11 +28,11 @@ public struct EngineTripParameters: ParameterGroup {
 
   /// Creates an engine trip parameters message.
   ///
-  /// The defaults match upstream's `SetN2kEngineTripParameters`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kEngineTripParameters`.
   public init(
     instance: UInt8,
-    tripFuelUsedLitres: Double?,
-    averageFuelRateLitresPerHour: Double?,
+    tripFuelUsedLitres: Double? = nil,
+    averageFuelRateLitresPerHour: Double? = nil,
     economyFuelRateLitresPerHour: Double? = nil,
     instantaneousFuelEconomyLitresPerHour: Double? = nil
   ) {

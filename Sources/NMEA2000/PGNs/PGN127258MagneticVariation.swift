@@ -26,10 +26,10 @@ public struct MagneticVariation: ParameterGroup {
 
   /// Creates a magnetic variation message.
   public init(
-    sequenceID: UInt8?,
     source: MagneticVariationSource,
-    daysSince1970: UInt16?,
-    variation: Double?
+    sequenceID: UInt8? = nil,
+    daysSince1970: UInt16? = nil,
+    variation: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.source = source

@@ -26,10 +26,10 @@ public struct Attitude: ParameterGroup {
 
   /// Creates an attitude message.
   public init(
-    sequenceID: UInt8?,
-    yaw: Double?,
-    pitch: Double?,
-    roll: Double?
+    sequenceID: UInt8? = nil,
+    yaw: Double? = nil,
+    pitch: Double? = nil,
+    roll: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.yaw = yaw

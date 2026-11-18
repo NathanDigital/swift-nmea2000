@@ -15,8 +15,9 @@ struct ParameterGroupTests {
       sequenceID: 1, mode: .calculatedAfterPosition,
       satellites: [
         .init(
-          prn: 7, elevation: 0.5, azimuth: nil, signalToNoiseRatio: 40, rangeResidual: nil,
-          usageStatus: PRNUsageStatus(rawValue: 9))
+          usageStatus: PRNUsageStatus(rawValue: 9), prn: 7, elevation: 0.5, azimuth: nil,
+          signalToNoiseRatio: 40,
+          rangeResidual: nil)
       ])
     let data = try JSONEncoder().encode(satellites)
     #expect(try JSONDecoder().decode(GNSSSatellitesInView.self, from: data) == satellites)
@@ -24,8 +25,10 @@ struct ParameterGroupTests {
 
   @Test func catalogsEveryStandardParameterGroupByItsOwnPGN() {
     // Each type has its own PGN, so none replaced another.
-    #expect(ParameterGroupCatalog.standard.types.count == 65)
-    for (pgn, type) in ParameterGroupCatalog.standard.types { #expect(type.pgn == pgn) }
+    #expect(ParameterGroupCatalog.standard.pgns.count == 65)
+    for pgn in ParameterGroupCatalog.standard.pgns {
+      #expect(ParameterGroupCatalog.standard[pgn: pgn]?.pgn == pgn)
+    }
   }
 
   @Test func decodesWithTheTypeForThePGN() throws {
@@ -38,5 +41,8 @@ struct ParameterGroupTests {
     catalog.add(ParameterGroupCatalog.maretron)
     let flow = try Message(pgn: 65286, data: [0x89, 0x98, 1, 2, 3]).decoded(using: catalog)
     #expect(flow is MaretronFluidFlowRate)
+    let combined = ParameterGroupCatalog.standard.adding(.maretron)
+    #expect(combined.pgns.count == catalog.pgns.count)
+    #expect(try Message(pgn: 65286, data: [0x89, 0x98, 1, 2, 3]).decoded(using: combined) != nil)
   }
 }

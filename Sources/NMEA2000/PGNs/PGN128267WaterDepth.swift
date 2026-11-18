@@ -15,23 +15,23 @@ public struct WaterDepth: ParameterGroup {
   /// not available.
   public var sequenceID: UInt8?
 
-  /// The depth below the transducer, in meters, or `nil` if not available.
+  /// The depth below the transducer, in metres, or `nil` if not available.
   public var depthBelowTransducer: Double?
 
-  /// The distance from the transducer to the waterline (positive) or keel (negative), in meters, or
+  /// The distance from the transducer to the waterline (positive) or keel (negative), in metres, or
   /// `nil` if not available.
   public var offset: Double?
 
-  /// The maximum depth the sounder can measure, in meters, or `nil` if not available.
+  /// The maximum depth the sounder can measure, in metres, or `nil` if not available.
   public var range: Double?
 
   /// Creates a water depth message.
   ///
-  /// The default matches upstream's `SetN2kPGN128267`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN128267`.
   public init(
-    sequenceID: UInt8?,
-    depthBelowTransducer: Double?,
-    offset: Double?,
+    sequenceID: UInt8? = nil,
+    depthBelowTransducer: Double? = nil,
+    offset: Double? = nil,
     range: Double? = nil
   ) {
     self.sequenceID = sequenceID

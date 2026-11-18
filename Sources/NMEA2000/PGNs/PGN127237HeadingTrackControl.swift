@@ -50,13 +50,13 @@ public struct HeadingTrackControl: ParameterGroup {
   /// The off-heading limit, in radians, or `nil` if not available.
   public var offHeadingLimit: Double?
 
-  /// The commanded radius of turn, in meters, or `nil` if not available.
+  /// The commanded radius of turn, in metres, or `nil` if not available.
   public var radiusOfTurnOrder: Double?
 
   /// The commanded rate of turn, in radians per second, or `nil` if not available.
   public var rateOfTurnOrder: Double?
 
-  /// The off-track limit, in meters, or `nil` if not available.
+  /// The off-track limit, in metres, or `nil` if not available.
   public var offTrackLimit: Double?
 
   /// The vessel heading, in radians, or `nil` if not available.
@@ -72,15 +72,15 @@ public struct HeadingTrackControl: ParameterGroup {
     turnMode: TurnMode,
     headingReference: HeadingReference,
     commandedRudderDirection: RudderDirectionOrder,
-    commandedRudderAngle: Double?,
-    headingToSteer: Double?,
-    track: Double?,
-    rudderLimit: Double?,
-    offHeadingLimit: Double?,
-    radiusOfTurnOrder: Double?,
-    rateOfTurnOrder: Double?,
-    offTrackLimit: Double?,
-    vesselHeading: Double?
+    commandedRudderAngle: Double? = nil,
+    headingToSteer: Double? = nil,
+    track: Double? = nil,
+    rudderLimit: Double? = nil,
+    offHeadingLimit: Double? = nil,
+    radiusOfTurnOrder: Double? = nil,
+    rateOfTurnOrder: Double? = nil,
+    offTrackLimit: Double? = nil,
+    vesselHeading: Double? = nil
   ) {
     self.rudderLimitExceeded = rudderLimitExceeded
     self.offHeadingLimitExceeded = offHeadingLimitExceeded

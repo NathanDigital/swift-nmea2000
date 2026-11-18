@@ -26,10 +26,10 @@ public struct OutsideEnvironmentalParameters: ParameterGroup {
 
   /// Creates an outside environmental parameters message.
   ///
-  /// The defaults match upstream's `SetN2kPGN130310`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN130310`.
   public init(
-    sequenceID: UInt8?,
-    waterTemperature: Double?,
+    sequenceID: UInt8? = nil,
+    waterTemperature: Double? = nil,
     outsideAirTemperature: Double? = nil,
     atmosphericPressure: Double? = nil
   ) {

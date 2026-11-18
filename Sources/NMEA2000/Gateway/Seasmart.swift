@@ -16,7 +16,8 @@
 /// Ports `N2kToSeasmart` and `SeasmartToN2k`.
 public enum Seasmart {
   /// Encodes a message as a sentence, without a line ending. The message's
-  /// ``Message/timestamp`` is the time stamp.
+  /// ``Message/timestamp`` is the time stamp, in milliseconds wrapped to 32
+  /// bits.
   ///
   /// Ports `N2kToSeasmart`.
   ///
@@ -31,8 +32,9 @@ public enum Seasmart {
     sentence += hex(UInt8(truncatingIfNeeded: message.pgn >> 16))
     sentence += hex(UInt8(truncatingIfNeeded: message.pgn >> 8))
     sentence += hex(UInt8(truncatingIfNeeded: message.pgn)) + ","
+    let time = message.timestamp.wrappingMilliseconds
     for shift in stride(from: 24, through: 0, by: -8) {
-      sentence += hex(UInt8(truncatingIfNeeded: message.timestamp >> shift))
+      sentence += hex(UInt8(truncatingIfNeeded: time >> shift))
     }
     sentence += "," + hex(message.source) + ","
     for byte in message.data { sentence += hex(byte) }
@@ -73,7 +75,8 @@ public enum Seasmart {
     let actual = checksum(parser.text)
     guard expected == actual else { throw .checksumMismatch(expected: expected, actual: actual) }
     return Message(
-      pgn: pgnHigh << 16 + pgnLow, source: UInt8(source), data: data, timestamp: timestamp)
+      pgn: pgnHigh << 16 + pgnLow, source: UInt8(source), data: data,
+      timestamp: .milliseconds(timestamp))
   }
 
   /// The NMEA 0183 checksum: the XOR of the bytes between `$` and `*`.

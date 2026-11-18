@@ -8,7 +8,7 @@
 ///
 /// Ports `tN2kDD025` (`tN2kDataMode`). Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct DataMode: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct DataMode: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -56,9 +56,7 @@ public struct DataMode: RawRepresentable, Codable, Hashable, Sendable, CustomStr
 ///
 /// Ports `tN2kDD072` (`tN2kRangeResidualMode`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct RangeResidualMode: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct RangeResidualMode: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -94,8 +92,7 @@ public struct RangeResidualMode: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kDD124` (`tN2kPRNUsageStatus`). Values without a name here are kept in ``rawValue``,
 /// so they decode and re-encode unchanged.
-public struct PRNUsageStatus: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
-{
+public struct PRNUsageStatus: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -147,7 +144,7 @@ public struct PRNUsageStatus: RawRepresentable, Codable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kGNSStype`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct GNSSType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct GNSSType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -203,7 +200,7 @@ public struct GNSSType: RawRepresentable, Codable, Hashable, Sendable, CustomStr
 ///
 /// Ports `tN2kGNSSmethod`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct GNSSMethod: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct GNSSMethod: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -255,7 +252,7 @@ public struct GNSSMethod: RawRepresentable, Codable, Hashable, Sendable, CustomS
 ///
 /// Ports `tN2kGNSSDOPmode`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct GNSSDOPMode: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct GNSSDOPMode: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

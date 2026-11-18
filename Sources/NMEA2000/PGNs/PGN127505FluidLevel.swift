@@ -27,8 +27,8 @@ public struct FluidLevel: ParameterGroup {
   public init(
     instance: UInt8,
     fluidType: FluidType,
-    level: Double?,
-    capacityLitres: Double?
+    level: Double? = nil,
+    capacityLitres: Double? = nil
   ) {
     self.instance = instance
     self.fluidType = fluidType

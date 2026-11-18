@@ -8,7 +8,7 @@
 ///
 /// Ports `tN2kDD305` (`tN2kAISAtoNType`). Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct AISAtoNType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct AISAtoNType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -156,9 +156,7 @@ public struct AISAtoNType: RawRepresentable, Codable, Hashable, Sendable, Custom
 ///
 /// Ports `tN2kAISRepeat`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct AISRepeatIndicator: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct AISRepeatIndicator: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -194,7 +192,7 @@ public struct AISRepeatIndicator: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kAISVersion`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct AISVersion: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct AISVersion: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -222,9 +220,7 @@ public struct AISVersion: RawRepresentable, Codable, Hashable, Sendable, CustomS
 ///
 /// Ports `tN2kAISNavStatus`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct AISNavigationStatus: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct AISNavigationStatus: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -292,7 +288,7 @@ public struct AISNavigationStatus: RawRepresentable, Codable, Hashable, Sendable
 ///
 /// Ports `tN2kAISDTE`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct AISDTEStatus: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct AISDTEStatus: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -320,7 +316,7 @@ public struct AISDTEStatus: RawRepresentable, Codable, Hashable, Sendable, Custo
 ///
 /// Ports `tN2kAISUnit`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct AISUnitType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct AISUnitType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -348,7 +344,7 @@ public struct AISUnitType: RawRepresentable, Codable, Hashable, Sendable, Custom
 ///
 /// Ports `tN2kAISMode`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct AISMode: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct AISMode: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -376,9 +372,7 @@ public struct AISMode: RawRepresentable, Codable, Hashable, Sendable, CustomStri
 ///
 /// Ports `tN2kAISTransceiverInformation`. Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct AISTransceiverInformation: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct AISTransceiverInformation: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

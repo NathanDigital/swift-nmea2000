@@ -15,7 +15,7 @@ struct BatteryConfigurationStatusTests {
     // typical
     (
       BatteryConfigurationStatus(
-        batteryInstance: 1, type: .agm, supportsEqualization: .yes, nominalVoltage: .volts12,
+        batteryInstance: 1, type: .agm, equalizationSupport: .yes, nominalVoltage: .volts12,
         chemistry: .leadAcid,
         capacity: 720000, temperatureCoefficient: -2, peukertExponent: 1.25,
         chargeEfficiencyFactor: 95),
@@ -24,7 +24,7 @@ struct BatteryConfigurationStatusTests {
     // large capacity and high values
     (
       BatteryConfigurationStatus(
-        batteryInstance: 2, type: BatteryType(rawValue: 9), supportsEqualization: .unavailable,
+        batteryInstance: 2, type: BatteryType(rawValue: 9), equalizationSupport: .unavailable,
         nominalVoltage: .volts48, chemistry: .nickelMetalHydride,
         capacity: 144_000_000, temperatureCoefficient: 3, peukertExponent: 1.504,
         chargeEfficiencyFactor: -10),
@@ -33,7 +33,7 @@ struct BatteryConfigurationStatusTests {
     // not available
     (
       BatteryConfigurationStatus(
-        batteryInstance: 0xff, type: .flooded, supportsEqualization: .no, nominalVoltage: .volts6,
+        batteryInstance: 0xff, type: .flooded, equalizationSupport: .no, nominalVoltage: .volts6,
         chemistry: .leadAcid,
         capacity: nil, temperatureCoefficient: nil, peukertExponent: nil,
         chargeEfficiencyFactor: nil),
@@ -42,7 +42,7 @@ struct BatteryConfigurationStatusTests {
     // unknown voltage and chemistry
     (
       BatteryConfigurationStatus(
-        batteryInstance: 3, type: .gel, supportsEqualization: .error,
+        batteryInstance: 3, type: .gel, equalizationSupport: .error,
         nominalVoltage: BatteryNominalVoltage(rawValue: 9),
         chemistry: BatteryChemistry(rawValue: 12),
         capacity: 360000, temperatureCoefficient: 0, peukertExponent: 1.4,

@@ -21,15 +21,15 @@ public struct COGSOGRapidUpdate: ParameterGroup {
   /// The course over ground, in radians, or `nil` if not available.
   public var courseOverGround: Double?
 
-  /// The speed over ground, in meters per second, or `nil` if not available.
+  /// The speed over ground, in metres per second, or `nil` if not available.
   public var speedOverGround: Double?
 
   /// Creates a COG and SOG rapid update message.
   public init(
-    sequenceID: UInt8?,
     reference: HeadingReference,
-    courseOverGround: Double?,
-    speedOverGround: Double?
+    sequenceID: UInt8? = nil,
+    courseOverGround: Double? = nil,
+    speedOverGround: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.reference = reference

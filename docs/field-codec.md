@@ -109,7 +109,7 @@ A fixed-width read that runs past the end leaves `index` unchanged, as upstream 
 
 ## Deliberate divergences from upstream
 
-All of these are cases where upstream's behaviour is a bug or undefined. Rows marked **changes the bytes sent** are cases where upstream puts the wrong meaning on the bus (CLAUDE.md rule 2); all others only change how received bytes are decoded.
+All of these are cases where upstream's behaviour is a bug or undefined. Rows marked **changes the bytes sent** are cases where upstream puts the wrong meaning on the bus, the one exception to sending upstream's bytes (see "The bytes match upstream" in [CONTRIBUTING.md](CONTRIBUTING.md)); all others only change how received bytes are decoded.
 
 | Upstream | Swift | Why |
 |---|---|---|
@@ -126,8 +126,8 @@ All of these are cases where upstream's behaviour is a bug or undefined. Rows ma
 | `ParseN2kPGN127489` assigns discrete status 2 through `tN2kDD223::operator=`, which keeps the low eight bits, though `SetN2kPGN127489` sends all sixteen | `EngineParametersDynamic` decodes all sixteen bits | The manufacturer flags round-trip. The bytes sent are unchanged. |
 | `ParseN2kPGN128275` reads the log into a `uint32_t` through `Get4ByteUDouble`, so not available (`0xffffffff`) converts the -1e9 sentinel to an unsigned integer, which is undefined | `DistanceLog` decodes it as `nil` | The bytes sent are unchanged. |
 | Fixed `char` buffers filled with `strncpy` (`SetN2kPGN129041`'s AtoN name, `SetN2kPGN130323`'s station ID and name) can cut a multibyte UTF-8 character in half | `String.prefix(utf8ByteCount:)` stops at the last whole character | Upstream then sends a stray lead byte, or reads past the buffer when converting it. **Changes the bytes sent** only for such strings. |
-| `SetN2kPGN127507` encodes the equalization time remaining (documented in seconds) at 1 s resolution, but `ParseN2kPGN127507` decodes it at 60 s, and canboat defines the field in minutes (`DURATION_UFIX16_MIN`) | `ChargerStatus` encodes and decodes it in minutes | Upstream puts a value 60 times too large on the bus. **Changes the bytes sent** for a non-zero time. |
-| `SetN2kPGN127510` documents the equalization time in seconds but sends the number unscaled; canboat defines the field in minutes | `ChargerConfigurationStatus` takes seconds and sends minutes | Same as above. **Changes the bytes sent** for a non-zero time. |
+| `SetN2kPGN127507` encodes the equalisation time remaining (documented in seconds) at 1 s resolution, but `ParseN2kPGN127507` decodes it at 60 s, and canboat defines the field in minutes (`DURATION_UFIX16_MIN`) | `ChargerStatus` encodes and decodes it in minutes | Upstream puts a value 60 times too large on the bus. **Changes the bytes sent** for a non-zero time. |
+| `SetN2kPGN127510` documents the equalisation time in seconds but sends the number unscaled; canboat defines the field in minutes | `ChargerConfigurationStatus` takes seconds and sends minutes | Same as above. **Changes the bytes sent** for a non-zero time. |
 | `ParseN2kPGN127510` masks the four-bit battery temperature with `0x04` | Decodes all four bits | The bytes sent are unchanged. |
 | `ParseN2kPGN127513` reads the unsigned capacity as signed, and decodes a not-available Peukert exponent as -999999999 (its NA sentinel plus 1) | Reads the capacity unsigned, and a missing Peukert exponent as `nil` | The bytes sent are unchanged. |
 | `SetN2kPGN126993` accepts heartbeat intervals up to 655 320 ms but sends the low 16 bits of the milliseconds, so 70 s goes out as 4.464 s; canboat defines the field as 16-bit milliseconds (`DURATION_UFIX16_MS`) | `Heartbeat` sends `0xfffe`, upstream's own value for an interval over its limit, for any interval over 65.535 s | Upstream puts a much shorter interval on the bus. **Changes the bytes sent** only for intervals over 65.535 s; the default of 60 s is unchanged. |

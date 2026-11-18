@@ -9,7 +9,10 @@
 /// Ports upstream's `tN2kMsg` container. The field-level helpers that upstream
 /// puts on `tN2kMsg` (`AddByte`, `Get2ByteUDouble`, …) live on
 /// ``MessageWriter`` and ``MessageReader`` instead.
-public struct Message: Sendable, Hashable {
+///
+/// `Codable` encodes the Swift properties, for storing or logging a message;
+/// the gateway codecs (``Actisense``, ``Seasmart``) write the wire formats.
+public struct Message: Sendable, Hashable, Codable {
   /// The largest payload a message can carry, in bytes.
   ///
   /// This is the fast-packet limit, matching upstream's `tN2kMsg::MaxDataLen`.
@@ -38,11 +41,12 @@ public struct Message: Sendable, Hashable {
   /// The payload bytes.
   public var data: [UInt8]
 
-  /// The time the message was created or received, in milliseconds.
+  /// The time the message was created or received, since a moment set by
+  /// whoever stamps the message; ``Node`` counts from when it was created.
   ///
-  /// The epoch is set by whoever stamps the message, usually the node's clock.
-  /// Gateway formats such as Actisense carry this value on the wire.
-  public var timestamp: UInt32
+  /// Gateway formats such as Actisense carry it on the wire in milliseconds,
+  /// wrapped to 32 bits.
+  public var timestamp: Duration
 
   /// How the message is split into CAN frames when it's sent, or how a
   /// received message arrived.
@@ -77,7 +81,7 @@ public struct Message: Sendable, Hashable {
   ///     replaces it with the sending device's address.
   ///   - destination: The destination address.
   ///   - data: The payload bytes.
-  ///   - timestamp: The time stamp, in milliseconds.
+  ///   - timestamp: The time the message was created or received.
   ///   - framing: How the message is split into CAN frames.
   public init(
     pgn: UInt32,
@@ -85,7 +89,7 @@ public struct Message: Sendable, Hashable {
     source: UInt8 = 15,
     destination: UInt8 = Message.broadcastAddress,
     data: [UInt8] = [],
-    timestamp: UInt32 = 0,
+    timestamp: Duration = .zero,
     framing: Framing = .automatic
   ) {
     self.pgn = pgn
@@ -95,6 +99,22 @@ public struct Message: Sendable, Hashable {
     self.data = data
     self.timestamp = timestamp
     self.framing = framing
+  }
+}
+
+extension Message {
+  /// Decodes a message, keeping only the low three bits of the priority as
+  /// ``init(pgn:priority:source:destination:data:timestamp:framing:)`` does.
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.init(
+      pgn: try container.decode(UInt32.self, forKey: .pgn),
+      priority: try container.decode(UInt8.self, forKey: .priority),
+      source: try container.decode(UInt8.self, forKey: .source),
+      destination: try container.decode(UInt8.self, forKey: .destination),
+      data: try container.decode([UInt8].self, forKey: .data),
+      timestamp: try container.decode(Duration.self, forKey: .timestamp),
+      framing: try container.decode(Framing.self, forKey: .framing))
   }
 }
 

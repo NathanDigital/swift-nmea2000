@@ -22,7 +22,7 @@ public struct PositionRapidUpdate: ParameterGroup {
   /// - Parameters:
   ///   - latitude: The latitude, in degrees, positive north.
   ///   - longitude: The longitude, in degrees, positive east.
-  public init(latitude: Double?, longitude: Double?) {
+  public init(latitude: Double? = nil, longitude: Double? = nil) {
     self.latitude = latitude
     self.longitude = longitude
   }

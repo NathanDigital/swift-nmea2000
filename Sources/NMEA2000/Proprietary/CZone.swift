@@ -27,24 +27,24 @@ public struct CZoneSwitchStatus: Sendable, Codable, Hashable {
   public static let switchSummaryField: UInt8 = 0x1e
 
   /// CZone's proprietary header.
-  static let header: UInt16 = 0x9927
+  private static let header: UInt16 = 0x9927
 
   /// The bank instance, which matches the device instance in the device's
   /// product information.
-  public var bankInstance: UInt8
+  public let bankInstance: UInt8
 
   /// What the record holds; ``switchSummaryField`` for the switch states.
-  public var fieldIdentifier: UInt8
+  public let fieldIdentifier: UInt8
 
   /// The switch states, one bit each from switch 1 in bit 0, 1 for on.
-  public var switchBits: UInt8
+  public let switchBits: UInt8
 
   /// The up to three bytes after the switch states, 0 where absent.
-  public var reserved: [UInt8]
+  public let reserved: [UInt8]
 
   /// The first eight bytes of the payload, for working out what else the
   /// message holds.
-  public var rawData: [UInt8]
+  public let rawData: [UInt8]
 
   /// Decodes a switch status message.
   ///

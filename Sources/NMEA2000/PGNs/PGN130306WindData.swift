@@ -15,7 +15,7 @@ public struct WindData: ParameterGroup {
   /// not available.
   public var sequenceID: UInt8?
 
-  /// The wind speed, in meters per second, or `nil` if not available.
+  /// The wind speed, in metres per second, or `nil` if not available.
   public var windSpeed: Double?
 
   /// The wind angle, in radians, or `nil` if not available.
@@ -26,10 +26,10 @@ public struct WindData: ParameterGroup {
 
   /// Creates a wind data message.
   public init(
-    sequenceID: UInt8?,
-    windSpeed: Double?,
-    windAngle: Double?,
-    reference: WindReference
+    reference: WindReference,
+    sequenceID: UInt8? = nil,
+    windSpeed: Double? = nil,
+    windAngle: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.windSpeed = windSpeed

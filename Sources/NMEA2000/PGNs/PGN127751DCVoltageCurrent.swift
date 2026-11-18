@@ -27,11 +27,11 @@ public struct DCVoltageCurrent: ParameterGroup {
 
   /// Creates a DC voltage and current message.
   ///
-  /// The defaults match upstream's `SetN2kDCVoltageCurrent`, including its sequence identifier of
+  /// Defaults that aren't `nil` match upstream's `SetN2kDCVoltageCurrent`, including its sequence identifier of
   /// 1.
   public init(
     instance: UInt8,
-    voltage: Double?,
+    voltage: Double? = nil,
     current: Double? = nil,
     sequenceID: UInt8? = 1
   ) {

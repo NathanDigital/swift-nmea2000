@@ -29,11 +29,11 @@ public struct VesselHeading: ParameterGroup {
 
   /// Creates a vessel heading message.
   ///
-  /// The defaults match upstream's `SetN2kMagneticHeading`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kMagneticHeading`.
   public init(
-    sequenceID: UInt8?,
-    heading: Double?,
     reference: HeadingReference,
+    sequenceID: UInt8? = nil,
+    heading: Double? = nil,
     deviation: Double? = nil,
     variation: Double? = nil
   ) {

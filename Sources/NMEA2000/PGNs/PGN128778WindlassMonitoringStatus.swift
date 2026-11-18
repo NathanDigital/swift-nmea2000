@@ -32,11 +32,11 @@ public struct WindlassMonitoringStatus: ParameterGroup {
 
   /// Creates a windlass monitoring status message.
   ///
-  /// The defaults match upstream's `SetN2kPGN128778`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN128778`.
   public init(
-    sequenceID: UInt8?,
     windlassID: UInt8,
-    totalMotorTime: Double?,
+    sequenceID: UInt8? = nil,
+    totalMotorTime: Double? = nil,
     controllerVoltage: Double? = nil,
     motorCurrent: Double? = nil,
     monitoringEvents: WindlassMonitoringEvents = []

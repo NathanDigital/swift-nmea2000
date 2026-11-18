@@ -32,12 +32,12 @@ public struct GNSSDOPData: ParameterGroup {
 
   /// Creates a GNSS DOPs message.
   public init(
-    sequenceID: UInt8?,
     desiredMode: GNSSDOPMode,
     actualMode: GNSSDOPMode,
-    horizontalDilution: Double?,
-    verticalDilution: Double?,
-    timeDilution: Double?
+    sequenceID: UInt8? = nil,
+    horizontalDilution: Double? = nil,
+    verticalDilution: Double? = nil,
+    timeDilution: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.desiredMode = desiredMode

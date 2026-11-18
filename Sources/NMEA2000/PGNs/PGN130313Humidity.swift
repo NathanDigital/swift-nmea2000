@@ -29,12 +29,12 @@ public struct Humidity: ParameterGroup {
 
   /// Creates a humidity message.
   ///
-  /// The default matches upstream's `SetN2kPGN130313`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN130313`.
   public init(
-    sequenceID: UInt8?,
     instance: UInt8,
     source: HumiditySource,
-    actualHumidity: Double?,
+    sequenceID: UInt8? = nil,
+    actualHumidity: Double? = nil,
     setHumidity: Double? = nil
   ) {
     self.sequenceID = sequenceID

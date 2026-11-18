@@ -17,18 +17,18 @@ public struct DistanceLog: ParameterGroup {
   /// The time of the log entry, in seconds since midnight UTC, or `nil` if not available.
   public var secondsSinceMidnight: Double?
 
-  /// The total distance logged, in meters, or `nil` if not available.
+  /// The total distance logged, in metres, or `nil` if not available.
   public var log: UInt32?
 
-  /// The distance logged since the last reset, in meters, or `nil` if not available.
+  /// The distance logged since the last reset, in metres, or `nil` if not available.
   public var tripLog: UInt32?
 
   /// Creates a distance log message.
   public init(
-    daysSince1970: UInt16?,
-    secondsSinceMidnight: Double?,
-    log: UInt32?,
-    tripLog: UInt32?
+    daysSince1970: UInt16? = nil,
+    secondsSinceMidnight: Double? = nil,
+    log: UInt32? = nil,
+    tripLog: UInt32? = nil
   ) {
     self.daysSince1970 = daysSince1970
     self.secondsSinceMidnight = secondsSinceMidnight

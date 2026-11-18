@@ -19,8 +19,8 @@ public struct TrimTabStatus: ParameterGroup {
 
   /// Creates a trim tab status message.
   public init(
-    portTrimTab: Int8?,
-    starboardTrimTab: Int8?
+    portTrimTab: Int8? = nil,
+    starboardTrimTab: Int8? = nil
   ) {
     self.portTrimTab = portTrimTab
     self.starboardTrimTab = starboardTrimTab

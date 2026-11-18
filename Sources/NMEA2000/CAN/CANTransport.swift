@@ -30,6 +30,11 @@ public protocol CANTransport: Sendable {
   /// The node sends one message's frames in order, and doesn't send another
   /// message's frames until they're done.
   ///
+  /// When ``Node/run()`` ends, the node cancels the task sending a frame and
+  /// waits for this method to return before it calls ``close()``, so a
+  /// suspended send should throw `CancellationError` when its task is
+  /// cancelled.
+  ///
   /// - Throws: Any error that stopped the frame being sent.
   func send(_ frame: CANFrame) async throws
 

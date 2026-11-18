@@ -38,14 +38,14 @@ public struct DCDetailedStatus: ParameterGroup {
 
   /// Creates a DC detailed status message.
   ///
-  /// The defaults match upstream's `SetN2kDCStatus`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kDCStatus`.
   public init(
-    sequenceID: UInt8?,
     dcInstance: UInt8,
     dcType: DCSourceType,
-    stateOfCharge: UInt8?,
-    stateOfHealth: UInt8?,
-    timeRemaining: Double?,
+    sequenceID: UInt8? = nil,
+    stateOfCharge: UInt8? = nil,
+    stateOfHealth: UInt8? = nil,
+    timeRemaining: Double? = nil,
     rippleVoltage: Double? = nil,
     capacity: Double? = nil
   ) {

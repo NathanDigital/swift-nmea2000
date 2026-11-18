@@ -32,7 +32,7 @@ public struct GNSSSatellitesInView: ParameterGroup {
     /// The signal-to-noise ratio, in decibels, or `nil` if not available.
     public var signalToNoiseRatio: Double?
 
-    /// The range residual, in meters, or `nil` if not available.
+    /// The range residual, in metres, or `nil` if not available.
     public var rangeResidual: Double?
 
     /// How the satellite is used in the solution.
@@ -40,12 +40,12 @@ public struct GNSSSatellitesInView: ParameterGroup {
 
     /// Creates a satellite entry.
     public init(
-      prn: UInt8?,
-      elevation: Double?,
-      azimuth: Double?,
-      signalToNoiseRatio: Double?,
-      rangeResidual: Double?,
-      usageStatus: PRNUsageStatus
+      usageStatus: PRNUsageStatus,
+      prn: UInt8? = nil,
+      elevation: Double? = nil,
+      azimuth: Double? = nil,
+      signalToNoiseRatio: Double? = nil,
+      rangeResidual: Double? = nil
     ) {
       self.prn = prn
       self.elevation = elevation
@@ -72,7 +72,7 @@ public struct GNSSSatellitesInView: ParameterGroup {
 
   /// Creates a GNSS satellites in view message.
   ///
-  /// The defaults match upstream's `SetN2kPGN129540`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN129540`.
   public init(
     sequenceID: UInt8? = nil, mode: RangeResidualMode = .unavailable, satellites: [Satellite] = []
   ) {
@@ -93,13 +93,16 @@ public struct GNSSSatellitesInView: ParameterGroup {
     // A payload that ends before the count holds no satellites.
     let count = reader.remainingCount > 0 ? Int(reader.readUInt8()) : 0
     satellites = (0..<count).map { _ in
-      Satellite(
-        prn: reader.readOptionalUInt8(),
-        elevation: reader.readInt16(resolution: 1e-4),
-        azimuth: reader.readUInt16(resolution: 1e-4),
-        signalToNoiseRatio: reader.readInt16(resolution: 1e-2),
-        rangeResidual: reader.readInt32(resolution: 1e-5),
-        usageStatus: PRNUsageStatus(rawValue: reader.readUInt8() & 0x0f))
+      // Read in wire order; the initializer takes the status first.
+      let prn = reader.readOptionalUInt8()
+      let elevation = reader.readInt16(resolution: 1e-4)
+      let azimuth = reader.readUInt16(resolution: 1e-4)
+      let signalToNoiseRatio = reader.readInt16(resolution: 1e-2)
+      let rangeResidual = reader.readInt32(resolution: 1e-5)
+      return Satellite(
+        usageStatus: PRNUsageStatus(rawValue: reader.readUInt8() & 0x0f), prn: prn,
+        elevation: elevation, azimuth: azimuth, signalToNoiseRatio: signalToNoiseRatio,
+        rangeResidual: rangeResidual)
     }
   }
 

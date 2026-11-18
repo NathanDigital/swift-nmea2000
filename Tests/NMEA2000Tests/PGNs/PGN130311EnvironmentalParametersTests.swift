@@ -15,14 +15,14 @@ struct EnvironmentalParametersTests {
     // typical
     (
       EnvironmentalParameters(
-        sequenceID: 1, temperatureSource: .shaftSeal, temperature: 310.5, humiditySource: .outside,
+        temperatureSource: .shaftSeal, sequenceID: 1, temperature: 310.5, humiditySource: .outside,
         humidity: 65.5, atmosphericPressure: 100800),
       [0x01, 0x4f, 0x4a, 0x79, 0xf7, 0x3f, 0xf0, 0x03]
     ),
     // high temperature source code
     (
       EnvironmentalParameters(
-        sequenceID: 2, temperatureSource: TemperatureSource(rawValue: 0x2a), temperature: 250,
+        temperatureSource: TemperatureSource(rawValue: 0x2a), sequenceID: 2, temperature: 250,
         humiditySource: .inside,
         humidity: -1.0, atmosphericPressure: 99000),
       [0x02, 0x2a, 0xa8, 0x61, 0x06, 0xff, 0xde, 0x03]
@@ -30,13 +30,13 @@ struct EnvironmentalParametersTests {
     // not available
     (
       EnvironmentalParameters(
-        sequenceID: nil, temperatureSource: .sea, temperature: nil, humiditySource: .undefined,
+        temperatureSource: .sea, sequenceID: nil, temperature: nil, humiditySource: .undefined,
         humidity: nil, atmosphericPressure: nil),
       [0xff, 0xc0, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff]
     ),
     // defaults
     (
-      EnvironmentalParameters(sequenceID: 1, temperatureSource: .mainCabin, temperature: 294.15),
+      EnvironmentalParameters(temperatureSource: .mainCabin, sequenceID: 1, temperature: 294.15),
       [0x01, 0xc4, 0xe7, 0x72, 0xff, 0x7f, 0xff, 0xff]
     ),
   ]

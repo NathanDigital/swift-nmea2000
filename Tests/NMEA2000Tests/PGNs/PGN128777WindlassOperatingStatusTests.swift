@@ -15,7 +15,7 @@ struct WindlassOperatingStatusTests {
     // typical
     (
       WindlassOperatingStatus(
-        sequenceID: 6, windlassID: 1, rodeCounter: 45.6, lineSpeed: 0.35, motionState: .retrieving,
+        windlassID: 1, sequenceID: 6, rodeCounter: 45.6, lineSpeed: 0.35, motionState: .retrieving,
         rodeType: .rope, anchorDockingState: .fullyDocked,
         operatingEvents: WindlassOperatingEvents(rawValue: 0x11)),
       [0x06, 0x01, 0xf6, 0xc8, 0x01, 0x23, 0x00, 0x45]
@@ -23,7 +23,7 @@ struct WindlassOperatingStatusTests {
     // other values
     (
       WindlassOperatingStatus(
-        sequenceID: 7, windlassID: 2, rodeCounter: 0, lineSpeed: 0, motionState: .unavailable,
+        windlassID: 2, sequenceID: 7, rodeCounter: 0, lineSpeed: 0, motionState: .unavailable,
         rodeType: .unavailable, anchorDockingState: .error,
         operatingEvents: WindlassOperatingEvents(rawValue: 0x1f)),
       [0x07, 0x02, 0xff, 0x00, 0x00, 0x00, 0x00, 0x7e]
@@ -31,13 +31,13 @@ struct WindlassOperatingStatusTests {
     // not available
     (
       WindlassOperatingStatus(
-        sequenceID: nil, windlassID: 0xff, rodeCounter: nil, lineSpeed: nil, motionState: .stopped,
+        windlassID: 0xff, sequenceID: nil, rodeCounter: nil, lineSpeed: nil, motionState: .stopped,
         rodeType: .chain, anchorDockingState: .unavailable, operatingEvents: []),
       [0xff, 0xff, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x03]
     ),
     // defaults
     (
-      WindlassOperatingStatus(sequenceID: 6, windlassID: 1, rodeCounter: 45.6),
+      WindlassOperatingStatus(windlassID: 1, sequenceID: 6, rodeCounter: 45.6),
       [0x06, 0x01, 0xff, 0xc8, 0x01, 0xff, 0xff, 0x03]
     ),
   ]

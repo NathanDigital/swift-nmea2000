@@ -29,10 +29,10 @@ public struct BatteryStatus: ParameterGroup {
 
   /// Creates a battery status message.
   ///
-  /// The defaults match upstream's `SetN2kDCBatStatus`, including its sequence identifier of 1.
+  /// Defaults that aren't `nil` match upstream's `SetN2kDCBatStatus`, including its sequence identifier of 1.
   public init(
     batteryInstance: UInt8,
-    voltage: Double?,
+    voltage: Double? = nil,
     current: Double? = nil,
     temperature: Double? = nil,
     sequenceID: UInt8? = 1

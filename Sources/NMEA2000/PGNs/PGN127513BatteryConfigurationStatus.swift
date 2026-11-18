@@ -18,8 +18,8 @@ public struct BatteryConfigurationStatus: ParameterGroup {
   /// The construction of the battery.
   public var type: BatteryType
 
-  /// Whether the battery supports equalization.
-  public var supportsEqualization: BatteryEqualizationSupport
+  /// Whether the battery supports equalisation.
+  public var equalizationSupport: BatteryEqualizationSupport
 
   /// The nominal voltage of the battery.
   public var nominalVoltage: BatteryNominalVoltage
@@ -45,17 +45,17 @@ public struct BatteryConfigurationStatus: ParameterGroup {
   public init(
     batteryInstance: UInt8,
     type: BatteryType,
-    supportsEqualization: BatteryEqualizationSupport,
+    equalizationSupport: BatteryEqualizationSupport,
     nominalVoltage: BatteryNominalVoltage,
     chemistry: BatteryChemistry,
-    capacity: Double?,
-    temperatureCoefficient: Int8?,
-    peukertExponent: Double?,
-    chargeEfficiencyFactor: Int8?
+    capacity: Double? = nil,
+    temperatureCoefficient: Int8? = nil,
+    peukertExponent: Double? = nil,
+    chargeEfficiencyFactor: Int8? = nil
   ) {
     self.batteryInstance = batteryInstance
     self.type = type
-    self.supportsEqualization = supportsEqualization
+    self.equalizationSupport = equalizationSupport
     self.nominalVoltage = nominalVoltage
     self.chemistry = chemistry
     self.capacity = capacity
@@ -68,7 +68,7 @@ public struct BatteryConfigurationStatus: ParameterGroup {
     batteryInstance = reader.readUInt8()
     let typeAndSupport = reader.readUInt8()
     type = BatteryType(rawValue: typeAndSupport & 0x0f)
-    supportsEqualization = BatteryEqualizationSupport(rawValue: (typeAndSupport >> 4) & 0x03)
+    equalizationSupport = BatteryEqualizationSupport(rawValue: (typeAndSupport >> 4) & 0x03)
     let voltageAndChemistry = reader.readUInt8()
     nominalVoltage = BatteryNominalVoltage(rawValue: voltageAndChemistry & 0x0f)
     chemistry = BatteryChemistry(rawValue: (voltageAndChemistry >> 4) & 0x0f)
@@ -81,7 +81,7 @@ public struct BatteryConfigurationStatus: ParameterGroup {
 
   public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(batteryInstance)
-    writer.appendUInt8(0xc0 | (supportsEqualization.rawValue & 0x03) << 4 | type.rawValue & 0x0f)
+    writer.appendUInt8(0xc0 | (equalizationSupport.rawValue & 0x03) << 4 | type.rawValue & 0x0f)
     writer.appendUInt8((chemistry.rawValue & 0x0f) << 4 | nominalVoltage.rawValue & 0x0f)
     writer.appendUInt16(capacity, resolution: 3600)
     writer.appendInt8(temperatureCoefficient)

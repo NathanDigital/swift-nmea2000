@@ -26,11 +26,11 @@ public struct SystemTime: ParameterGroup {
 
   /// Creates a system time message.
   ///
-  /// The default matches upstream's `SetN2kPGN126992`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN126992`.
   public init(
-    sequenceID: UInt8?,
-    daysSince1970: UInt16?,
-    secondsSinceMidnight: Double?,
+    sequenceID: UInt8? = nil,
+    daysSince1970: UInt16? = nil,
+    secondsSinceMidnight: Double? = nil,
     source: TimeSource = .gps
   ) {
     self.sequenceID = sequenceID

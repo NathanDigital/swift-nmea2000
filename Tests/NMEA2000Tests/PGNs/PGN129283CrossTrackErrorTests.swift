@@ -15,19 +15,19 @@ struct CrossTrackErrorTests {
     // typical
     (
       CrossTrackError(
-        sequenceID: 11, mode: .differential, isNavigationTerminated: true, crossTrackError: -12.34),
+        mode: .differential, sequenceID: 11, isNavigationTerminated: true, crossTrackError: -12.34),
       [0x0b, 0x41, 0x2e, 0xfb, 0xff, 0xff, 0xff, 0xff]
     ),
     // not available
     (
       CrossTrackError(
-        sequenceID: nil, mode: .autonomous, isNavigationTerminated: false, crossTrackError: nil),
+        mode: .autonomous, sequenceID: nil, isNavigationTerminated: false, crossTrackError: nil),
       [0xff, 0x00, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff]
     ),
     // unknown mode
     (
       CrossTrackError(
-        sequenceID: 11, mode: CrossTrackErrorMode(rawValue: 10), isNavigationTerminated: false,
+        mode: CrossTrackErrorMode(rawValue: 10), sequenceID: 11, isNavigationTerminated: false,
         crossTrackError: 1.5),
       [0x0b, 0x0a, 0x96, 0x00, 0x00, 0x00, 0xff, 0xff]
     ),

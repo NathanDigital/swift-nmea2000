@@ -29,17 +29,17 @@ public struct AISClassBStaticDataPartB: ParameterGroup {
   /// The call sign, up to 7 AIS characters.
   public var callsign: String
 
-  /// The vessel length, in meters, or `nil` if not available.
+  /// The vessel length, in metres, or `nil` if not available.
   public var length: Double?
 
-  /// The vessel beam, in meters, or `nil` if not available.
+  /// The vessel beam, in metres, or `nil` if not available.
   public var beam: Double?
 
-  /// The distance of the position reference point from starboard, in meters, or `nil` if not
+  /// The distance of the position reference point from starboard, in metres, or `nil` if not
   /// available.
   public var positionReferenceStarboard: Double?
 
-  /// The distance of the position reference point from the bow, in meters, or `nil` if not
+  /// The distance of the position reference point from the bow, in metres, or `nil` if not
   /// available.
   public var positionReferenceBow: Double?
 
@@ -54,7 +54,7 @@ public struct AISClassBStaticDataPartB: ParameterGroup {
 
   /// Creates an AIS class B static data, part B message.
   ///
-  /// The defaults match upstream's `SetN2kPGN129810`. Its `SetN2kAISClassBStaticPartB` alias
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN129810`. Its `SetN2kAISClassBStaticPartB` alias
   /// defaults the transceiver information to channel A instead.
   public init(
     messageID: UInt8,
@@ -63,11 +63,11 @@ public struct AISClassBStaticDataPartB: ParameterGroup {
     vesselType: UInt8,
     vendor: String,
     callsign: String,
-    length: Double?,
-    beam: Double?,
-    positionReferenceStarboard: Double?,
-    positionReferenceBow: Double?,
     mothershipID: UInt32,
+    length: Double? = nil,
+    beam: Double? = nil,
+    positionReferenceStarboard: Double? = nil,
+    positionReferenceBow: Double? = nil,
     transceiverInformation: AISTransceiverInformation = .channelBReception,
     sequenceID: UInt8? = nil
   ) {

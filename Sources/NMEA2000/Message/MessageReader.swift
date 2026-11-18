@@ -46,11 +46,12 @@ public struct MessageReader: Sendable {
   /// Moves past bytes without reading them.
   ///
   /// Upstream decoders do this by adding to their index directly. Skipping past
-  /// the end is allowed, and later reads then return not available.
+  /// the end stops at the end, and later reads then return not available.
   ///
-  /// - Parameter count: The number of bytes to skip.
+  /// - Parameter count: The number of bytes to skip. A negative count moves
+  ///   back, no further than the start.
   public mutating func skip(_ count: Int) {
-    index += count
+    index += min(max(count, -index), data.count - index)
   }
 
   // MARK: - Integers

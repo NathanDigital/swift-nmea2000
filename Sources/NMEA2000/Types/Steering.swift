@@ -8,9 +8,7 @@
 ///
 /// Ports `tN2kRudderDirectionOrder`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct RudderDirectionOrder: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct RudderDirectionOrder: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -46,7 +44,7 @@ public struct RudderDirectionOrder: RawRepresentable, Codable, Hashable, Sendabl
 ///
 /// Ports `tN2kSteeringMode`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct SteeringMode: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct SteeringMode: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -94,7 +92,7 @@ public struct SteeringMode: RawRepresentable, Codable, Hashable, Sendable, Custo
 ///
 /// Ports `tN2kTurnMode`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct TurnMode: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct TurnMode: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

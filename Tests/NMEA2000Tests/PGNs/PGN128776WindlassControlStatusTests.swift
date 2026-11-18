@@ -15,7 +15,7 @@ struct WindlassControlStatusTests {
     // typical
     (
       WindlassControlStatus(
-        sequenceID: 4, windlassID: 1, directionControl: .up, speedControl: 75,
+        windlassID: 1, directionControl: .up, speedControl: 75, sequenceID: 4,
         speedControlType: .proportionalSpeed, anchorDockingControl: .yes, powerEnable: .yes,
         mechanicalLock: .error,
         deckAndAnchorWash: .unavailable, anchorLight: .no, commandTimeout: 1.25,
@@ -25,8 +25,8 @@ struct WindlassControlStatusTests {
     // other values
     (
       WindlassControlStatus(
-        sequenceID: 5, windlassID: 2, directionControl: WindlassDirectionControl(rawValue: 3),
-        speedControl: 0,
+        windlassID: 2, directionControl: WindlassDirectionControl(rawValue: 3), speedControl: 0,
+        sequenceID: 5,
         speedControlType: .unavailable, anchorDockingControl: .unavailable, powerEnable: .error,
         mechanicalLock: .unavailable,
         deckAndAnchorWash: .yes, anchorLight: .error, commandTimeout: 0.5, controlEvents: []),
@@ -35,7 +35,7 @@ struct WindlassControlStatusTests {
     // not available
     (
       WindlassControlStatus(
-        sequenceID: nil, windlassID: 0xff, directionControl: .off, speedControl: 0xff,
+        windlassID: 0xff, directionControl: .off, speedControl: 0xff, sequenceID: nil,
         speedControlType: .singleSpeed, anchorDockingControl: .no, powerEnable: .no,
         mechanicalLock: .no,
         deckAndAnchorWash: .no, anchorLight: .no, commandTimeout: nil, controlEvents: []),
@@ -44,7 +44,7 @@ struct WindlassControlStatusTests {
     // defaults
     (
       WindlassControlStatus(
-        sequenceID: 4, windlassID: 1, directionControl: .down, speedControl: 30),
+        windlassID: 1, directionControl: .down, speedControl: 30, sequenceID: 4),
       [0x04, 0x01, 0xfd, 0x1e, 0xff, 0x50, 0x00]
     ),
   ]

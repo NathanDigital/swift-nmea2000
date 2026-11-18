@@ -56,15 +56,15 @@ public struct EngineParametersDynamic: ParameterGroup {
 
   /// Creates a dynamic engine parameters message.
   ///
-  /// The defaults match upstream's `SetN2kEngineDynamicParam`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kEngineDynamicParam`.
   public init(
     instance: UInt8,
-    oilPressure: Double?,
-    oilTemperature: Double?,
-    coolantTemperature: Double?,
-    alternatorVoltage: Double?,
-    fuelRateLitresPerHour: Double?,
-    engineHours: Double?,
+    oilPressure: Double? = nil,
+    oilTemperature: Double? = nil,
+    coolantTemperature: Double? = nil,
+    alternatorVoltage: Double? = nil,
+    fuelRateLitresPerHour: Double? = nil,
+    engineHours: Double? = nil,
     coolantPressure: Double? = nil,
     fuelPressure: Double? = nil,
     load: Int8? = nil,

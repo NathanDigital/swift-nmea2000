@@ -26,10 +26,10 @@ public struct ActualPressure: ParameterGroup {
 
   /// Creates an actual pressure message.
   public init(
-    sequenceID: UInt8?,
     instance: UInt8,
     source: PressureSource,
-    pressure: Double?
+    sequenceID: UInt8? = nil,
+    pressure: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.instance = instance

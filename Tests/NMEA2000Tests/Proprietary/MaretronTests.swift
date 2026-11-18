@@ -14,13 +14,13 @@ struct MaretronTests {
   static let temperatures: [(MaretronTemperatureHighRange, [UInt8])] = [
     (
       MaretronTemperatureHighRange(
-        sequenceID: 1, instance: 2, source: .exhaustGas, actualTemperature: 873.15,
+        instance: 2, source: .exhaustGas, sequenceID: 1, actualTemperature: 873.15,
         setTemperature: 300.05),
       [0x89, 0x98, 0x01, 0x02, 0x0e, 0x1c, 0x22, 0xb9, 0x0b]
     ),
     (
       MaretronTemperatureHighRange(
-        sequenceID: nil, instance: 0xfe, source: TemperatureSource(rawValue: 0xab),
+        instance: 0xfe, source: TemperatureSource(rawValue: 0xab), sequenceID: nil,
         actualTemperature: nil, setTemperature: 6553.4),
       [0x89, 0x98, 0xff, 0xfe, 0xab, 0xff, 0xff, 0xfe, 0xff]
     ),
@@ -29,29 +29,29 @@ struct MaretronTests {
   static let flowRates: [(MaretronFluidFlowRate, [UInt8])] = [
     (
       MaretronFluidFlowRate(
-        sequenceID: 3, instance: 1, fluidType: .fuel, flowRateLitresPerHour: 12.3),
+        instance: 1, fluidType: .fuel, sequenceID: 3, flowRateLitresPerHour: 12.3),
       [0x89, 0x98, 0x03, 0x01, 0x00, 0x7b, 0x00, 0x00]
     ),
     (
       MaretronFluidFlowRate(
-        sequenceID: nil, instance: 0xff, fluidType: FluidType(rawValue: 0x0e),
+        instance: 0xff, fluidType: FluidType(rawValue: 0x0e), sequenceID: nil,
         flowRateLitresPerHour: -838860.7),
       [0x89, 0x98, 0xff, 0xff, 0x0e, 0x01, 0x00, 0x80]
     ),
     (
       MaretronFluidFlowRate(
-        sequenceID: 0, instance: 0, fluidType: .water, flowRateLitresPerHour: nil),
+        instance: 0, fluidType: .water, sequenceID: 0, flowRateLitresPerHour: nil),
       [0x89, 0x98, 0x00, 0x00, 0x01, 0xff, 0xff, 0x7f]
     ),
   ]
 
   static let volumes: [(MaretronTripVolume, [UInt8])] = [
     (
-      MaretronTripVolume(sequenceID: 4, instance: 2, fluidType: .fuel, volumeLitres: 1_234_567),
+      MaretronTripVolume(instance: 2, fluidType: .fuel, sequenceID: 4, volumeLitres: 1_234_567),
       [0x89, 0x98, 0x04, 0x02, 0x00, 0x87, 0xd6, 0x12]
     ),
     (
-      MaretronTripVolume(sequenceID: nil, instance: 0xff, fluidType: .oil, volumeLitres: nil),
+      MaretronTripVolume(instance: 0xff, fluidType: .oil, sequenceID: nil, volumeLitres: nil),
       [0x89, 0x98, 0xff, 0xff, 0x04, 0xff, 0xff, 0x7f]
     ),
   ]
@@ -78,7 +78,8 @@ struct MaretronTests {
     // upstream-vectors "Maretron 130823", third message.
     expectEncodes(
       MaretronTemperatureHighRange(
-        sequenceID: 0, instance: 0, source: .sea, actualTemperature: 6553.5, setTemperature: -1),
+        instance: 0, source: .sea, sequenceID: 0, actualTemperature: 6553.5, setTemperature: -1
+      ),
       as: [0x89, 0x98, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xfe, 0xff], priority: 5)
   }
 

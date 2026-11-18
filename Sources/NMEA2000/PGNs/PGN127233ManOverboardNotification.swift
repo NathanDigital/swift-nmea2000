@@ -45,7 +45,7 @@ public struct ManOverboardNotification: ParameterGroup {
   /// The course over ground, in radians, or `nil` if not available.
   public var courseOverGround: Double?
 
-  /// The speed over ground, in meters per second, or `nil` if not available.
+  /// The speed over ground, in metres per second, or `nil` if not available.
   public var speedOverGround: Double?
 
   /// The MMSI of the vessel the emitter belongs to, or `nil` if not available.
@@ -56,20 +56,20 @@ public struct ManOverboardNotification: ParameterGroup {
 
   /// Creates a man overboard notification message.
   public init(
-    sequenceID: UInt8?,
-    emitterID: UInt32?,
     status: MOBStatus,
-    activationSecondsSinceMidnight: Double?,
     positionSource: MOBPositionSource,
-    positionDaysSince1970: UInt16?,
-    positionSecondsSinceMidnight: Double?,
-    latitude: Double?,
-    longitude: Double?,
     courseReference: HeadingReference,
-    courseOverGround: Double?,
-    speedOverGround: Double?,
-    mmsi: UInt32?,
-    emitterBatteryStatus: MOBEmitterBatteryStatus
+    emitterBatteryStatus: MOBEmitterBatteryStatus,
+    sequenceID: UInt8? = nil,
+    emitterID: UInt32? = nil,
+    activationSecondsSinceMidnight: Double? = nil,
+    positionDaysSince1970: UInt16? = nil,
+    positionSecondsSinceMidnight: Double? = nil,
+    latitude: Double? = nil,
+    longitude: Double? = nil,
+    courseOverGround: Double? = nil,
+    speedOverGround: Double? = nil,
+    mmsi: UInt32? = nil
   ) {
     self.sequenceID = sequenceID
     self.emitterID = emitterID

@@ -18,10 +18,10 @@ public struct WindlassOperatingStatus: ParameterGroup {
   /// The identifier of the windlass.
   public var windlassID: UInt8
 
-  /// The length of rode deployed, in meters, or `nil` if not available.
+  /// The length of rode deployed, in metres, or `nil` if not available.
   public var rodeCounter: Double?
 
-  /// The speed of the rode, in meters per second, or `nil` if not available.
+  /// The speed of the rode, in metres per second, or `nil` if not available.
   public var lineSpeed: Double?
 
   /// The motion of the windlass.
@@ -39,11 +39,11 @@ public struct WindlassOperatingStatus: ParameterGroup {
 
   /// Creates a windlass operating status message.
   ///
-  /// The defaults match upstream's `SetN2kPGN128777`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN128777`.
   public init(
-    sequenceID: UInt8?,
     windlassID: UInt8,
-    rodeCounter: Double?,
+    sequenceID: UInt8? = nil,
+    rodeCounter: Double? = nil,
     lineSpeed: Double? = nil,
     motionState: WindlassMotionState = .unavailable,
     rodeType: RodeType = .unavailable,

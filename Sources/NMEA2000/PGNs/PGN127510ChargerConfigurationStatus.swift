@@ -6,7 +6,7 @@
 
 /// PGN 127510, charger configuration status.
 ///
-/// Ports `SetN2kPGN127510` / `ParseN2kPGN127510`. This port sends the equalization time in minutes
+/// Ports `SetN2kPGN127510` / `ParseN2kPGN127510`. This port sends the equalisation time in minutes
 /// and decodes the battery temperature with all four bits; see ``equalizationTime`` and
 /// ``batteryTemperature``.
 public struct ChargerConfigurationStatus: ParameterGroup {
@@ -35,20 +35,20 @@ public struct ChargerConfigurationStatus: ParameterGroup {
   /// wrong mask (`& 0x04`); this port decodes all four bits.
   public var batteryTemperature: BatteryTemperatureEstimate
 
-  /// Whether one-time equalization is enabled.
+  /// Whether one-time equalisation is enabled.
   public var equalizationEnabled: OnOffStatus
 
   /// Whether overcharge is enabled.
   public var overchargeEnabled: OnOffStatus
 
-  /// The equalization time, in seconds, sent in whole minutes, or `nil` if not available. Upstream
+  /// The equalisation time, in seconds, sent in whole minutes, or `nil` if not available. Upstream
   /// documents this in seconds but sends the number unscaled; canboat defines the field in minutes,
   /// so this port converts.
   public var equalizationTime: Double?
 
   /// Creates a charger configuration status message.
   ///
-  /// The defaults match upstream's `SetN2kChargerConf`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kChargerConf`.
   public init(
     chargerInstance: UInt8,
     batteryInstance: UInt8,
@@ -96,7 +96,8 @@ public struct ChargerConfigurationStatus: ParameterGroup {
     writer.appendUInt8(chargeCurrentLimit)
     writer.appendUInt8((chargerMode.rawValue & 0x0f) << 4 | chargingAlgorithm.rawValue & 0x0f)
     writer.appendUInt8(
-      (overchargeEnabled.rawValue & 0x03) << 6 | (equalizationEnabled.rawValue & 0x03) << 4
+      (overchargeEnabled.rawValue & 0x03) << 6 | (equalizationEnabled.rawValue & 0x03)
+        << 4
         | batteryTemperature.rawValue & 0x0f)
     // Deliberate divergence: upstream sends the seconds value unscaled.
     writer.appendUInt16(equalizationTime, resolution: 60)

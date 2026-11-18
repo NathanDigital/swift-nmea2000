@@ -20,8 +20,13 @@
 /// To receive one type only,
 /// ``Node/messages(of:includingSent:bufferingPolicy:)`` is simpler.
 public struct ParameterGroupCatalog: Sendable {
-  /// The types, by PGN.
-  public private(set) var types: [UInt32: any ParameterGroup.Type]
+  private var types: [UInt32: any ParameterGroup.Type]
+
+  /// The PGNs the catalog has a type for.
+  public var pgns: Set<UInt32> { Set(types.keys) }
+
+  /// The type for a PGN, if the catalog has one.
+  public subscript(pgn pgn: UInt32) -> (any ParameterGroup.Type)? { types[pgn] }
 
   /// Creates a catalog of types. Of types with the same PGN, the last
   /// counts.
@@ -35,103 +40,30 @@ public struct ParameterGroupCatalog: Sendable {
     for type in types { self.types[type.pgn] = type }
   }
 
+  /// Adds another catalog's types, replacing any with the same PGN.
+  public mutating func add(_ catalog: ParameterGroupCatalog) {
+    types.merge(catalog.types) { _, new in new }
+  }
+
+  /// Returns the catalog with another catalog's types added, replacing any
+  /// with the same PGN.
+  ///
+  /// ```swift
+  /// let catalog = ParameterGroupCatalog.standard.adding(.maretron)
+  /// ```
+  public func adding(_ catalog: ParameterGroupCatalog) -> ParameterGroupCatalog {
+    var result = self
+    result.add(catalog)
+    return result
+  }
+
   /// Decodes a message with the type for its PGN, or returns `nil` if the
   /// catalog has none.
   ///
-  /// - Throws: ``MessageDecodingError`` if the type can't decode it.
-  public func decode(_ message: Message) throws(MessageDecodingError) -> (any ParameterGroup)? {
+  /// - Throws: An error from the type if it can't decode the message; the
+  ///   types in this library throw ``MessageDecodingError``.
+  public func decode(_ message: Message) throws -> (any ParameterGroup)? {
     guard let type = types[message.pgn] else { return nil }
     return try type.init(message)
-  }
-
-  /// Every standard parameter group this library ports.
-  ///
-  /// The proprietary parameter groups aren't included, since other
-  /// manufacturers use the same PGNs; add them with ``add(_:)``, such as
-  /// ``maretron``.
-  public static let standard = ParameterGroupCatalog([
-    ActualPressure.self,
-    AISAtoNReport.self,
-    AISClassAPositionReport.self,
-    AISClassAStaticData.self,
-    AISClassBPositionReport.self,
-    AISClassBStaticDataPartA.self,
-    AISClassBStaticDataPartB.self,
-    AISSafetyRelatedBroadcast.self,
-    Attitude.self,
-    BatteryConfigurationStatus.self,
-    BatteryStatus.self,
-    BinarySwitchBankStatus.self,
-    BoatSpeed.self,
-    ChargerConfigurationStatus.self,
-    ChargerStatus.self,
-    COGSOGRapidUpdate.self,
-    ConfigurationInformation.self,
-    ConverterStatus.self,
-    CrossTrackError.self,
-    DCDetailedStatus.self,
-    DCVoltageCurrent.self,
-    DirectionData.self,
-    DistanceLog.self,
-    EngineParametersDynamic.self,
-    EngineParametersRapid.self,
-    EngineTripParameters.self,
-    EnvironmentalParameters.self,
-    FluidLevel.self,
-    GNSSDOPData.self,
-    GNSSPositionData.self,
-    GNSSSatellitesInView.self,
-    HeadingTrackControl.self,
-    Heartbeat.self,
-    Heave.self,
-    Humidity.self,
-    ISOAcknowledgement.self,
-    ISOAddressClaim.self,
-    ISORequest.self,
-    Leeway.self,
-    MagneticVariation.self,
-    ManOverboardNotification.self,
-    MeteorologicalStationData.self,
-    NavigationInfo.self,
-    OutsideEnvironmentalParameters.self,
-    PGNList.self,
-    PositionRapidUpdate.self,
-    ProductInformation.self,
-    RateOfTurn.self,
-    RouteWaypointInformation.self,
-    Rudder.self,
-    SetPressure.self,
-    SwitchBankControl.self,
-    SystemTime.self,
-    Temperature.self,
-    TemperatureExtendedRange.self,
-    TimeAndDate.self,
-    TransmissionParameters.self,
-    TrimTabStatus.self,
-    VesselHeading.self,
-    WaterDepth.self,
-    WaypointList.self,
-    WindData.self,
-    WindlassControlStatus.self,
-    WindlassMonitoringStatus.self,
-    WindlassOperatingStatus.self,
-  ])
-
-  /// The Maretron parameter groups.
-  public static let maretron: [any ParameterGroup.Type] = [
-    MaretronTemperatureHighRange.self, MaretronFluidFlowRate.self, MaretronTripVolume.self,
-  ]
-}
-
-extension Message {
-  /// Decodes the message with the parameter group type for its PGN, or
-  /// returns `nil` if the catalog has none.
-  ///
-  /// - Parameter catalog: The types to decode with.
-  /// - Throws: ``MessageDecodingError`` if the type can't decode it.
-  public func decoded(
-    using catalog: ParameterGroupCatalog = .standard
-  ) throws(MessageDecodingError) -> (any ParameterGroup)? {
-    try catalog.decode(self)
   }
 }

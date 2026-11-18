@@ -12,9 +12,9 @@
 /// `N2kGroupFunctionDefaultHandlers.cpp`.
 extension NodeEngine {
   /// The parts of a group function every handler reads.
-  struct GroupFunctionRequest {
+  private struct GroupFunctionRequest {
     var message: Message
-    var code: GroupFunction.Code
+    var code: GroupFunction.FunctionCode
     var pgn: UInt32
     /// The node's device the request is for.
     var device: Int
@@ -42,7 +42,7 @@ extension NodeEngine {
   /// Ports `tNMEA2000::HandleGroupFunction` and `RespondGroupFunction`.
   mutating func handleGroupFunction(_ message: Message, at now: UInt64) -> [CANFrame] {
     var reader = MessageReader(message)
-    let code = GroupFunction.Code(rawValue: reader.readUInt8())
+    let code = GroupFunction.FunctionCode(rawValue: reader.readUInt8())
     let pgn = reader.readUInt24()
     return recipients(of: message).flatMap {
       handleGroupFunction(
@@ -59,7 +59,7 @@ extension NodeEngine {
     // The application's handlers come first: one for the PGN, then one for
     // every PGN. A handler that returns nil leaves the function to the
     // node's own answers.
-    let applicationRequest = GroupFunction.Request(
+    let applicationRequest = GroupFunction.ReceivedFunction(
       request.message, device: Node.DeviceID(rawValue: request.device))
     for handler in [groupFunctionHandlers[request.pgn], groupFunctionHandlers[nil]] {
       if let replies = handler?(applicationRequest) {
@@ -107,7 +107,7 @@ extension NodeEngine {
   }
 
   /// The PGNs with handlers of their own.
-  static let networkManagementPGNs: Set<UInt32> = [60928, 126464, 126993, 126996, 126998]
+  private static let networkManagementPGNs: Set<UInt32> = [60928, 126464, 126993, 126996, 126998]
 
   /// Whether a device transmits a PGN (`IsTxPGN`).
   func isTransmitted(_ pgn: UInt32, by device: Int) -> Bool {
@@ -239,7 +239,7 @@ extension NodeEngine {
   }
 
   /// Whether a request's field filters still match, and the answer to each.
-  struct FieldFilter {
+  private struct FieldFilter {
     var matches = true
 
     /// Matches a numeric field against the device's value under a mask
@@ -348,13 +348,13 @@ extension NodeEngine {
   }
 
   /// A product information string as it goes on the wire, cut to its field.
-  static func productText(_ text: String) -> String {
+  private static func productText(_ text: String) -> String {
     String(decoding: text.utf8.prefix(ProductInformation.stringFieldCount), as: UTF8.self)
   }
 
   /// A configuration information string as upstream stores it: at most 70
   /// bytes, the size of its buffer less the terminating NUL.
-  static func configurationText(_ text: String) -> String {
+  private static func configurationText(_ text: String) -> String {
     String(decoding: text.utf8.prefix(ConfigurationInformation.maxFieldLength - 1), as: UTF8.self)
   }
 
@@ -518,13 +518,13 @@ extension NodeEngine {
           fields.readVariableString() ?? "")
         acknowledgement.parameterErrors.append(.acknowledge)
         configurationInformation = configuration
-        events.append(.installationDescriptionChanged)
+        report(.installationDescriptionChanged)
       case 2:
         configuration.installationDescription2 = Self.configurationText(
           fields.readVariableString() ?? "")
         acknowledgement.parameterErrors.append(.acknowledge)
         configurationInformation = configuration
-        events.append(.installationDescriptionChanged)
+        report(.installationDescriptionChanged)
       default:
         acknowledgement.parameterErrors.append(.invalidField)
       }

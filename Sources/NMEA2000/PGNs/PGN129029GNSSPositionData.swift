@@ -27,7 +27,7 @@ public struct GNSSPositionData: ParameterGroup {
     public var ageOfCorrection: Double?
 
     /// Creates a reference station.
-    public init(type: GNSSType, id: UInt16, ageOfCorrection: Double?) {
+    public init(type: GNSSType, id: UInt16, ageOfCorrection: Double? = nil) {
       self.type = type
       self.id = id
       self.ageOfCorrection = ageOfCorrection
@@ -51,7 +51,7 @@ public struct GNSSPositionData: ParameterGroup {
   /// The longitude, in degrees, positive east, or `nil` if not available.
   public var longitude: Double?
 
-  /// The altitude above the WGS-84 ellipsoid, in meters, or `nil` if not
+  /// The altitude above the WGS-84 ellipsoid, in metres, or `nil` if not
   /// available.
   public var altitude: Double?
 
@@ -71,7 +71,7 @@ public struct GNSSPositionData: ParameterGroup {
   public var positionDilution: Double?
 
   /// The separation between the WGS-84 ellipsoid and mean sea level, in
-  /// meters, or `nil` if not available.
+  /// metres, or `nil` if not available.
   public var geoidalSeparation: Double?
 
   /// The reference stations used for differential corrections, or `nil` if
@@ -83,19 +83,19 @@ public struct GNSSPositionData: ParameterGroup {
 
   /// Creates a GNSS position data message.
   ///
-  /// The defaults match upstream's `SetN2kPGN129029`, which sends 0 rather than "not available" for
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN129029`, which sends 0 rather than "not available" for
   /// the positional dilution and geoidal separation.
   public init(
-    sequenceID: UInt8?,
-    daysSince1970: UInt16?,
-    secondsSinceMidnight: Double?,
-    latitude: Double?,
-    longitude: Double?,
-    altitude: Double?,
     gnssType: GNSSType,
     method: GNSSMethod,
-    satelliteCount: UInt8?,
-    horizontalDilution: Double?,
+    sequenceID: UInt8? = nil,
+    daysSince1970: UInt16? = nil,
+    secondsSinceMidnight: Double? = nil,
+    latitude: Double? = nil,
+    longitude: Double? = nil,
+    altitude: Double? = nil,
+    satelliteCount: UInt8? = nil,
+    horizontalDilution: Double? = nil,
     positionDilution: Double? = 0,
     geoidalSeparation: Double? = 0,
     referenceStations: [ReferenceStation]? = []

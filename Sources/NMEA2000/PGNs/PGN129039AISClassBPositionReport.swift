@@ -38,7 +38,7 @@ public struct AISClassBPositionReport: ParameterGroup {
   /// The course over ground, in radians, or `nil` if not available.
   public var courseOverGround: Double?
 
-  /// The speed over ground, in meters per second, or `nil` if not available.
+  /// The speed over ground, in metres per second, or `nil` if not available.
   public var speedOverGround: Double?
 
   /// The AIS channel and direction the message used.
@@ -73,20 +73,15 @@ public struct AISClassBPositionReport: ParameterGroup {
 
   /// Creates an AIS class B position report message.
   ///
-  /// The default matches upstream's `SetN2kPGN129039`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN129039`.
   public init(
     messageID: UInt8,
     repeatIndicator: AISRepeatIndicator,
     userID: UInt32,
-    latitude: Double?,
-    longitude: Double?,
     isPositionAccurate: Bool,
     isRAIMInUse: Bool,
     timestampSecond: UInt8,
-    courseOverGround: Double?,
-    speedOverGround: Double?,
     transceiverInformation: AISTransceiverInformation,
-    heading: Double?,
     unitType: AISUnitType,
     hasDisplay: Bool,
     hasDSC: Bool,
@@ -94,6 +89,11 @@ public struct AISClassBPositionReport: ParameterGroup {
     acceptsMessage22: Bool,
     mode: AISMode,
     isCommunicationStateITDMA: Bool,
+    latitude: Double? = nil,
+    longitude: Double? = nil,
+    courseOverGround: Double? = nil,
+    speedOverGround: Double? = nil,
+    heading: Double? = nil,
     sequenceID: UInt8? = nil
   ) {
     self.messageID = messageID

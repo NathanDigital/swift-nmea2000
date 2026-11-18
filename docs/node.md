@@ -3,7 +3,7 @@
 Upstream's `tNMEA2000` (`NMEA2000.h/.cpp`) is one class that talks to the CAN driver, splits and reassembles frames, claims an address, answers ISO requests and group functions, and dispatches received messages. This port splits it into layers, each of which can be tested on its own against upstream's node:
 
 1. **CAN frames** (`Sources/NMEA2000/CAN/`, done): pure value types that turn messages into frames and back.
-2. **Transport and node** (`Sources/NMEA2000/Node/`, done): a transport protocol for CAN drivers, and an actor that opens it, claims an address, sends messages and delivers received ones as an `AsyncSequence`.
+2. **Transport and node** (`CANTransport` in `Sources/NMEA2000/CAN/`, the node in `Sources/NMEA2000/Node/`, done): a transport protocol for CAN drivers, and an actor that opens it, claims an address, sends messages and delivers received ones as an `AsyncSequence`.
 3. **ISO transport protocol** (done): multi-packet sessions, broadcast (BAM) or to one device (RTS/CTS), received in `MessageAssembler` and sent by `NodeEngine`.
 4. **Network management** (done): ISO requests, product and configuration information, heartbeat, PGN lists, commanded address and group functions.
 
@@ -15,8 +15,8 @@ Upstream's `tNMEA2000` (`NMEA2000.h/.cpp`) is one class that talks to the CAN dr
 | `CanIdToN2k` | `CANIdentifier(frameID:)` |
 | `N2ktoCanID` | `CANIdentifier.frameID` (`nil` where upstream returns 0) |
 | `IsDefaultSingleFrameMessage`, `IsDefaultFastPacketMessage` | `PGNCatalog.defaultSingleFramePGNs`, `.defaultFastPacketPGNs` |
-| `IsMandatoryFastPacketMessage`, `IsSingleFrameSystemMessage`, `IsFastPacketSystemMessage` | `PGNCatalog.mandatoryFastPacketPGNs`, `.singleFrameSystemPGNs`, `.fastPacketSystemPGNs` |
-| `IsProprietaryFastPacketMessage`, `IsProprietaryMessage` | `PGNCatalog.isProprietaryFastPacket(_:)`, `.isProprietary(_:)` |
+| `IsMandatoryFastPacketMessage`, `IsSingleFrameSystemMessage`, `IsFastPacketSystemMessage` | `PGNCatalog.mandatoryFastPacketPGNs`, `.singleFrameSystemPGNs`, `.fastPacketSystemPGNs` (internal) |
+| `IsProprietaryFastPacketMessage`, `IsProprietaryMessage` | `PGNCatalog.isProprietaryFastPacket(_:)` (internal), `.isProprietary(_:)` |
 | `SetSingleFrameMessages` / `SetFastPacketMessages` | assign `PGNCatalog.singleFramePGNs` / `.fastPacketPGNs` |
 | `ExtendSingleFrameMessages` / `ExtendFastPacketMessages` | insert into those sets |
 | `IsFastPacketPGN` | `PGNCatalog.isFastPacket(_:)` |
@@ -27,10 +27,10 @@ Upstream's `tNMEA2000` (`NMEA2000.h/.cpp`) is one class that talks to the CAN dr
 | `SetN2kCANBufMsg`, `FindFreeCANMsgIndex`, `tN2kCANMsg` | `MessageAssembler.receive(_:at:)` |
 | `SetN2kCANMsgBufSize` (default 5) | `MessageAssembler(bufferCount:)` |
 | `SetHandleOnlyKnownMessages` | `MessageAssembler.handlesOnlyKnownMessages` |
-| `Max_N2kMsgBuf_Time` (100 ms) | `MessageAssembler.bufferTimeout` |
+| `Max_N2kMsgBuf_Time` (100 ms) | `MessageAssembler.bufferTimeout` (internal) |
 | `N2kIsTimeBefore`, `N2kHasElapsed` | `isTime(_:before:)`, `hasElapsed(_:since:at:)` (internal) |
 
-Time in the frame layer is a wrapping millisecond counter, as upstream's `millis()` is, so the node can hand it any clock.
+Time in the public API is a `Duration` since any fixed moment (`Message.timestamp`, `MessageAssembler.receive(_:at:)`, `DeviceList.handle(_:at:sending:)`), so the node can hand it any clock. Inside, timeouts are compared in milliseconds wrapped to 32 bits, as upstream's `millis()` is.
 
 ### Kept upstream behaviour
 
@@ -107,14 +107,14 @@ When the transport closes, the node drops every message it was reassembling, sin
 
 ### Testing
 
-The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node every 10 ms, as a main loop would, and print each event with its time. `Tests/NMEA2000Tests/Node/NodeEngineTests.swift` replays them. `NodeTests.swift` checks the actor's wiring with a manual clock and a fake transport.
+The `Node` cases in `Tools/UpstreamVectors/frames.cpp` poll upstream's node every 10 ms, as a main loop would, and print each event with its time. `Tests/NMEA2000Tests/Node/NodeEngineTests.swift` replays them, from the case tables in the `NodeEngineTests+…Cases.swift` files beside it. `NodeTests.swift` checks the actor's wiring with a manual clock and a fake transport.
 
 ## ISO transport protocol
 
 | Upstream | Swift |
 |---|---|
-| `TP_CM`, `TP_DT`, `TP_CM_*`, `TP_MAX_FRAMES`, `TPCtsPackets` | `TransportProtocol` (internal) |
-| `SendTPCM_BAM`, `SendTPCM_RTS`, `SendTPCM_CTS`, `SendTPCM_EndAck`, `SendTPCM_Abort`, `SendTPDT` | `TransportProtocol.start`, `.clearToSend`, `.endOfMessage`, `.abort`, `.dataPacket` |
+| `TP_CM`, `TP_DT`, `TP_CM_*`, `TP_MAX_FRAMES`, `TPCtsPackets` | `ISOTransportProtocol` (internal) |
+| `SendTPCM_BAM`, `SendTPCM_RTS`, `SendTPCM_CTS`, `SendTPCM_EndAck`, `SendTPCM_Abort`, `SendTPDT` | `ISOTransportProtocol.start`, `.clearToSend`, `.endOfMessage`, `.abort`, `.dataPacket` |
 | `TestHandleTPMessage` (receiving) | `MessageAssembler.receive(_:at:)`, which shares its buffers between fast packets and sessions |
 | `TestHandleTPMessage` (CTS, ACK, abort for our session), `StartSendTPMessage`, `SendPendingTPMessage`, `EndSendTPMessage` | `NodeEngine`'s transfer |
 | `tN2kMsg::SetIsTPMessage` | `Message.Framing.transportProtocol` |
@@ -173,12 +173,12 @@ A node can host several devices, as upstream's `SetDeviceCount` allows. Each has
 
 | Upstream | Swift |
 |---|---|
-| `tN2kGroupFunctionCode`, `tN2kGroupFunctionPGNErrorCode`, `tN2kGroupFunctionTransmissionOrPriorityErrorCode`, `tN2kGroupFunctionParameterErrorCode` | `GroupFunction.Code`, `.PGNError`, `.TransmissionError`, `.ParameterError` |
+| `tN2kGroupFunctionCode`, `tN2kGroupFunctionPGNErrorCode`, `tN2kGroupFunctionTransmissionOrPriorityErrorCode`, `tN2kGroupFunctionParameterErrorCode` | `GroupFunction.FunctionCode`, `.PGNError`, `.TransmissionError`, `.ParameterError` |
 | `SetStartAcknowledge`, `AddAcknowledgeParameter`, `ChangePNGErrorCode`, `ChangeTransmissionOrPriorityErrorCode`, `SendAcknowledge` | `GroupFunction.Acknowledgement` |
 | `SetStartReadReply`, `SetStartWriteReply` | `GroupFunction.Reply`, including `Reply(answering:selectionPairCount:parameterPairCount:)` |
-| `Parse`, `ParseRequestParams`, `ParseCommandParams`, `ParseAcknowledgeParams`, `ParseReadOrWriteParams`, `StartParse…Parameters` | `GroupFunction.Request` and its `requestParameters`, `commandParameters`, `acknowledgementParameters`, `readOrWriteParameters`, `pairs` |
+| `Parse`, `ParseRequestParams`, `ParseCommandParams`, `ParseAcknowledgeParams`, `ParseReadOrWriteParams`, `StartParse…Parameters` | `GroupFunction.ReceivedFunction` and its `requestParameters`, `commandParameters`, `acknowledgementParameters`, `readOrWriteParameters`, `pairs` |
 | `AddGroupFunctionHandler`, `RemoveGroupFunctionHandler`, subclasses of `tN2kGroupFunctionHandler` | `Node.setGroupFunctionHandler(_:for:)` with a `Node.GroupFunctionHandler` closure, which returns `nil` where a subclass calls the base class |
-| `GetRequestGroupFunctionTransmissionOrPriorityErrorCode` | `GroupFunction.transmissionError(interval:offset:intervalLimits:maxOffset:)` |
+| `GetRequestGroupFunctionTransmissionOrPriorityErrorCode` | `GroupFunction.ReceivedFunction.RequestParameters.transmissionError(intervalLimits:maxOffset:)` |
 | `tNMEA2000::HandleGroupFunction`, `RespondGroupFunction`, `tN2kGroupFunctionHandler` | `NodeEngine.handleGroupFunction(_:at:)` |
 | `tN2kGroupFunctionHandlerForPGN60928`, `…126464`, `…126993`, `…126996`, `…126998` | `NodeEngine+GroupFunctions.swift` |
 | `SetDeviceInformationInstances`, `SetInstallationDescription1/2`, `SetHeartbeatIntervalAndOffset` | changes `Node.name`, `Node.configurationInformation` and the heartbeat schedule |
@@ -207,8 +207,8 @@ An application answers group functions for its own PGNs with `Node.setGroupFunct
 | Upstream | Swift |
 |---|---|
 | `tN2kDeviceList` | `DeviceList`, a value type driven by `handle(_:at:sending:)`; `Node.Configuration.discoversDevices` keeps one in `Node.deviceList` |
-| `tN2kDeviceList::tInternalDevice`, `tNMEA2000::tDevice` | `DeviceList.Device` |
-| `FindDeviceBySource`, `FindDeviceByName`, `FindDeviceByIDs`, `FindDeviceByProduct` | `DeviceList[source:]`, `device(named:)`, `device(manufacturerCode:uniqueNumber:)`, `device(manufacturerCode:productCode:after:)` |
+| `tN2kDeviceList::tInternalDevice`, `tNMEA2000::tDevice` | `DeviceList.Entry` |
+| `FindDeviceBySource`, `FindDeviceByName`, `FindDeviceByIDs`, `FindDeviceByProduct` | `DeviceList[address:]`, `device(named:)`, `device(manufacturerCode:uniqueNumber:)`, `device(manufacturerCode:productCode:after:)` |
 | `Count`, `ReadResetIsListUpdated`, `GetDeviceLastMessageTime` | `count`, the `Bool` that `handle(_:at:sending:)` returns and `Node.Event.deviceListChanged`, `Device.lastMessageTime` |
 
 ### Kept upstream behaviour

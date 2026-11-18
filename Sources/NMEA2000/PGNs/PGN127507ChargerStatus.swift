@@ -6,7 +6,7 @@
 
 /// PGN 127507, charger status.
 ///
-/// Ports `SetN2kPGN127507` / `ParseN2kPGN127507`. This port sends the equalization time in minutes
+/// Ports `SetN2kPGN127507` / `ParseN2kPGN127507`. This port sends the equalisation time in minutes
 /// rather than upstream's seconds; see ``equalizationTimeRemaining``.
 public struct ChargerStatus: ParameterGroup {
   public static let pgn: UInt32 = 127507
@@ -27,17 +27,17 @@ public struct ChargerStatus: ParameterGroup {
   /// Whether the charger is enabled.
   public var enabledState: OnOffStatus
 
-  /// Whether equalization is pending.
+  /// Whether equalisation is pending.
   public var equalizationPending: OnOffStatus
 
-  /// The equalization time remaining, in seconds, sent in whole minutes, or `nil` if not available.
+  /// The equalisation time remaining, in seconds, sent in whole minutes, or `nil` if not available.
   /// Upstream encodes this field in seconds but decodes it in minutes; canboat defines it in
   /// minutes, so this port uses minutes both ways.
   public var equalizationTimeRemaining: Double?
 
   /// Creates a charger status message.
   ///
-  /// The defaults match upstream's `SetN2kChargerStatus`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kChargerStatus`.
   public init(
     instance: UInt8,
     batteryInstance: UInt8,

@@ -38,6 +38,16 @@ struct PGNListTests {
     expectTolerantDecoding(PGNList.self, from: Self.vectors[0].1)
   }
 
+  @Test func sendsOnlyAsManyPGNsAsFit() throws {
+    let pgns = (0..<100).map { UInt32(126992 + $0) }
+    let list = PGNList(kind: .transmit, pgns: pgns)
+    #expect(list.sentPGNCount == 74)
+    let message = list.makeMessage()
+    #expect(message.data.count == 1 + 74 * 3)
+    #expect(try PGNList(message).pgns == Array(pgns.prefix(74)))
+    #expect(PGNList(kind: .receive, pgns: [59904]).sentPGNCount == 1)
+  }
+
   @Test func ignoresATrailingPartialPGN() throws {
     let list = try PGNList(Message(pgn: 126464, data: [0x00, 0x00, 0xe8, 0x00, 0x14, 0xf0]))
     #expect(list.pgns == [59392])

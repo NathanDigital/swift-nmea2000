@@ -217,6 +217,32 @@ final class FakeTransport: CANTransport {
   }
 }
 
+/// A transport whose first send waits until its task is cancelled, and which
+/// records the order of its sends and its close.
+final class StallingTransport: CANTransport {
+  let received: AsyncStream<CANFrame>
+  let receive: AsyncStream<CANFrame>.Continuation
+  private let events = Mutex<[String]>([])
+
+  init() {
+    (received, receive) = AsyncStream.makeStream(of: CANFrame.self)
+  }
+
+  /// The sends and closes so far, in order.
+  var log: [String] { events.withLock { $0 } }
+
+  func open() async throws -> AsyncStream<CANFrame> { received }
+
+  func send(_ frame: CANFrame) async throws {
+    events.withLock { $0.append("send") }
+    try await Task.sleep(for: .seconds(60))
+  }
+
+  func close() async {
+    events.withLock { $0.append("close") }
+  }
+}
+
 /// A node with upstream's default device, as frames.cpp sets one up.
 func makeNode(
   _ transport: FakeTransport, mode: Node.Mode = .listenOnly, address: UInt8 = 15,
@@ -262,7 +288,7 @@ struct NodeTests {
     #expect(message.pgn == 129025)
     #expect(message.source == 0x42)
     #expect(message.data == [1, 2, 3, 4, 5, 6, 7, 8])
-    #expect(message.timestamp == 450)
+    #expect(message.timestamp == .milliseconds(450))
 
     transport.receive.finish()
     try await finish(run)
@@ -323,6 +349,28 @@ struct NodeTests {
     transport.receive.finish()
     try await finish(run)
     #expect(transport.closeCount == 1)
+  }
+
+  @Test func sendsNothingOnceItHasStopped() async throws {
+    let clock = ManualClock()
+    let transport = StallingTransport()
+    let node = Node(transport: transport, configuration: .listenAndSend(address: 10), clock: clock)
+    let run = Task { try await node.run() }
+    try await clock.waitForSleepers()
+    clock.advance(to: 200)
+    try await node.waitUntilReady()
+    // A fast packet of three frames, whose first frame stalls in the
+    // transport, and a message queued behind it.
+    let first = Task {
+      try await node.send(Message(pgn: 129029, data: [UInt8](repeating: 1, count: 20)))
+    }
+    try await eventually { transport.log == ["send"] ? () : nil }
+    let second = Task { try await node.send(PositionRapidUpdate(latitude: 1, longitude: 2)) }
+    transport.receive.finish()
+    try await finish(run)
+    await #expect(throws: NodeError.notOpen) { try await first.value }
+    await #expect(throws: NodeError.notOpen) { try await second.value }
+    #expect(transport.log == ["send", "close"])
   }
 
   @Test func stopsOpeningWhenCancelled() async throws {

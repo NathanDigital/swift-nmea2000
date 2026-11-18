@@ -15,7 +15,7 @@ public struct Heave: ParameterGroup {
   /// not available.
   public var sequenceID: UInt8?
 
-  /// The vertical displacement perpendicular to the earth’s surface, in meters, or `nil` if not
+  /// The vertical displacement perpendicular to the earth’s surface, in metres, or `nil` if not
   /// available.
   public var heave: Double?
 
@@ -27,10 +27,10 @@ public struct Heave: ParameterGroup {
 
   /// Creates a heave message.
   ///
-  /// The defaults match upstream's `SetN2kPGN127252`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN127252`.
   public init(
-    sequenceID: UInt8?,
-    heave: Double?,
+    sequenceID: UInt8? = nil,
+    heave: Double? = nil,
     delay: Double? = nil,
     delaySource: DelaySource = .unavailable
   ) {

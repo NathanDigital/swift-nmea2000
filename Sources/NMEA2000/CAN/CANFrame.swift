@@ -9,7 +9,7 @@
 ///
 /// Upstream passes frames between `tNMEA2000` and its CAN driver as separate
 /// `id`, `len` and `buf` arguments (`CANSendFrame`, `CANGetFrame`).
-public struct CANFrame: Sendable, Hashable {
+public struct CANFrame: Sendable, Hashable, Codable {
   /// The most data bytes a classic CAN frame carries.
   public static let maxDataCount = 8
 

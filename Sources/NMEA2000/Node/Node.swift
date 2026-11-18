@@ -24,7 +24,7 @@
 ///   }
 ///   group.addTask {
 ///     try await node.waitUntilReady()
-///     try await node.send(WindData(sequenceID: nil, windSpeed: 5, windAngle: 1, reference: .apparent))
+///     try await node.send(WindData(reference: .apparent, windSpeed: 5, windAngle: 1))
 ///   }
 ///   try await group.waitForAll()
 /// }
@@ -38,191 +38,8 @@
 /// Ports `tNMEA2000` for one device: the open sequence, sending, receiving
 /// and address claiming. Upstream calls message handlers from
 /// `ParseMessages`, which the application calls in its main loop; here
-/// ``run()`` handles frames as they arrive and ``messages()`` delivers them.
+/// ``run()`` handles frames as they arrive and ``messages(includingSent:bufferingPolicy:)`` delivers them.
 public actor Node {
-  /// How a node takes part in the bus.
-  ///
-  /// Upstream has five modes. Pairs of them differ only in whether messages
-  /// are forwarded to a stream, which isn't part of this type, so they map
-  /// onto three.
-  public enum Mode: Sendable, Hashable {
-    /// Receives messages and never sends any (upstream's `N2km_ListenOnly`).
-    case listenOnly
-
-    /// Receives and sends messages without claiming an address (upstream's
-    /// `N2km_SendOnly` and `N2km_ListenAndSend`). The address must not be
-    /// used by another device.
-    case listenAndSend
-
-    /// A full node: claims an address and defends it, answers ISO requests
-    /// and group functions, and sends heartbeats (upstream's
-    /// `N2km_NodeOnly` and `N2km_ListenAndNode`).
-    case node
-  }
-
-  /// A device the node hosts on the bus.
-  ///
-  /// Most nodes host one device. A node can host several, as upstream's
-  /// `SetDeviceCount` allows, each with its own address, NAME and
-  /// heartbeat; they share the transport and the configuration
-  /// information.
-  public struct Device: Sendable, Hashable {
-    /// The address to claim first. If another device holds it, the device
-    /// tries the following addresses, skipping its sibling devices'. 254
-    /// starts from 14. Save it when it changes and use it next time, so the
-    /// device keeps its address across restarts.
-    public var address: UInt8
-
-    /// The NAME to claim the address with. Every device on a bus needs a
-    /// different NAME.
-    public var name: DeviceName
-
-    /// The product information the device sends when asked, or `nil` for
-    /// the first device's.
-    public var productInformation: ProductInformation?
-
-    /// The PGNs the device sends, beyond the network management PGNs every
-    /// node sends. The device lists them when asked.
-    public var transmitPGNs: [UInt32]
-
-    /// The PGNs the device receives, beyond the network management PGNs.
-    /// The device lists them when asked.
-    public var receivePGNs: [UInt32]
-
-    /// How often to send a heartbeat, between 1 and 655.32 seconds, or `nil`
-    /// for none. The first is sent 10 seconds after the node opens.
-    public var heartbeatInterval: Duration?
-
-    /// Creates a device.
-    ///
-    /// - Parameters:
-    ///   - address: The address to claim first.
-    ///   - name: The NAME to claim the address with, which must differ from
-    ///     every other device's on the bus.
-    ///   - productInformation: The product information the device sends
-    ///     when asked, or `nil` for the first device's, which needs its own.
-    ///   - transmitPGNs: The PGNs the device sends.
-    ///   - receivePGNs: The PGNs the device receives.
-    ///   - heartbeatInterval: How often to send a heartbeat, or `nil` for
-    ///     none.
-    public init(
-      address: UInt8 = 15,
-      name: DeviceName,
-      productInformation: ProductInformation?,
-      transmitPGNs: [UInt32] = [],
-      receivePGNs: [UInt32] = [],
-      heartbeatInterval: Duration? = .seconds(60)
-    ) {
-      self.address = address
-      self.name = name
-      self.productInformation = productInformation
-      self.transmitPGNs = transmitPGNs
-      self.receivePGNs = receivePGNs
-      self.heartbeatInterval = heartbeatInterval
-    }
-  }
-
-  /// Identifies one of the devices a node hosts, by its position in the
-  /// devices the node was created with. The first device is ``first``, or
-  /// `0`.
-  public struct DeviceID: RawRepresentable, Hashable, Sendable, Codable,
-    ExpressibleByIntegerLiteral, CustomStringConvertible
-  {
-    /// The device's position in the node's devices.
-    public var rawValue: Int
-
-    /// Creates the identifier of the device at a position.
-    public init(rawValue: Int) {
-      self.rawValue = rawValue
-    }
-
-    /// Creates the identifier of the device at a position.
-    public init(integerLiteral value: Int) {
-      self.init(rawValue: value)
-    }
-
-    /// The first device, which most nodes host alone.
-    public static let first = DeviceID(rawValue: 0)
-
-    public var description: String { "device \(rawValue)" }
-  }
-
-  /// An ISO request for a PGN the node doesn't answer itself.
-  public struct PGNRequest: Sendable, Hashable {
-    /// The PGN asked for.
-    public var pgn: UInt32
-    /// The requester's address.
-    public var requester: UInt8
-    /// The node's device the request is for.
-    public var device: DeviceID
-    /// Whether the request was broadcast, so that every device is asked in
-    /// turn and none answers with a negative acknowledgement.
-    public var isBroadcast: Bool
-
-    /// Creates a request.
-    public init(pgn: UInt32, requester: UInt8, device: DeviceID, isBroadcast: Bool) {
-      self.pgn = pgn
-      self.requester = requester
-      self.device = device
-      self.isBroadcast = isBroadcast
-    }
-  }
-
-  /// Answers an ISO request for a PGN the node doesn't answer itself.
-  ///
-  /// The handler returns the messages the device sends in reply, or `nil`
-  /// if it doesn't handle the PGN; the device then sends a negative
-  /// acknowledgement if the request was addressed to it.
-  ///
-  /// Handlers are synchronous because the node answers while it handles
-  /// the request's frame, before the next one, as upstream does; an
-  /// `await` there would let other frames through first. Keep what a
-  /// handler needs where it can read it at once, such as in a
-  /// `Mutex`-protected value that the rest of the app updates.
-  ///
-  /// Replaces upstream's `SetISORqstHandler` callback.
-  public typealias ISORequestHandler = @Sendable (PGNRequest) -> [Message]?
-
-  /// Answers group functions (PGN 126208) for a PGN, as an upstream
-  /// `tN2kGroupFunctionHandler` subclass does.
-  ///
-  /// The handler gets the request and returns the messages its device sends
-  /// in reply, usually a ``GroupFunction/Acknowledgement`` or a
-  /// ``GroupFunction/Reply``, or `nil` to let the node answer as it does
-  /// without a handler, which upstream's subclasses get by calling the base
-  /// class. The handler sees broadcast commands, reads and writes too,
-  /// which upstream ignores. Like ``ISORequestHandler``, it's synchronous.
-  public typealias GroupFunctionHandler = @Sendable (GroupFunction.Request) -> [Message]?
-
-  /// Something that happened to the node, from ``events()``.
-  ///
-  /// Replaces upstream's `SetOnOpen` callback and its `ReadResetAddressChanged`,
-  /// `ReadResetDeviceInformationChanged` and
-  /// `ReadResetInstallationDescriptionChanged` flags.
-  public enum Event: Sendable, Hashable {
-    /// The transport opened and the devices started claiming their
-    /// addresses. Sending is possible once a claim ends, 250 ms later; see
-    /// ``Node/waitUntilReady(_:)``.
-    case opened
-    /// A device's address claim ended with the address it now holds, so it
-    /// can send.
-    case addressClaimed(device: DeviceID, address: UInt8)
-    /// A device found no free address, so it can't send.
-    case addressClaimFailed(device: DeviceID)
-    /// A device moved to another address. Save ``Node/devices`` so the
-    /// device starts from it next time.
-    case addressChanged(device: DeviceID)
-    /// A device's NAME or heartbeat interval changed, from a clash with an
-    /// identical device or another device's group function command.
-    case deviceInformationChanged(device: DeviceID)
-    /// Another device changed the installation descriptions in
-    /// ``Node/configurationInformation`` with a group function command.
-    case installationDescriptionChanged
-    /// ``Node/deviceList`` changed: a device appeared, moved, or sent its
-    /// details (upstream's `ReadResetIsListUpdated`).
-    case deviceListChanged
-  }
-
   /// How the node takes part in the bus.
   public nonisolated let mode: Mode
 
@@ -230,7 +47,7 @@ public actor Node {
   /// sends on its own, as upstream's send frame buffer holds 40 by default
   /// (`SetN2kCANSendFrameBufSize`). Messages sent with ``send(_:from:)``
   /// wait for the transport instead.
-  static let maxQueuedFrames = 40
+  private static let maxQueuedFrames = 40
 
   private var engine: NodeEngine
   private let clock: NodeClock
@@ -250,85 +67,13 @@ public actor Node {
   private var timer: Task<Void, Never>?
   private var timerDeadline: UInt64?
   private var isRunning = false
-  /// Whether ``run()`` has returned since it last started.
+  /// Whether ``run()`` has stopped since it last started.
   private var hasStopped = false
-
-  /// How a node takes part in the bus, and the devices it hosts.
-  ///
-  /// Start from ``node(_:configurationInformation:)``,
-  /// ``listenOnly()`` or ``listenAndSend(address:)``, and change the other
-  /// properties as needed.
-  ///
-  /// Replaces upstream's settings before `Open`: `SetMode`, `SetN2kSource`,
-  /// `SetDeviceCount`, `SetDeviceInformation`, `SetProductInformation`,
-  /// `SetConfigurationInformation`, `Extend…Messages`,
-  /// `SetHandleOnlyKnownMessages` and `SetN2kCANMsgBufSize`.
-  public struct Configuration: Sendable {
-    /// How the node takes part in the bus.
-    public var mode: Mode
-
-    /// The devices the node hosts, at least one. Most nodes host one.
-    public var devices: [Device]
-
-    /// The configuration information the devices send when asked, or `nil`
-    /// to refuse requests for it.
-    public var configurationInformation: ConfigurationInformation?
-
-    /// Which PGNs are sent and received as fast packets.
-    public var catalog = PGNCatalog()
-
-    /// Whether to drop received messages whose PGN isn't in the catalog.
-    public var handlesOnlyKnownMessages = false
-
-    /// How many fast packets and transport protocol sessions can be
-    /// reassembled at once. Upstream defaults to 5 (`SetN2kCANMsgBufSize`).
-    public var bufferCount = 5
-
-    /// Whether to keep a ``DeviceList`` of the devices on the bus, asking
-    /// them for their details as upstream's `tN2kDeviceList` does. The
-    /// first device asks.
-    public var discoversDevices = false
-
-    /// Creates a configuration.
-    public init(
-      mode: Mode, devices: [Device], configurationInformation: ConfigurationInformation? = nil
-    ) {
-      precondition(!devices.isEmpty, "A node hosts at least one device")
-      precondition(
-        mode != .node || devices[0].productInformation != nil,
-        "A full node's first device needs product information")
-      self.mode = mode
-      self.devices = devices
-      self.configurationInformation = configurationInformation
-    }
-
-    /// A full node hosting one device: it claims an address, answers
-    /// requests and group functions, and sends heartbeats.
-    ///
-    /// - Parameters:
-    ///   - device: The device, with its own NAME and product information.
-    ///   - configurationInformation: The configuration information the
-    ///     device sends when asked, or `nil` to refuse requests for it.
-    public static func node(
-      _ device: Device, configurationInformation: ConfigurationInformation?
-    ) -> Configuration {
-      Configuration(
-        mode: .node, devices: [device], configurationInformation: configurationInformation)
-    }
-
-    /// A node that only receives, such as a logger or display.
-    public static func listenOnly() -> Configuration {
-      Configuration(mode: .listenOnly, devices: [Device(name: .default, productInformation: nil)])
-    }
-
-    /// A node that receives, and sends from an address it doesn't claim,
-    /// which no other device on the bus may use.
-    public static func listenAndSend(address: UInt8) -> Configuration {
-      Configuration(
-        mode: .listenAndSend,
-        devices: [Device(address: address, name: .default, productInformation: nil)])
-    }
-  }
+  /// Whether ``run()`` has stopped and is ending its transmissions and
+  /// closing the transport.
+  private var isClosing = false
+  /// The transmissions queued or in progress, so they can be cancelled.
+  private var transmissions: [Int: Task<Void, any Error>] = [:]
 
   /// Creates a node.
   ///
@@ -362,8 +107,7 @@ public actor Node {
     engine = NodeEngine(
       mode: mode, devices: devices, catalog: catalog,
       handlesOnlyKnownMessages: handlesOnlyKnownMessages, bufferCount: bufferCount,
-      configurationInformation: configurationInformation)
-    if discoversDevices { engine.deviceList = DeviceList() }
+      configurationInformation: configurationInformation, discoversDevices: discoversDevices)
     self.clock = NodeClock(clock)
     openTransport = {
       let frames = try await transport.open()
@@ -447,26 +191,42 @@ public actor Node {
   /// ```
   ///
   /// If the transport fails to open, the node tries again every second.
-  /// When `run()` returns, every ``messages()`` sequence finishes, and the
+  /// When `run()` returns, every message sequence finishes, and the
   /// node can be run again.
   ///
-  /// - Throws: ``NodeError/alreadyRunning`` if the node is already running,
-  ///   `CancellationError` if the task is cancelled while the transport is
-  ///   opening, or an error from the transport's frames.
+  /// Messages still waiting to be sent when the node stops aren't sent:
+  /// their ``send(_:from:)`` calls throw ``NodeError/notOpen``. The node
+  /// cancels a frame the transport is in the middle of sending and waits
+  /// for it, so nothing is sent once the transport is closed.
+  ///
+  /// - Throws: ``NodeError/alreadyRunning`` if the node is already running
+  ///   or still closing its transport, `CancellationError` if the task is
+  ///   cancelled while the transport is opening, or an error from the
+  ///   transport's frames.
   public func run() async throws {
-    guard !isRunning else { throw NodeError.alreadyRunning }
+    guard !isRunning, !isClosing else { throw NodeError.alreadyRunning }
     isRunning = true
     hasStopped = false
-    defer { stop() }
-    let frames = try await openWithRetries()
+    let frames: FrameSource
+    do {
+      frames = try await openWithRetries()
+    } catch {
+      stop()
+      throw error
+    }
     scheduleTimer()
+    var failure: (any Error)?
     do {
       try await frames.deliver { frame in await self.handle(frame) }
     } catch {
-      await closeTransport()
-      throw error
+      failure = error
     }
+    stop()
+    isClosing = true
+    defer { isClosing = false }
+    await cancelTransmissions()
     await closeTransport()
+    if let failure { throw failure }
   }
 
   /// Returns a sequence of the messages the node receives from now on,
@@ -477,7 +237,7 @@ public actor Node {
   /// the sequence until they're read, up to the buffering policy's limit.
   ///
   /// A message's ``Message/timestamp`` is the time its first frame arrived,
-  /// in milliseconds since the node was created.
+  /// since the node was created.
   ///
   /// The sequence finishes cleanly whether ``run()`` returns or throws;
   /// ``run()`` itself throws any transport error, so run it where its error
@@ -534,9 +294,17 @@ public actor Node {
   /// descriptions change.
   ///
   /// Each call returns a new sequence, which finishes when ``run()``
-  /// returns.
-  public func events() -> AsyncStream<Event> {
-    let (stream, continuation) = AsyncStream.makeStream(of: Event.self)
+  /// returns. Events wait in the sequence until they're read, up to the
+  /// buffering policy's limit.
+  ///
+  /// - Parameter bufferingPolicy: How many events wait to be read before
+  ///   older or newer ones are dropped. The default keeps the newest 1024;
+  ///   pass `.unbounded` to keep them all.
+  public func events(
+    bufferingPolicy: AsyncStream<Event>.Continuation.BufferingPolicy = .bufferingNewest(1024)
+  ) -> AsyncStream<Event> {
+    let (stream, continuation) = AsyncStream.makeStream(
+      of: Event.self, bufferingPolicy: bufferingPolicy)
     let id = nextSubscriberID
     nextSubscriberID += 1
     eventSubscribers[id] = continuation
@@ -619,15 +387,16 @@ public actor Node {
   /// one device by transport protocol must be shorter than 223 bytes for
   /// upstream's receivers to accept them.
   ///
+  /// The message's frames are queued in order with every other message's.
+  /// Cancelling the calling task doesn't take them back: a message is sent
+  /// whole once it's queued, unless the node stops first.
+  ///
   /// - Parameters:
   ///   - message: The message to send.
   ///   - device: The node's device to send from.
-  /// The message's frames are queued in order with every other message's.
-  /// Cancelling the calling task doesn't take them back: a message is sent
-  /// whole once it's queued.
-  ///
-  /// - Throws: ``NodeError`` if the device can't send the message now, or an
-  ///   error from the transport.
+  /// - Throws: ``NodeError`` if the device can't send the message now or the
+  ///   node stops before the message is sent, or an error from the
+  ///   transport.
   public func send(_ message: Message, from device: DeviceID = .first) async throws {
     let device = device.rawValue
     let now = clock.now()
@@ -691,16 +460,15 @@ public actor Node {
 
   /// Passes on the engine's events and the messages it sent.
   private func deliverEngineOutput() {
-    for event in engine.events {
+    let (events, sentMessages) = engine.takeOutput()
+    for event in events {
       for subscriber in eventSubscribers.values { subscriber.yield(event) }
     }
-    engine.events = []
-    for message in engine.sentMessages {
+    for message in sentMessages {
       for subscriber in subscribers.values where subscriber.includesSent {
         subscriber.continuation.yield(message)
       }
     }
-    engine.sentMessages = []
     for id in stateWaiters.keys { resumeStateWaiter(id) }
   }
 
@@ -869,8 +637,8 @@ public actor Node {
     let now = clock.now()
     for index in device.map({ [$0.rawValue] }) ?? Array(engine.devices.indices) {
       engine.setHeartbeat(
-        of: index, interval: interval.map(NodeClock.milliseconds),
-        offset: offset.map(NodeClock.milliseconds), at: now)
+        of: index, interval: interval.map(\.wholeMilliseconds),
+        offset: offset.map(\.wholeMilliseconds), at: now)
     }
     deliverEngineOutput()
     scheduleTimer()
@@ -903,12 +671,10 @@ public actor Node {
   /// Ports `SetProductInformation`.
   public func setProductInformation(
     _ information: ProductInformation, for device: DeviceID = .first
-  )
-    throws
-  {
+  ) throws {
     let device = device.rawValue
     try checkDevice(device)
-    engine.devices[device].productInformation = information
+    engine.setProductInformation(information, of: device)
   }
 
   /// Changes the configuration information the node sends when asked, or
@@ -946,25 +712,44 @@ public actor Node {
   private func enqueue(_ frames: [CANFrame], retriesInformation: Bool) -> Task<Void, any Error> {
     let previous = lastTransmission
     let sendFrame = sendFrame
+    let id = nextSubscriberID
+    nextSubscriberID += 1
     queuedFrameCount += frames.count
     let transmission = Task {
       _ = await previous?.result
+      defer { transmissions[id] = nil }
       var sentCount = 0
       do {
         for frame in frames {
+          // Nothing is sent once the node has stopped.
+          guard isRunning else { throw NodeError.notOpen }
           try await sendFrame(frame)
           sentCount += 1
         }
       } catch {
         transmissionEnded(
           frames, sentCount: sentCount, retriesInformation: retriesInformation)
-        throw error
+        // A frame cancelled because the node stopped fails like the frames
+        // queued behind it.
+        throw isRunning ? error : NodeError.notOpen
       }
       transmissionEnded(
         frames, sentCount: sentCount, retriesInformation: retriesInformation)
     }
+    transmissions[id] = transmission
     lastTransmission = transmission
     return transmission
+  }
+
+  /// Ends every transmission once the node has stopped: cancels the frame
+  /// being sent, and waits for it and for those queued behind it, which
+  /// fail without sending.
+  private func cancelTransmissions() async {
+    while let last = lastTransmission {
+      for transmission in transmissions.values { transmission.cancel() }
+      _ = await last.result
+      if lastTransmission == last { lastTransmission = nil }
+    }
   }
 
   /// Updates the queue once a transmission ends, and tells the engine about
@@ -980,52 +765,7 @@ public actor Node {
   }
 }
 
-/// Why a node can't send a message.
-public enum NodeError: Error, Sendable, Hashable {
-  /// The node isn't running, or is still opening its transport.
-  case notOpen
-  /// ``Node/run()`` was called while the node was already running.
-  case alreadyRunning
-  /// The node is in ``Node/Mode/listenOnly`` mode.
-  case listenOnly
-  /// The node is claiming its address. Try again once the claim is done,
-  /// 250 ms after it started.
-  case claimingAddress
-  /// Every address was taken, so the node has none.
-  case noAddress
-  /// A message is already being sent by transport protocol, which sends one
-  /// message at a time.
-  case transferInProgress
-  /// Only a node in ``Node/Mode/node`` mode can send by transport protocol.
-  case notAFullNode
-  /// The node has no device with this index.
-  case noSuchDevice(Node.DeviceID)
-  /// The message can't be framed.
-  case invalidMessage(FramingError)
-}
-
 /// The frames a transport receives, with the sequence's type erased.
 private struct FrameSource: Sendable {
   let deliver: @Sendable (_ handle: @Sendable (CANFrame) async -> Void) async throws -> Void
-}
-
-/// A clock reduced to what the node needs: milliseconds since the node was
-/// created, and sleeping until a given millisecond.
-struct NodeClock: Sendable {
-  let now: @Sendable () -> UInt64
-  let sleep: @Sendable (_ until: UInt64) async throws -> Void
-
-  init<C: Clock>(_ clock: C) where C.Duration == Duration {
-    let start = clock.now
-    now = { Self.milliseconds(start.duration(to: clock.now)) }
-    sleep = { milliseconds in
-      try await clock.sleep(until: start.advanced(by: .milliseconds(milliseconds)), tolerance: nil)
-    }
-  }
-
-  static func milliseconds(_ duration: Duration) -> UInt64 {
-    let (seconds, attoseconds) = duration.components
-    guard seconds >= 0 else { return 0 }
-    return UInt64(seconds) * 1000 + UInt64(attoseconds / 1_000_000_000_000_000)
-  }
 }

@@ -9,7 +9,7 @@ import Testing
 
 private let typical = Message(
   pgn: 127250, priority: 2, source: 1, destination: 255,
-  data: [1, 2, 3, 0xab, 0xcd, 0xef, 0x10, 0xff], timestamp: 0x0102_0304)
+  data: [1, 2, 3, 0xab, 0xcd, 0xef, 0x10, 0xff], timestamp: .milliseconds(0x0102_0304))
 
 /// A sentence with its checksum, flipped by `wrong` and in lower case if
 /// asked, as frames.cpp's `sentence` builds it.
@@ -28,7 +28,8 @@ struct SeasmartTests {
     #expect(try Seasmart.encode(typical) == "$PCDIN,01F112,01020304,01,010203ABCDEF10FF*26")
     #expect(
       try Seasmart.encode(
-        Message(pgn: 0x1ffff, priority: 7, source: 255, data: [0], timestamp: .max))
+        Message(
+          pgn: 0x1ffff, priority: 7, source: 255, data: [0], timestamp: .milliseconds(UInt32.max)))
         == "$PCDIN,01FFFF,FFFFFFFF,FF,00*51")
     #expect(
       try Seasmart.encode(Message(pgn: 59904, source: 0, destination: 0x42))
@@ -39,7 +40,7 @@ struct SeasmartTests {
     // upstream-vectors "Seasmart read"; the sentence carries no priority or
     // destination.
     let expected = Message(
-      pgn: 127250, source: 1, data: typical.data, timestamp: 0x0102_0304)
+      pgn: 127250, source: 1, data: typical.data, timestamp: .milliseconds(0x0102_0304))
     #expect(
       try Seasmart.decode(sentence("PCDIN,01F112,01020304,01,010203ABCDEF10FF")) == expected)
     #expect(
@@ -50,7 +51,7 @@ struct SeasmartTests {
         == expected)
     #expect(
       try Seasmart.decode(sentence("PCDIN,01F112,01020304,01,"))
-        == Message(pgn: 127250, source: 1, timestamp: 0x0102_0304))
+        == Message(pgn: 127250, source: 1, timestamp: .milliseconds(0x0102_0304)))
     #expect(try Seasmart.decode(Seasmart.encode(typical)).data == typical.data)
   }
 

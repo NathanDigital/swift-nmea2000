@@ -15,23 +15,24 @@ struct ConverterStatusTests {
     // typical
     (
       ConverterStatus(
-        sequenceID: 1, connectionNumber: 2, operatingState: .inverting, temperatureState: .warning,
-        overloadState: .ok, lowDCVoltageState: .warning, rippleState: .high),
+        connectionNumber: 2, operatingState: .inverting, temperatureState: .warning,
+        overloadState: .ok,
+        lowDCVoltageState: .warning, rippleState: .high, sequenceID: 1),
       [0x01, 0x02, 0x09, 0x91, 0xff, 0xff, 0xff, 0xff]
     ),
     // other values
     (
       ConverterStatus(
-        sequenceID: 3, connectionNumber: 4, operatingState: .hub1, temperatureState: .ok,
-        overloadState: .overload, lowDCVoltageState: .ok, rippleState: .warning),
+        connectionNumber: 4, operatingState: .hub1, temperatureState: .ok, overloadState: .overload,
+        lowDCVoltageState: .ok, rippleState: .warning, sequenceID: 3),
       [0x03, 0x04, 0xfc, 0x48, 0xff, 0xff, 0xff, 0xff]
     ),
     // not available
     (
       ConverterStatus(
-        sequenceID: nil, connectionNumber: 0xff, operatingState: .unavailable,
-        temperatureState: .unavailable,
-        overloadState: .unavailable, lowDCVoltageState: .unavailable, rippleState: .unavailable),
+        connectionNumber: 0xff, operatingState: .unavailable, temperatureState: .unavailable,
+        overloadState: .unavailable,
+        lowDCVoltageState: .unavailable, rippleState: .unavailable, sequenceID: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
     ),
   ]

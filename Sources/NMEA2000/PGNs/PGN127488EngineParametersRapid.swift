@@ -25,10 +25,10 @@ public struct EngineParametersRapid: ParameterGroup {
 
   /// Creates a rapid engine parameters message.
   ///
-  /// The defaults match upstream's `SetN2kEngineParamRapid`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kEngineParamRapid`.
   public init(
     instance: UInt8,
-    speed: Double?,
+    speed: Double? = nil,
     boostPressure: Double? = nil,
     tiltTrim: Int8? = nil
   ) {

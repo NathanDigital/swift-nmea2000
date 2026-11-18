@@ -14,17 +14,17 @@ struct WindDataTests {
   static let vectors: [(WindData, [UInt8])] = [
     // typical
     (
-      WindData(sequenceID: 1, windSpeed: 7.5, windAngle: 5.5, reference: .apparent),
+      WindData(reference: .apparent, sequenceID: 1, windSpeed: 7.5, windAngle: 5.5),
       [0x01, 0xee, 0x02, 0xd8, 0xd6, 0x02, 0xff, 0xff]
     ),
     // true over water
     (
-      WindData(sequenceID: 2, windSpeed: 12.25, windAngle: 0.25, reference: .trueWater),
+      WindData(reference: .trueWater, sequenceID: 2, windSpeed: 12.25, windAngle: 0.25),
       [0x02, 0xc9, 0x04, 0xc4, 0x09, 0x04, 0xff, 0xff]
     ),
     // not available
     (
-      WindData(sequenceID: nil, windSpeed: nil, windAngle: nil, reference: .unavailable),
+      WindData(reference: .unavailable, sequenceID: nil, windSpeed: nil, windAngle: nil),
       [0xff, 0xff, 0xff, 0xff, 0xff, 0x07, 0xff, 0xff]
     ),
   ]

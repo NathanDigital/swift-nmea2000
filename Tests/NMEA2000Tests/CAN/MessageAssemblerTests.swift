@@ -46,8 +46,8 @@ private func assemble(
   var messages: [Message] = []
   for timed in frames {
     if let offset = timed.time { time = start &+ offset }
-    if var message = assembler.receive(timed.frame, at: time)?.message {
-      message.timestamp = 0
+    if var message = assembler.receive(timed.frame, at: .milliseconds(time))?.message {
+      message.timestamp = .zero
       messages.append(message)
     }
   }
@@ -314,25 +314,28 @@ struct MessageAssemblerTests {
   @Test func stampsMessagesWithTheirFirstFrameTime() {
     var assembler = MessageAssembler()
     #expect(
-      assembler.receive(CANFrame(id: 0x0df8_0517, data: [0, 9, 1, 2, 3, 4, 5, 6]), at: 500) == nil)
-    let assembled = assembler.receive(CANFrame(id: 0x0df8_0517, data: [1, 7, 8, 9]), at: 520)
-    #expect(assembled?.message.timestamp == 500)
+      assembler.receive(
+        CANFrame(id: 0x0df8_0517, data: [0, 9, 1, 2, 3, 4, 5, 6]), at: .milliseconds(500)) == nil)
+    let assembled = assembler.receive(
+      CANFrame(id: 0x0df8_0517, data: [1, 7, 8, 9]), at: .milliseconds(520))
+    #expect(assembled?.message.timestamp == .milliseconds(500))
   }
 
   @Test func marksSystemMessages() {
     var assembler = MessageAssembler()
-    let request = assembler.receive(CANFrame(id: 0x18ea_4217, data: [0x10, 0xf0, 0x01]), at: 0)
+    let request = assembler.receive(
+      CANFrame(id: 0x18ea_4217, data: [0x10, 0xf0, 0x01]), at: .milliseconds(0))
     #expect(request?.isSystemMessage == true)
     let position = assembler.receive(
-      CANFrame(id: 0x09f8_0117, data: [1, 2, 3, 4, 5, 6, 7, 8]), at: 0)
+      CANFrame(id: 0x09f8_0117, data: [1, 2, 3, 4, 5, 6, 7, 8]), at: .milliseconds(0))
     #expect(position?.isSystemMessage == false)
   }
 
   @Test func ignoresFastPacketFramesTooShortToRead() {
     // Deliberate divergence: upstream reads leftover buffer bytes for these.
     var assembler = MessageAssembler()
-    #expect(assembler.receive(CANFrame(id: 0x0df8_0517, data: []), at: 0) == nil)
-    #expect(assembler.receive(CANFrame(id: 0x0df8_0517, data: [0x00]), at: 0) == nil)
+    #expect(assembler.receive(CANFrame(id: 0x0df8_0517, data: []), at: .milliseconds(0)) == nil)
+    #expect(assembler.receive(CANFrame(id: 0x0df8_0517, data: [0x00]), at: .milliseconds(0)) == nil)
   }
 
   @Test func reassemblesCatalogFastPacketPGNs() {
@@ -352,17 +355,21 @@ struct MessageAssemblerTests {
     var assembler = MessageAssembler()
     #expect(
       assembler.receive(
-        CANFrame(id: 0x18ec_ff42, data: [32, 10, 0, 2, 0xff, 0x00, 0xee, 0x01]), at: 1000) == nil)
+        CANFrame(id: 0x18ec_ff42, data: [32, 10, 0, 2, 0xff, 0x00, 0xee, 0x01]),
+        at: .milliseconds(1000)) == nil)
     #expect(
-      assembler.receive(CANFrame(id: 0x18eb_ff42, data: [1, 0, 1, 2, 3, 4, 5, 6]), at: 1050)
+      assembler.receive(
+        CANFrame(id: 0x18eb_ff42, data: [1, 0, 1, 2, 3, 4, 5, 6]), at: .milliseconds(1050))
         == nil)
     let last = assembler.receive(
-      CANFrame(id: 0x18eb_ff42, data: [2, 7, 8, 9, 0xff, 0xff, 0xff, 0xff]), at: 1100)
+      CANFrame(id: 0x18eb_ff42, data: [2, 7, 8, 9, 0xff, 0xff, 0xff, 0xff]), at: .milliseconds(1100)
+    )
     let assembled = try #require(last)
     #expect(
       assembled.message
         == Message(
-          pgn: 126464, priority: 7, source: 0x42, data: Array(0..<10), timestamp: 1100,
+          pgn: 126464, priority: 7, source: 0x42, data: Array(0..<10),
+          timestamp: .milliseconds(1100),
           framing: .transportProtocol))
     #expect(!assembled.isSystemMessage)
   }
@@ -372,9 +379,11 @@ struct MessageAssemblerTests {
     var assembler = MessageAssembler()
     #expect(
       assembler.receive(
-        CANFrame(id: 0x18ec_1742, data: [17, 5, 1, 0xff, 0xff, 0x00, 0xee, 0x01]), at: 0) == nil)
+        CANFrame(id: 0x18ec_1742, data: [17, 5, 1, 0xff, 0xff, 0x00, 0xee, 0x01]),
+        at: .milliseconds(0)) == nil)
     #expect(
-      assembler.receive(CANFrame(id: 0x18eb_1742, data: [1, 0, 1, 2, 3, 4, 5, 6]), at: 0) == nil)
+      assembler.receive(
+        CANFrame(id: 0x18eb_1742, data: [1, 0, 1, 2, 3, 4, 5, 6]), at: .milliseconds(0)) == nil)
   }
 
   @Test func ignoresTransportProtocolFramesTooShortToRead() {
@@ -382,14 +391,17 @@ struct MessageAssemblerTests {
     var assembler = MessageAssembler()
     #expect(
       assembler.receive(
-        CANFrame(id: 0x18ec_ff42, data: [32, 3, 0, 1, 0xff, 0x00, 0xee]), at: 0) == nil)
-    #expect(assembler.receive(CANFrame(id: 0x18eb_ff42, data: []), at: 0) == nil)
+        CANFrame(id: 0x18ec_ff42, data: [32, 3, 0, 1, 0xff, 0x00, 0xee]), at: .milliseconds(0))
+        == nil)
+    #expect(assembler.receive(CANFrame(id: 0x18eb_ff42, data: []), at: .milliseconds(0)) == nil)
     #expect(
       assembler.receive(
-        CANFrame(id: 0x18ec_ff42, data: [32, 3, 0, 1, 0xff, 0x00, 0xee, 0x01]), at: 0) == nil)
-    #expect(assembler.receive(CANFrame(id: 0x18eb_ff42, data: []), at: 0) == nil)
+        CANFrame(id: 0x18ec_ff42, data: [32, 3, 0, 1, 0xff, 0x00, 0xee, 0x01]), at: .milliseconds(0)
+      ) == nil)
+    #expect(assembler.receive(CANFrame(id: 0x18eb_ff42, data: []), at: .milliseconds(0)) == nil)
     #expect(
-      assembler.receive(CANFrame(id: 0x18eb_ff42, data: [1, 1, 2, 3]), at: 0)?.message.data
+      assembler.receive(CANFrame(id: 0x18eb_ff42, data: [1, 1, 2, 3]), at: .milliseconds(0))?
+        .message.data
         == [1, 2, 3])
   }
 
@@ -399,15 +411,18 @@ struct MessageAssemblerTests {
     var catalog = PGNCatalog()
     catalog.singleFramePGNs.formUnion([59904, 126208])
     var assembler = MessageAssembler(catalog: catalog)
-    let received = assembler.receive(CANFrame(id: 0x18ea_ff42, data: [0x14, 0xf0, 0x01]), at: 0)
+    let received = assembler.receive(
+      CANFrame(id: 0x18ea_ff42, data: [0x14, 0xf0, 0x01]), at: .milliseconds(0))
     let request = try #require(received)
     #expect(request.isSystemMessage)
     // A group function stays a fast packet: its first frame alone isn't a
     // message.
     #expect(
-      assembler.receive(CANFrame(id: 0x19ed_ff42, data: [0x40, 9, 1, 2, 3, 4, 5, 6]), at: 0)
+      assembler.receive(
+        CANFrame(id: 0x19ed_ff42, data: [0x40, 9, 1, 2, 3, 4, 5, 6]), at: .milliseconds(0))
         == nil)
-    let completed = assembler.receive(CANFrame(id: 0x19ed_ff42, data: [0x41, 7, 8, 9]), at: 0)
+    let completed = assembler.receive(
+      CANFrame(id: 0x19ed_ff42, data: [0x41, 7, 8, 9]), at: .milliseconds(0))
     let groupFunction = try #require(completed)
     #expect(groupFunction.isSystemMessage)
     #expect(groupFunction.message.data == Array(1...9))
@@ -418,9 +433,11 @@ struct MessageAssemblerTests {
     catalog.singleFramePGNs.insert(126996)
     var assembler = MessageAssembler(catalog: catalog)
     #expect(
-      assembler.receive(CANFrame(id: 0x19f0_1442, data: [0x20, 9, 1, 2, 3, 4, 5, 6]), at: 0)
+      assembler.receive(
+        CANFrame(id: 0x19f0_1442, data: [0x20, 9, 1, 2, 3, 4, 5, 6]), at: .milliseconds(0))
         == nil)
-    let completed = assembler.receive(CANFrame(id: 0x19f0_1442, data: [0x21, 7, 8, 9]), at: 0)
+    let completed = assembler.receive(
+      CANFrame(id: 0x19f0_1442, data: [0x21, 7, 8, 9]), at: .milliseconds(0))
     let message = try #require(completed)
     #expect(message.message.data == Array(1...9))
   }

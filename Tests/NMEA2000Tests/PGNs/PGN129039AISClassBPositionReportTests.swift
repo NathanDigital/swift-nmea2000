@@ -15,14 +15,16 @@ struct AISClassBPositionReportTests {
     // typical
     (
       AISClassBPositionReport(
-        messageID: 18, repeatIndicator: .second, userID: 211_234_567, latitude: 54.321,
-        longitude: 10.123,
-        isPositionAccurate: true, isRAIMInUse: true, timestampSecond: 30, courseOverGround: 3.0,
-        speedOverGround: 2.5, transceiverInformation: .channelAReception, heading: 3.05,
-        unitType: .classBCS,
-        hasDisplay: true, hasDSC: false, canUseWholeBand: true, acceptsMessage22: false,
+        messageID: 18, repeatIndicator: .second, userID: 211_234_567, isPositionAccurate: true,
+        isRAIMInUse: true,
+        timestampSecond: 30, transceiverInformation: .channelAReception, unitType: .classBCS,
+        hasDisplay: true,
+        hasDSC: false, canUseWholeBand: true, acceptsMessage22: false,
         mode: .assigned,
-        isCommunicationStateITDMA: false, sequenceID: 9),
+        isCommunicationStateITDMA: false, latitude: 54.321, longitude: 10.123,
+        courseOverGround: 3.0,
+        speedOverGround: 2.5,
+        heading: 3.05, sequenceID: 9),
       [
         0x92, 0x07, 0x2f, 0x97, 0x0c, 0xb0, 0xa5, 0x08, 0x06, 0x10, 0xba, 0x60, 0x20, 0x7b, 0x30,
         0x75, 0xfa, 0x00, 0xff, 0xff, 0x07, 0x24, 0x77, 0xff, 0xac, 0xfe, 0x09,
@@ -31,13 +33,15 @@ struct AISClassBPositionReportTests {
     // other flags
     (
       AISClassBPositionReport(
-        messageID: 63, repeatIndicator: .final, userID: 1, latitude: -1.5, longitude: -2.5,
-        isPositionAccurate: false, isRAIMInUse: false, timestampSecond: 63, courseOverGround: 0,
-        speedOverGround: 0, transceiverInformation: AISTransceiverInformation(rawValue: 31),
-        heading: 0, unitType: .classBSOTDMA,
-        hasDisplay: false, hasDSC: true, canUseWholeBand: false, acceptsMessage22: true,
-        mode: .autonomous,
-        isCommunicationStateITDMA: true, sequenceID: nil),
+        messageID: 63, repeatIndicator: .final, userID: 1, isPositionAccurate: false,
+        isRAIMInUse: false,
+        timestampSecond: 63, transceiverInformation: AISTransceiverInformation(rawValue: 31),
+        unitType: .classBSOTDMA, hasDisplay: false,
+        hasDSC: true, canUseWholeBand: false,
+        acceptsMessage22: true, mode: .autonomous,
+        isCommunicationStateITDMA: true, latitude: -1.5, longitude: -2.5, courseOverGround: 0,
+        speedOverGround: 0,
+        heading: 0, sequenceID: nil),
       [
         0xff, 0x01, 0x00, 0x00, 0x00, 0xc0, 0x87, 0x82, 0xfe, 0x40, 0x1e, 0x1b, 0xff, 0xfc, 0x00,
         0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0xff, 0x50, 0xff, 0xff,
@@ -46,13 +50,15 @@ struct AISClassBPositionReportTests {
     // not available
     (
       AISClassBPositionReport(
-        messageID: 19, repeatIndicator: .initial, userID: 0, latitude: nil, longitude: nil,
-        isPositionAccurate: false, isRAIMInUse: false, timestampSecond: 60, courseOverGround: nil,
-        speedOverGround: nil, transceiverInformation: .channelBReception, heading: nil,
-        unitType: .classBSOTDMA,
-        hasDisplay: false, hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
+        messageID: 19, repeatIndicator: .initial, userID: 0, isPositionAccurate: false,
+        isRAIMInUse: false,
+        timestampSecond: 60, transceiverInformation: .channelBReception, unitType: .classBSOTDMA,
+        hasDisplay: false,
+        hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
         mode: .autonomous,
-        isCommunicationStateITDMA: false, sequenceID: nil),
+        isCommunicationStateITDMA: false, latitude: nil, longitude: nil, courseOverGround: nil,
+        speedOverGround: nil,
+        heading: nil, sequenceID: nil),
       [
         0x13, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0x7f, 0xf0, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0x0f, 0xff, 0xff, 0xff, 0x00, 0xfe, 0xff,
@@ -61,13 +67,15 @@ struct AISClassBPositionReportTests {
     // unknown unit type without display
     (
       AISClassBPositionReport(
-        messageID: 18, repeatIndicator: .initial, userID: 2, latitude: 1.0, longitude: 2.0,
-        isPositionAccurate: false, isRAIMInUse: true, timestampSecond: 10, courseOverGround: 1.0,
-        speedOverGround: 1.0, transceiverInformation: .channelAReception, heading: 1.0,
-        unitType: AISUnitType(rawValue: 3),
-        hasDisplay: false, hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
+        messageID: 18, repeatIndicator: .initial, userID: 2, isPositionAccurate: false,
+        isRAIMInUse: true,
+        timestampSecond: 10, transceiverInformation: .channelAReception,
+        unitType: AISUnitType(rawValue: 3), hasDisplay: false,
+        hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
         mode: .autonomous,
-        isCommunicationStateITDMA: false, sequenceID: 1),
+        isCommunicationStateITDMA: false, latitude: 1.0, longitude: 2.0, courseOverGround: 1.0,
+        speedOverGround: 1.0,
+        heading: 1.0, sequenceID: 1),
       [
         0x12, 0x02, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x31, 0x01, 0x80, 0x96, 0x98, 0x00, 0x2a, 0x10,
         0x27, 0x64, 0x00, 0xff, 0xff, 0x07, 0x10, 0x27, 0xff, 0x04, 0xfe, 0x01,
@@ -76,13 +84,15 @@ struct AISClassBPositionReportTests {
     // display without class B CS
     (
       AISClassBPositionReport(
-        messageID: 18, repeatIndicator: .initial, userID: 3, latitude: 1.0, longitude: 2.0,
-        isPositionAccurate: true, isRAIMInUse: false, timestampSecond: 11, courseOverGround: 1.0,
-        speedOverGround: 1.0, transceiverInformation: .channelAReception, heading: 1.0,
-        unitType: .classBSOTDMA,
-        hasDisplay: true, hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
+        messageID: 18, repeatIndicator: .initial, userID: 3, isPositionAccurate: true,
+        isRAIMInUse: false,
+        timestampSecond: 11, transceiverInformation: .channelAReception, unitType: .classBSOTDMA,
+        hasDisplay: true,
+        hasDSC: false, canUseWholeBand: false, acceptsMessage22: false,
         mode: .autonomous,
-        isCommunicationStateITDMA: false, sequenceID: 2),
+        isCommunicationStateITDMA: false, latitude: 1.0, longitude: 2.0, courseOverGround: 1.0,
+        speedOverGround: 1.0,
+        heading: 1.0, sequenceID: 2),
       [
         0x12, 0x03, 0x00, 0x00, 0x00, 0x00, 0x2d, 0x31, 0x01, 0x80, 0x96, 0x98, 0x00, 0x2d, 0x10,
         0x27, 0x64, 0x00, 0xff, 0xff, 0x07, 0x10, 0x27, 0xff, 0x08, 0xfe, 0x02,

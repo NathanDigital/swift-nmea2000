@@ -15,7 +15,8 @@ struct HeadingTrackControlTests {
     // typical
     (
       HeadingTrackControl(
-        rudderLimitExceeded: .on, offHeadingLimitExceeded: .off, offTrackLimitExceeded: .error,
+        rudderLimitExceeded: .on, offHeadingLimitExceeded: .off,
+        offTrackLimitExceeded: .error,
         override: .unavailable, steeringMode: .trackControl, turnMode: .radiusControlled,
         headingReference: .magnetic,
         commandedRudderDirection: .moveToPort, commandedRudderAngle: -0.1, headingToSteer: 1.2,
@@ -62,7 +63,8 @@ struct HeadingTrackControlTests {
     // alternating limit flags
     (
       HeadingTrackControl(
-        rudderLimitExceeded: .off, offHeadingLimitExceeded: .on, offTrackLimitExceeded: .off,
+        rudderLimitExceeded: .off, offHeadingLimitExceeded: .on,
+        offTrackLimitExceeded: .off,
         override: .on, steeringMode: .mainSteering, turnMode: .rudderLimitControlled,
         headingReference: .true,
         commandedRudderDirection: .noDirectionOrder, commandedRudderAngle: 0, headingToSteer: 0,

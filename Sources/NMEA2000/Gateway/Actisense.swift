@@ -15,20 +15,21 @@
 /// These are pure codecs: they turn messages into bytes and bytes into
 /// messages, and leave the serial port to the caller.
 public enum Actisense {
-  static let escape: UInt8 = 0x10
-  static let startOfText: UInt8 = 0x02
-  static let endOfText: UInt8 = 0x03
+  private static let escape: UInt8 = 0x10
+  private static let startOfText: UInt8 = 0x02
+  private static let endOfText: UInt8 = 0x03
 
   /// The type of a received NMEA 2000 message.
-  static let messageType: UInt8 = 0x93
+  private static let messageType: UInt8 = 0x93
 
   /// The type of a message sent to the gateway to transmit, which carries no
   /// source or time stamp.
-  static let sendType: UInt8 = 0x94
+  private static let sendType: UInt8 = 0x94
 
   /// Encodes a message.
   ///
-  /// The message's ``Message/timestamp`` is the time stamp.
+  /// The message's ``Message/timestamp`` is the time stamp, in milliseconds
+  /// wrapped to 32 bits.
   ///
   /// Ports `tN2kMsg::SendInActisenseFormat`, with one deliberate fix:
   /// upstream counts its output with an 8-bit index, so a message that
@@ -44,7 +45,7 @@ public enum Actisense {
     try GatewayError.check(message)
     guard !message.data.isEmpty else { throw .emptyPayload }
     let count = message.data.count
-    let time = message.timestamp
+    let time = message.timestamp.wrappingMilliseconds
     let body: [UInt8] =
       [
         messageType, UInt8(truncatingIfNeeded: count + 11), message.priority,
@@ -102,16 +103,15 @@ public enum Actisense {
     ///
     /// - Parameters:
     ///   - bytes: Bytes received from the serial port.
-    ///   - time: The time stamp for messages that don't carry one, in
-    ///     milliseconds.
-    public mutating func decode(_ bytes: some Sequence<UInt8>, at time: UInt32) -> [Message] {
+    ///   - time: The time stamp for messages that don't carry one.
+    public mutating func decode(_ bytes: some Sequence<UInt8>, at time: Duration) -> [Message] {
       bytes.compactMap { decode($0, at: time) }
     }
 
     /// Adds one byte, and returns the message it completes, if any.
     ///
     /// Ports `tActisenseReader::GetMessageFromStream`.
-    public mutating func decode(_ byte: UInt8, at time: UInt32) -> Message? {
+    public mutating func decode(_ byte: UInt8, at time: Duration) -> Message? {
       guard isMessageComing else {
         if byte == Actisense.startOfText {
           let isStart = isEscapeReceived
@@ -183,7 +183,7 @@ public enum Actisense {
     /// The message in the buffer, if its length and checksum are right.
     ///
     /// Ports `tActisenseReader::CheckMessage`.
-    private func checkedMessage(at time: UInt32) -> Message? {
+    private func checkedMessage(at time: Duration) -> Message? {
       guard buffer.indices.contains(1), buffer.count == Int(buffer[1]) + 3,
         0 &- sum == buffer[buffer.count - 1]
       else { return nil }
@@ -196,8 +196,9 @@ public enum Actisense {
       let source = isReceived ? buffer[7] : defaultSource
       let timestamp =
         isReceived
-        ? UInt32(buffer[8]) | UInt32(buffer[9]) << 8 | UInt32(buffer[10]) << 16
-          | UInt32(buffer[11]) << 24 : time
+        ? Duration.milliseconds(
+          UInt32(buffer[8]) | UInt32(buffer[9]) << 8 | UInt32(buffer[10]) << 16
+            | UInt32(buffer[11]) << 24) : time
       let count = Int(buffer[headerCount - 1])
       guard count <= Message.maxDataCount, buffer.count - 1 - headerCount == count else {
         return nil

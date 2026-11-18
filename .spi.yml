@@ -1,0 +1,7 @@
+# Swift Package Index: build and host the DocC documentation on Linux, the
+# supported platform.
+version: 1
+builder:
+  configs:
+    - documentation_targets: [NMEA2000]
+      platform: linux

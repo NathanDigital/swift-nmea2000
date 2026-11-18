@@ -15,8 +15,8 @@ struct NavigationInfoTests {
     // typical
     (
       NavigationInfo(
-        sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .magnetic,
-        isPerpendicularCrossed: true, isArrivalCircleEntered: false, calculationType: .rhumbLine,
+        bearingReference: .magnetic, calculationType: .rhumbLine, sequenceID: 12,
+        distanceToWaypoint: 1852.5, isPerpendicularCrossed: true, isArrivalCircleEntered: false,
         etaDaysSince1970: 19001, etaSecondsSinceMidnight: 45000.5, bearingOriginToDestination: 0.5,
         bearingPositionToDestination: 0.6, originWaypointNumber: 100,
         destinationWaypointNumber: 101,
@@ -30,9 +30,9 @@ struct NavigationInfoTests {
     // not available
     (
       NavigationInfo(
-        sequenceID: nil, distanceToWaypoint: nil, bearingReference: .true,
-        isPerpendicularCrossed: false,
-        isArrivalCircleEntered: true, calculationType: .greatCircle, etaDaysSince1970: nil,
+        bearingReference: .true, calculationType: .greatCircle, sequenceID: nil,
+        distanceToWaypoint: nil,
+        isPerpendicularCrossed: false, isArrivalCircleEntered: true, etaDaysSince1970: nil,
         etaSecondsSinceMidnight: nil,
         bearingOriginToDestination: nil, bearingPositionToDestination: nil,
         originWaypointNumber: nil,
@@ -47,8 +47,8 @@ struct NavigationInfoTests {
     // bearing reference unavailable
     (
       NavigationInfo(
-        sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .unavailable,
-        isPerpendicularCrossed: false, isArrivalCircleEntered: false, calculationType: .greatCircle,
+        bearingReference: .unavailable, calculationType: .greatCircle, sequenceID: 12,
+        distanceToWaypoint: 1852.5, isPerpendicularCrossed: false, isArrivalCircleEntered: false,
         etaDaysSince1970: nil, etaSecondsSinceMidnight: nil, bearingOriginToDestination: 0.5,
         bearingPositionToDestination: 0.6,
         originWaypointNumber: 100, destinationWaypointNumber: 101, destinationLatitude: 60.15,
@@ -62,8 +62,8 @@ struct NavigationInfoTests {
     // bearing reference error
     (
       NavigationInfo(
-        sequenceID: 12, distanceToWaypoint: 1852.5, bearingReference: .error,
-        isPerpendicularCrossed: true, isArrivalCircleEntered: true, calculationType: .rhumbLine,
+        bearingReference: .error, calculationType: .rhumbLine, sequenceID: 12,
+        distanceToWaypoint: 1852.5, isPerpendicularCrossed: true, isArrivalCircleEntered: true,
         etaDaysSince1970: nil, etaSecondsSinceMidnight: nil, bearingOriginToDestination: 0.5,
         bearingPositionToDestination: 0.6,
         originWaypointNumber: 100, destinationWaypointNumber: 101, destinationLatitude: 60.15,

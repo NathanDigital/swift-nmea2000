@@ -20,8 +20,8 @@ public struct Leeway: ParameterGroup {
 
   /// Creates a leeway angle message.
   public init(
-    sequenceID: UInt8?,
-    leeway: Double?
+    sequenceID: UInt8? = nil,
+    leeway: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.leeway = leeway

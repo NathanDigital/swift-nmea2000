@@ -25,9 +25,9 @@ public struct Rudder: ParameterGroup {
 
   /// Creates a rudder message.
   ///
-  /// The defaults match upstream's `SetN2kPGN127245`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN127245`.
   public init(
-    position: Double?,
+    position: Double? = nil,
     instance: UInt8 = 0,
     directionOrder: RudderDirectionOrder = .noDirectionOrder,
     angleOrder: Double? = nil

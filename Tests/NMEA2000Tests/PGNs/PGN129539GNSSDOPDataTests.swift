@@ -15,7 +15,7 @@ struct GNSSDOPDataTests {
     // typical
     (
       GNSSDOPData(
-        sequenceID: 13, desiredMode: .threeDimensional, actualMode: .automatic,
+        desiredMode: .threeDimensional, actualMode: .automatic, sequenceID: 13,
         horizontalDilution: 0.9,
         verticalDilution: 1.1, timeDilution: 0.7),
       [0x0d, 0xda, 0x5a, 0x00, 0x6e, 0x00, 0x46, 0x00]
@@ -23,7 +23,7 @@ struct GNSSDOPDataTests {
     // not available
     (
       GNSSDOPData(
-        sequenceID: nil, desiredMode: .unavailable, actualMode: .error, horizontalDilution: nil,
+        desiredMode: .unavailable, actualMode: .error, sequenceID: nil, horizontalDilution: nil,
         verticalDilution: nil, timeDilution: nil),
       [0xff, 0xf7, 0xff, 0x7f, 0xff, 0x7f, 0xff, 0x7f]
     ),

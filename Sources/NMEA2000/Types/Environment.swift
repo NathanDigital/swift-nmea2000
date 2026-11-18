@@ -8,9 +8,7 @@
 ///
 /// Ports `tN2kTempSource`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct TemperatureSource: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct TemperatureSource: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -94,8 +92,7 @@ public struct TemperatureSource: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kHumiditySource`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct HumiditySource: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
-{
+public struct HumiditySource: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -127,8 +124,7 @@ public struct HumiditySource: RawRepresentable, Codable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kPressureSource`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct PressureSource: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
-{
+public struct PressureSource: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -192,7 +188,7 @@ public struct PressureSource: RawRepresentable, Codable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kFluidType`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct FluidType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct FluidType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -207,7 +203,7 @@ public struct FluidType: RawRepresentable, Codable, Hashable, Sendable, CustomSt
   /// Water.
   public static let water = Self(rawValue: 1)
 
-  /// Gray water.
+  /// Grey water.
   public static let grayWater = Self(rawValue: 2)
 
   /// Live well.

@@ -24,32 +24,32 @@ public struct DirectionData: ParameterGroup {
   /// The course over ground, in radians, or `nil` if not available.
   public var courseOverGround: Double?
 
-  /// The speed over ground, in meters per second, or `nil` if not available.
+  /// The speed over ground, in metres per second, or `nil` if not available.
   public var speedOverGround: Double?
 
   /// The heading, in radians, or `nil` if not available.
   public var heading: Double?
 
-  /// The speed through water, in meters per second, or `nil` if not available.
+  /// The speed through water, in metres per second, or `nil` if not available.
   public var speedThroughWater: Double?
 
   /// The direction of the current, in radians, or `nil` if not available.
   public var set: Double?
 
-  /// The speed of the current, in meters per second, or `nil` if not available.
+  /// The speed of the current, in metres per second, or `nil` if not available.
   public var drift: Double?
 
   /// Creates a direction data message.
   public init(
     dataMode: DataMode,
     courseReference: HeadingReference,
-    sequenceID: UInt8?,
-    courseOverGround: Double?,
-    speedOverGround: Double?,
-    heading: Double?,
-    speedThroughWater: Double?,
-    set: Double?,
-    drift: Double?
+    sequenceID: UInt8? = nil,
+    courseOverGround: Double? = nil,
+    speedOverGround: Double? = nil,
+    heading: Double? = nil,
+    speedThroughWater: Double? = nil,
+    set: Double? = nil,
+    drift: Double? = nil
   ) {
     self.dataMode = dataMode
     self.courseReference = courseReference

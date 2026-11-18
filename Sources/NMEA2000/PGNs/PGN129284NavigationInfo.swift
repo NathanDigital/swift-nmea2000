@@ -15,7 +15,7 @@ public struct NavigationInfo: ParameterGroup {
   /// not available.
   public var sequenceID: UInt8?
 
-  /// The distance to the destination waypoint, in meters, or `nil` if not available.
+  /// The distance to the destination waypoint, in metres, or `nil` if not available.
   public var distanceToWaypoint: Double?
 
   /// Whether the bearings are true or magnetic.
@@ -75,26 +75,26 @@ public struct NavigationInfo: ParameterGroup {
   /// available.
   public var destinationLongitude: Double?
 
-  /// The speed toward the destination waypoint, in meters per second, or `nil` if not available.
+  /// The speed toward the destination waypoint, in metres per second, or `nil` if not available.
   public var waypointClosingVelocity: Double?
 
   /// Creates a navigation data message.
   public init(
-    sequenceID: UInt8?,
-    distanceToWaypoint: Double?,
     bearingReference: HeadingReference,
-    isPerpendicularCrossed: Bool?,
-    isArrivalCircleEntered: Bool?,
     calculationType: DistanceCalculationType,
-    etaDaysSince1970: UInt16?,
-    etaSecondsSinceMidnight: Double?,
-    bearingOriginToDestination: Double?,
-    bearingPositionToDestination: Double?,
-    originWaypointNumber: UInt32?,
-    destinationWaypointNumber: UInt32?,
-    destinationLatitude: Double?,
-    destinationLongitude: Double?,
-    waypointClosingVelocity: Double?
+    sequenceID: UInt8? = nil,
+    distanceToWaypoint: Double? = nil,
+    isPerpendicularCrossed: Bool? = nil,
+    isArrivalCircleEntered: Bool? = nil,
+    etaDaysSince1970: UInt16? = nil,
+    etaSecondsSinceMidnight: Double? = nil,
+    bearingOriginToDestination: Double? = nil,
+    bearingPositionToDestination: Double? = nil,
+    originWaypointNumber: UInt32? = nil,
+    destinationWaypointNumber: UInt32? = nil,
+    destinationLatitude: Double? = nil,
+    destinationLongitude: Double? = nil,
+    waypointClosingVelocity: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.distanceToWaypoint = distanceToWaypoint

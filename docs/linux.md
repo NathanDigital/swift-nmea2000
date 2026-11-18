@@ -8,10 +8,11 @@ The supported target is **Ubuntu 26.04 LTS** with the **swift.org** toolchain. `
 scripts/linux-swift build
 scripts/linux-swift test
 scripts/linux-swift test --filter <SuiteOrTestName>
-scripts/linux-swift format lint -s -r Sources Tests
+scripts/linux-swift format lint -s -r Sources Tests Snippets Package.swift
+scripts/linux-swift package generate-documentation --target NMEA2000 --warnings-as-errors
 ```
 
-The script builds the image from `docker/` (cached after the first run), mounts the repo at `/src`, and runs `swift <args>`. Linux build products go in the Docker volume `nmea2000-swift-linux-build`, not in the host's `.build`, so macOS and Linux builds don't overwrite each other. To start clean, run `docker volume rm nmea2000-swift-linux-build`.
+The script builds the image from `docker/` (cached after the first run), mounts the repo at `/src`, and runs `swift <args>`. Linux build products go in the Docker volume `nmea2000-swift-linux-build`, not in the host's `.build`, so nothing on the host affects a build. To start clean, run `docker volume rm nmea2000-swift-linux-build`.
 
 ## What is pinned
 

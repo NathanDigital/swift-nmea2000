@@ -8,7 +8,7 @@
 ///
 /// Ports `tN2kDCType`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct DCSourceType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct DCSourceType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -48,7 +48,7 @@ public struct DCSourceType: RawRepresentable, Codable, Hashable, Sendable, Custo
 ///
 /// Ports `tN2kBatType`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct BatteryType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct BatteryType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -76,13 +76,11 @@ public struct BatteryType: RawRepresentable, Codable, Hashable, Sendable, Custom
   }
 }
 
-/// Whether a battery supports equalization.
+/// Whether a battery supports equalisation.
 ///
 /// Ports `tN2kBatEqSupport`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct BatteryEqualizationSupport: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct BatteryEqualizationSupport: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -118,9 +116,7 @@ public struct BatteryEqualizationSupport: RawRepresentable, Codable, Hashable, S
 ///
 /// Ports `tN2kBatChem`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct BatteryChemistry: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct BatteryChemistry: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -160,9 +156,7 @@ public struct BatteryChemistry: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kBatNomVolt`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct BatteryNominalVoltage: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct BatteryNominalVoltage: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -213,7 +207,7 @@ public struct BatteryNominalVoltage: RawRepresentable, Codable, Hashable, Sendab
 ///
 /// Ports `tN2kChargeState`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct ChargeState: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct ChargeState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -281,7 +275,7 @@ public struct ChargeState: RawRepresentable, Codable, Hashable, Sendable, Custom
 ///
 /// Ports `tN2kChargerMode`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct ChargerMode: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct ChargerMode: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -321,9 +315,7 @@ public struct ChargerMode: RawRepresentable, Codable, Hashable, Sendable, Custom
 ///
 /// Ports `tN2kConvMode`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct ConverterOperatingState: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct ConverterOperatingState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -399,7 +391,7 @@ public struct ConverterOperatingState: RawRepresentable, Codable, Hashable, Send
 ///
 /// Ports `tN2kRippleState`. Values without a name here are kept in ``rawValue``, so they decode and
 /// re-encode unchanged.
-public struct RippleState: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+public struct RippleState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -435,8 +427,7 @@ public struct RippleState: RawRepresentable, Codable, Hashable, Sendable, Custom
 ///
 /// Ports `tN2kDCVolgateState`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct DCVoltageState: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
-{
+public struct DCVoltageState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -475,8 +466,7 @@ public struct DCVoltageState: RawRepresentable, Codable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kOverloadState`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct OverloadState: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
-{
+public struct OverloadState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -512,9 +502,7 @@ public struct OverloadState: RawRepresentable, Codable, Hashable, Sendable, Cust
 ///
 /// Ports `tN2kTemperatureState`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct TemperatureState: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct TemperatureState: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -553,9 +541,7 @@ public struct TemperatureState: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kChargingAlgorithm`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct ChargingAlgorithm: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct ChargingAlgorithm: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -599,9 +585,7 @@ public struct ChargingAlgorithm: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tBattTempNoSensor`. Values without a name here are kept in ``rawValue``, so they decode
 /// and re-encode unchanged.
-public struct BatteryTemperatureEstimate: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct BatteryTemperatureEstimate: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

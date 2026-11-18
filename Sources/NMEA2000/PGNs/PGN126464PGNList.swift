@@ -14,7 +14,7 @@ public struct PGNList: ParameterGroup {
   public static let defaultPriority: UInt8 = 6
 
   /// Which of a device's lists a PGN list is (upstream's `tN2kPGNList`).
-  public struct Kind: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+  public struct Kind: WireEnumeration {
     /// The value as it appears on the wire.
     public var rawValue: UInt8
 
@@ -41,8 +41,16 @@ public struct PGNList: ParameterGroup {
   /// Whether this is the transmit or the receive list.
   public var kind: Kind
 
-  /// The PGNs in the list.
+  /// The most PGNs one message can hold, as upstream limits its lists
+  /// (`MAX_PGNS_IN_LIST`).
+  public static let maxPGNCount = 74
+
+  /// The PGNs in the list. Only the first ``maxPGNCount`` are sent;
+  /// ``sentPGNCount`` says how many.
   public var pgns: [UInt32]
+
+  /// How many of ``pgns`` are sent: at most ``maxPGNCount``.
+  public var sentPGNCount: Int { min(pgns.count, Self.maxPGNCount) }
 
   /// Creates a PGN list.
   public init(kind: Kind, pgns: [UInt32]) {
@@ -59,6 +67,8 @@ public struct PGNList: ParameterGroup {
 
   public func encode(into writer: inout MessageWriter) {
     writer.appendUInt8(kind.rawValue)
-    for pgn in pgns { writer.appendInt24(Int32(truncatingIfNeeded: pgn)) }
+    for pgn in pgns.prefix(Self.maxPGNCount) {
+      writer.appendInt24(Int32(truncatingIfNeeded: pgn))
+    }
   }
 }

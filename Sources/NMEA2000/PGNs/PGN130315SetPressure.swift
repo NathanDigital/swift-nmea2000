@@ -27,10 +27,10 @@ public struct SetPressure: ParameterGroup {
 
   /// Creates a set pressure message.
   public init(
-    sequenceID: UInt8?,
     instance: UInt8,
     source: PressureSource,
-    setPressure: Double?
+    sequenceID: UInt8? = nil,
+    setPressure: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.instance = instance

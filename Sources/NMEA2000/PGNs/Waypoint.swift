@@ -23,7 +23,7 @@ public struct Waypoint: Sendable, Codable, Hashable {
   public var longitude: Double?
 
   /// Creates a waypoint.
-  public init(id: UInt16, name: String, latitude: Double?, longitude: Double?) {
+  public init(id: UInt16, name: String, latitude: Double? = nil, longitude: Double? = nil) {
     self.id = id
     self.name = name
     self.latitude = latitude

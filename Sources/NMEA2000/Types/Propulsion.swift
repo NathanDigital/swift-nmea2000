@@ -8,9 +8,7 @@
 ///
 /// Ports `tN2kDD473` (`tN2kThrusterDirectionControl`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct ThrusterDirectionControl: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct ThrusterDirectionControl: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -46,9 +44,7 @@ public struct ThrusterDirectionControl: RawRepresentable, Codable, Hashable, Sen
 ///
 /// Ports `tN2kDD474` (`tN2kThrusterRetraction`). Values without a name here are kept in
 /// ``rawValue``, so they decode and re-encode unchanged.
-public struct ThrusterRetraction: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct ThrusterRetraction: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -80,8 +76,7 @@ public struct ThrusterRetraction: RawRepresentable, Codable, Hashable, Sendable,
 ///
 /// Ports `tN2kDD487` (`tN2kMotorPowerType`). Values without a name here are kept in ``rawValue``,
 /// so they decode and re-encode unchanged.
-public struct MotorPowerType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
-{
+public struct MotorPowerType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -121,8 +116,7 @@ public struct MotorPowerType: RawRepresentable, Codable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kDD488` (`tN2kSpeedType`). Values without a name here are kept in ``rawValue``, so
 /// they decode and re-encode unchanged.
-public struct MotorSpeedType: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible
-{
+public struct MotorSpeedType: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 
@@ -158,9 +152,7 @@ public struct MotorSpeedType: RawRepresentable, Codable, Hashable, Sendable, Cus
 ///
 /// Ports `tN2kTransmissionGear`. Values without a name here are kept in ``rawValue``, so they
 /// decode and re-encode unchanged.
-public struct TransmissionGear: RawRepresentable, Codable, Hashable, Sendable,
-  CustomStringConvertible
-{
+public struct TransmissionGear: WireEnumeration {
   /// The value as it appears on the wire.
   public var rawValue: UInt8
 

@@ -9,7 +9,7 @@ import Testing
 
 private let typical = Message(
   pgn: 127250, priority: 2, source: 1, destination: 255, data: [1, 2, 3, 4, 5, 6, 7, 8],
-  timestamp: 0x0102_0304)
+  timestamp: .milliseconds(0x0102_0304))
 
 /// The bytes upstream writes for `typical`
 /// (`scripts/upstream-vectors "Actisense write typical"`).
@@ -20,7 +20,7 @@ private let typicalBytes: [UInt8] = [
 
 private let escapes = Message(
   pgn: 0x1f010, priority: 6, source: 0x10, destination: 0x10, data: [0x10, 0x02, 0x10, 0x03],
-  timestamp: 0x1010_1010)
+  timestamp: .milliseconds(0x1010_1010))
 
 /// The bytes upstream writes for `escapes`.
 private let escapeBytes: [UInt8] = [
@@ -29,7 +29,8 @@ private let escapeBytes: [UInt8] = [
 ]
 
 private let short = Message(
-  pgn: 130306, priority: 2, source: 7, destination: 255, data: [1, 2, 3], timestamp: 1234)
+  pgn: 130306, priority: 2, source: 7, destination: 255, data: [1, 2, 3],
+  timestamp: .milliseconds(1234))
 
 @Suite("Actisense")
 struct ActisenseTests {
@@ -41,7 +42,8 @@ struct ActisenseTests {
   @Test func escapesAChecksumOf0x10() throws {
     // upstream-vectors "Actisense write checksum to escape"
     let message = Message(
-      pgn: 130306, priority: 2, source: 7, destination: 255, data: [1, 2, 0x6b], timestamp: 1234)
+      pgn: 130306, priority: 2, source: 7, destination: 255, data: [1, 2, 0x6b],
+      timestamp: .milliseconds(1234))
     #expect(
       try Actisense.encode(message) == [
         0x10, 0x02, 0x93, 0x0e, 0x02, 0x02, 0xfd, 0x01, 0xff, 0x07, 0xd2, 0x04, 0x00, 0x00, 0x03,
@@ -53,7 +55,7 @@ struct ActisenseTests {
     // upstream-vectors "Actisense write long"
     let message = Message(
       pgn: 126996, priority: 6, source: 33, destination: 255,
-      data: (0..<223).map { UInt8(0x20 + $0 % 0x50) }, timestamp: 0xffff_fffe)
+      data: (0..<223).map { UInt8(0x20 + $0 % 0x50) }, timestamp: .milliseconds(0xffff_fffe))
     #expect(
       try Actisense.encode(message) == [
         0x10, 0x02, 0x93, 0xea, 0x06, 0x14, 0xf0, 0x01, 0xff, 0x21, 0xfe, 0xff, 0xff, 0xff, 0xdf,
@@ -81,11 +83,11 @@ struct ActisenseTests {
     // bytes, and every 0x10 here is doubled.
     let message = Message(
       pgn: 0x1f010, priority: 6, source: 0x10, destination: 0x10,
-      data: Array(repeating: 0x10, count: 223), timestamp: 0x1010_1010)
+      data: Array(repeating: 0x10, count: 223), timestamp: .milliseconds(0x1010_1010))
     let bytes = try Actisense.encode(message)
     #expect(bytes.count > 255)
     var decoder = Actisense.Decoder()
-    #expect(decoder.decode(bytes, at: 0) == [message])
+    #expect(decoder.decode(bytes, at: .milliseconds(0)) == [message])
   }
 
   @Test func doesNotEncodeInvalidMessages() {
@@ -104,15 +106,15 @@ struct ActisenseTests {
 
   @Test func decodesWhatUpstreamWrites() {
     var decoder = Actisense.Decoder()
-    #expect(decoder.decode(typicalBytes, at: 0) == [typical])
-    #expect(decoder.decode(escapeBytes, at: 0) == [escapes])
+    #expect(decoder.decode(typicalBytes, at: .milliseconds(0)) == [typical])
+    #expect(decoder.decode(escapeBytes, at: .milliseconds(0)) == [escapes])
   }
 
   @Test func decodesByteByByte() {
     var decoder = Actisense.Decoder()
     var messages: [Message] = []
     for byte in typicalBytes {
-      if let message = decoder.decode(byte, at: 0) { messages.append(message) }
+      if let message = decoder.decode(byte, at: .milliseconds(0)) { messages.append(message) }
     }
     #expect(messages == [typical])
   }
@@ -123,7 +125,7 @@ struct ActisenseTests {
     let input =
       [0x41, 0x10, 0x10, 0x03, 0x02, 0x10] + typicalBytes + [0x55]
       + (try Actisense.encode(short))
-    #expect(decoder.decode(input, at: 0) == [typical, short])
+    #expect(decoder.decode(input, at: .milliseconds(0)) == [typical, short])
   }
 
   @Test func decodesRequestsWithTheDefaultSourceAndTheCurrentTime() {
@@ -132,13 +134,15 @@ struct ActisenseTests {
     let checksum = 0 &- body.reduce(0, &+)
     var decoder = Actisense.Decoder()
     #expect(
-      decoder.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: 777) == [
+      decoder.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: .milliseconds(777)) == [
         Message(
           pgn: 127250, priority: 3, source: 65, destination: 23, data: [0xaa, 0xbb],
-          timestamp: 777)
+          timestamp: .milliseconds(777))
       ])
     var custom = Actisense.Decoder(defaultSource: 9)
-    #expect(custom.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: 0).first?.source == 9)
+    #expect(
+      custom.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: .milliseconds(0)).first?
+        .source == 9)
   }
 
   @Test func dropsMessagesThatDoNotCheckOut() {
@@ -147,40 +151,45 @@ struct ActisenseTests {
     var decoder = Actisense.Decoder()
     var input = typicalBytes
     input[input.count - 3] ^= 1
-    #expect(decoder.decode(input, at: 0).isEmpty)
+    #expect(decoder.decode(input, at: .milliseconds(0)).isEmpty)
     input = typicalBytes
     input[3] += 1
-    #expect(decoder.decode(input, at: 0).isEmpty)
+    #expect(decoder.decode(input, at: .milliseconds(0)).isEmpty)
     input = typicalBytes
     input[15] += 1
-    #expect(decoder.decode(input, at: 0).isEmpty)
+    #expect(decoder.decode(input, at: .milliseconds(0)).isEmpty)
     input = typicalBytes
     input[2] = 0xa0
-    #expect(decoder.decode(input, at: 0).isEmpty)
+    #expect(decoder.decode(input, at: .milliseconds(0)).isEmpty)
     let body: [UInt8] =
       [0x93, 235, 2, 0x12, 0xf1, 0x01, 0xff, 0x01, 0, 0, 0, 0, 224]
       + Array(repeating: 0x20, count: 224)
     let checksum = 0 &- body.reduce(0, &+)
-    #expect(decoder.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: 0).isEmpty)
+    #expect(
+      decoder.decode([0x10, 0x02] + body + [checksum, 0x10, 0x03], at: .milliseconds(0)).isEmpty)
     // The decoder recovers for the next message.
-    #expect(decoder.decode(typicalBytes, at: 0) == [typical])
+    #expect(decoder.decode(typicalBytes, at: .milliseconds(0)) == [typical])
   }
 
   @Test func restartsAtAStartOfText() {
     // upstream-vectors "Actisense read restarted" and "broken escape"
     var decoder = Actisense.Decoder()
     #expect(
-      decoder.decode([0x10, 0x02, 0x93, 0x05, 0x01, 0x10, 0x02] + typicalBytes.dropFirst(2), at: 0)
+      decoder.decode(
+        [0x10, 0x02, 0x93, 0x05, 0x01, 0x10, 0x02] + typicalBytes.dropFirst(2), at: .milliseconds(0)
+      )
         == [typical])
     #expect(
-      decoder.decode([0x10, 0x02, 0x93, 0x05, 0x10, 0x41] + typicalBytes, at: 0) == [typical])
+      decoder.decode([0x10, 0x02, 0x93, 0x05, 0x10, 0x41] + typicalBytes, at: .milliseconds(0)) == [
+        typical
+      ])
   }
 
   @Test func dropsBodiesLongerThanTheBuffer() {
     // upstream-vectors "Actisense read too long"
     var decoder = Actisense.Decoder()
     let input = [0x10, 0x02, 0x93] + Array(repeating: UInt8(0x20), count: 300) + typicalBytes
-    #expect(decoder.decode(input, at: 0) == [typical])
+    #expect(decoder.decode(input, at: .milliseconds(0)) == [typical])
   }
 
   @Test func decodesAnEmptyPayload() {
@@ -189,8 +198,10 @@ struct ActisenseTests {
     body.append(0 &- body.reduce(0, &+))
     var decoder = Actisense.Decoder()
     #expect(
-      decoder.decode([0x10, 0x02] + body + [0x10, 0x03], at: 0) == [
-        Message(pgn: 127250, priority: 2, source: 1, destination: 255, timestamp: 0x0102_0304)
+      decoder.decode([0x10, 0x02] + body + [0x10, 0x03], at: .milliseconds(0)) == [
+        Message(
+          pgn: 127250, priority: 2, source: 1, destination: 255,
+          timestamp: .milliseconds(0x0102_0304))
       ])
   }
 
@@ -200,7 +211,7 @@ struct ActisenseTests {
     let input =
       [0x10, 0x02, 0x93] + Array(repeating: UInt8(0x20), count: 299) + [0x10, 0x10]
       + typicalBytes.dropFirst()
-    #expect(decoder.decode(input, at: 0).isEmpty)
+    #expect(decoder.decode(input, at: .milliseconds(0)).isEmpty)
   }
 
   @Test func keepsTheLowThreeBitsOfThePriority() {
@@ -208,6 +219,7 @@ struct ActisenseTests {
     var body: [UInt8] = [0x93, 0x0c, 0x0e, 0x12, 0xf1, 0x01, 0xff, 0x01, 0, 0, 0, 0, 1, 0x55]
     body.append(0 &- body.reduce(0, &+))
     var decoder = Actisense.Decoder()
-    #expect(decoder.decode([0x10, 0x02] + body + [0x10, 0x03], at: 0).first?.priority == 6)
+    #expect(
+      decoder.decode([0x10, 0x02] + body + [0x10, 0x03], at: .milliseconds(0)).first?.priority == 6)
   }
 }

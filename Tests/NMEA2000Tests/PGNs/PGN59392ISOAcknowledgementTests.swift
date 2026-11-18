@@ -19,7 +19,7 @@ struct ISOAcknowledgementTests {
     ),
     // high bits
     (
-      ISOAcknowledgement(control: 0xf2, groupFunction: 0x81, pgn: 0x3ffff),
+      ISOAcknowledgement(control: 0xf2, pgn: 0x3ffff, groupFunction: 0x81),
       [0xf2, 0x81, 0xff, 0xff, 0xff, 0xff, 0xff, 0x03]
     ),
   ]

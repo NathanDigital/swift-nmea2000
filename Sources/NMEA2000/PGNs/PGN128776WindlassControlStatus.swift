@@ -50,12 +50,12 @@ public struct WindlassControlStatus: ParameterGroup {
 
   /// Creates a windlass control status message.
   ///
-  /// The defaults match upstream's `SetN2kPGN128776`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kPGN128776`.
   public init(
-    sequenceID: UInt8?,
     windlassID: UInt8,
     directionControl: WindlassDirectionControl,
     speedControl: UInt8,
+    sequenceID: UInt8? = nil,
     speedControlType: MotorSpeedType = .unavailable,
     anchorDockingControl: BinaryStatus = .unavailable,
     powerEnable: BinaryStatus = .unavailable,

@@ -14,24 +14,26 @@ struct HumidityTests {
   static let vectors: [(Humidity, [UInt8])] = [
     // typical
     (
-      Humidity(sequenceID: 1, instance: 2, source: .inside, actualHumidity: 55.5, setHumidity: 50),
+      Humidity(
+        instance: 2, source: .inside, sequenceID: 1, actualHumidity: 55.5, setHumidity: 50),
       [0x01, 0x02, 0x00, 0x33, 0x36, 0xd4, 0x30, 0xff]
     ),
     // undefined source
     (
       Humidity(
-        sequenceID: 2, instance: 3, source: .undefined, actualHumidity: -2.5, setHumidity: nil),
+        instance: 3, source: .undefined, sequenceID: 2, actualHumidity: -2.5, setHumidity: nil),
       [0x02, 0x03, 0xff, 0x8f, 0xfd, 0xff, 0x7f, 0xff]
     ),
     // not available
     (
       Humidity(
-        sequenceID: nil, instance: 0xff, source: .undefined, actualHumidity: nil, setHumidity: nil),
+        instance: 0xff, source: .undefined, sequenceID: nil, actualHumidity: nil,
+        setHumidity: nil),
       [0xff, 0xff, 0xff, 0xff, 0x7f, 0xff, 0x7f, 0xff]
     ),
     // defaults
     (
-      Humidity(sequenceID: 1, instance: 0, source: .outside, actualHumidity: 80),
+      Humidity(instance: 0, source: .outside, sequenceID: 1, actualHumidity: 80),
       [0x01, 0x00, 0x01, 0x20, 0x4e, 0xff, 0x7f, 0xff]
     ),
   ]

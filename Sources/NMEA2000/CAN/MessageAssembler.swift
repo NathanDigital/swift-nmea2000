@@ -20,9 +20,10 @@
 /// A message received by transport protocol has priority 7, as its frames
 /// don't carry the message's priority.
 ///
-/// Time is a free-running millisecond counter that may wrap, like upstream's
-/// `millis()`. Each message's ``Message/timestamp`` is the time its first
-/// frame arrived, or for the transport protocol, its last data packet.
+/// Time is measured from any fixed moment, such as when the program started.
+/// Each message's ``Message/timestamp`` is the time its first frame arrived,
+/// or for the transport protocol, its last data packet. Buffer timeouts are
+/// compared in milliseconds wrapped to 32 bits, like upstream's `millis()`.
 ///
 /// Ports `tNMEA2000::SetN2kCANBufMsg`, `tNMEA2000::FindFreeCANMsgIndex` and
 /// the receiving side of `tNMEA2000::TestHandleTPMessage`.
@@ -37,16 +38,16 @@ public struct MessageAssembler: Sendable {
     public var isSystemMessage: Bool
   }
 
-  /// How long a buffer must be busy before a new fast packet may take it,
-  /// in milliseconds (`Max_N2kMsgBuf_Time`).
-  public static let bufferTimeout: UInt32 = 100
+  /// How long a buffer must be busy before a new fast packet may take it
+  /// (`Max_N2kMsgBuf_Time`).
+  static let bufferTimeout: Duration = .milliseconds(100)
 
   /// The catalog that decides which PGNs arrive as fast packets.
-  public var catalog: PGNCatalog
+  public let catalog: PGNCatalog
 
   /// Whether to drop messages whose PGN isn't in the catalog, apart from
   /// proprietary fast packets' framing. Upstream's default is `false`.
-  public var handlesOnlyKnownMessages: Bool
+  public let handlesOnlyKnownMessages: Bool
 
   private var buffers: [Buffer]
 
@@ -80,10 +81,10 @@ public struct MessageAssembler: Sendable {
   ///
   /// - Parameters:
   ///   - frame: The received frame.
-  ///   - time: The time the frame arrived, in milliseconds.
+  ///   - time: The time the frame arrived, since any fixed moment.
   /// - Returns: The completed message, or `nil` if the frame doesn't complete
   ///   one.
-  public mutating func receive(_ frame: CANFrame, at time: UInt32) -> Assembled? {
+  public mutating func receive(_ frame: CANFrame, at time: Duration) -> Assembled? {
     receive(frame, at: time, localAddress: nil).assembled
   }
 
@@ -100,7 +101,7 @@ public struct MessageAssembler: Sendable {
 
   /// A transport protocol control message sent to the node.
   struct TransportControl: Sendable, Hashable {
-    var control: TransportProtocol.Control
+    var control: ISOTransportProtocol.Control
     var pgn: UInt32
     /// The packet count of a clear to send.
     var packets: UInt8
@@ -110,19 +111,19 @@ public struct MessageAssembler: Sendable {
 
   /// Adds a received frame for a node at `localAddress`, and returns the
   /// message it completes and the transport protocol replies to send.
-  mutating func receive(_ frame: CANFrame, at time: UInt32, localAddress: UInt8?) -> Reception {
+  mutating func receive(_ frame: CANFrame, at time: Duration, localAddress: UInt8?) -> Reception {
     let header = CANIdentifier(frameID: frame.id)
     switch header.pgn {
-    case TransportProtocol.connectionManagementPGN:
+    case ISOTransportProtocol.connectionManagementPGN:
       return receiveConnectionManagement(frame.data, header, at: time, localAddress: localAddress)
-    case TransportProtocol.dataTransferPGN:
+    case ISOTransportProtocol.dataTransferPGN:
       return receiveDataPacket(frame.data, header, at: time, localAddress: localAddress)
     default:
       return Reception(assembled: receiveFrame(frame, header, at: time))
     }
   }
 
-  private mutating func receiveFrame(_ frame: CANFrame, _ header: CANIdentifier, at time: UInt32)
+  private mutating func receiveFrame(_ frame: CANFrame, _ header: CANIdentifier, at time: Duration)
     -> Assembled?
   {
     let kind = catalog.classify(header.pgn)
@@ -187,9 +188,9 @@ public struct MessageAssembler: Sendable {
   /// A frame shorter than eight bytes is ignored. Upstream reads leftover
   /// bytes from its frame buffer in that case.
   private mutating func receiveConnectionManagement(
-    _ data: [UInt8], _ header: CANIdentifier, at time: UInt32, localAddress: UInt8?
+    _ data: [UInt8], _ header: CANIdentifier, at time: Duration, localAddress: UInt8?
   ) -> Reception {
-    guard data.count >= 8, let control = TransportProtocol.Control(rawValue: data[0]) else {
+    guard data.count >= 8, let control = ISOTransportProtocol.Control(rawValue: data[0]) else {
       return Reception()
     }
     let pgn = UInt32(data[5]) | UInt32(data[6]) << 8 | UInt32(data[7]) << 16
@@ -202,9 +203,9 @@ public struct MessageAssembler: Sendable {
       let mustReply = control == .requestToSend && isForLocal
       let busy =
         mustReply
-        ? [TransportProtocol.abort(pgn: pgn, to: header.source, reason: .busy)] : []
+        ? [ISOTransportProtocol.abort(pgn: pgn, to: header.source, reason: .busy)] : []
       let messageHeader = CANIdentifier(
-        priority: TransportProtocol.receivedPriority, pgn: pgn, source: header.source,
+        priority: ISOTransportProtocol.receivedPriority, pgn: pgn, source: header.source,
         destination: header.destination)
       guard let index = freeBuffer(for: messageHeader, transport: true, at: time) else {
         return Reception(replies: busy)
@@ -219,9 +220,9 @@ public struct MessageAssembler: Sendable {
       buffers[index].lastFrame = 0
       guard mustReply else { return Reception() }
       buffers[index].maxPackets = packets
-      buffers[index].packetsPerClearToSend = TransportProtocol.clearToSendPackets(packets)
+      buffers[index].packetsPerClearToSend = ISOTransportProtocol.clearToSendPackets(packets)
       return Reception(replies: [
-        TransportProtocol.clearToSend(pgn: pgn, to: header.source, packets: packets, next: 1)
+        ISOTransportProtocol.clearToSend(pgn: pgn, to: header.source, packets: packets, next: 1)
       ])
     case .clearToSend, .endOfMessageAcknowledgement, .abort:
       guard isForLocal else { return Reception() }
@@ -235,7 +236,7 @@ public struct MessageAssembler: Sendable {
   /// the same destination, asking for more packets or acknowledging the
   /// message when the session is with the local address.
   private mutating func receiveDataPacket(
-    _ data: [UInt8], _ header: CANIdentifier, at time: UInt32, localAddress: UInt8?
+    _ data: [UInt8], _ header: CANIdentifier, at time: Duration, localAddress: UInt8?
   ) -> Reception {
     guard let sequence = data.first,
       let index = buffers.firstIndex(where: {
@@ -251,7 +252,7 @@ public struct MessageAssembler: Sendable {
       buffers[index] = Buffer()
       return Reception(
         replies: repliesExpected
-          ? [TransportProtocol.abort(pgn: pgn, to: header.source, reason: .timeout)] : [])
+          ? [ISOTransportProtocol.abort(pgn: pgn, to: header.source, reason: .timeout)] : [])
     }
     buffers[index].append(data.dropFirst())
     buffers[index].lastFrame = sequence
@@ -262,7 +263,7 @@ public struct MessageAssembler: Sendable {
         assembled: assembled,
         replies: repliesExpected
           ? [
-            TransportProtocol.endOfMessage(
+            ISOTransportProtocol.endOfMessage(
               pgn: pgn, to: header.source, byteCount: buffer.expectedCount, packets: sequence)
           ] : [])
     }
@@ -270,7 +271,7 @@ public struct MessageAssembler: Sendable {
       return Reception()
     }
     return Reception(replies: [
-      TransportProtocol.clearToSend(
+      ISOTransportProtocol.clearToSend(
         pgn: pgn, to: header.source, packets: buffer.maxPackets, next: sequence &+ 1)
     ])
   }
@@ -280,10 +281,11 @@ public struct MessageAssembler: Sendable {
   /// The buffer for a new message: a free one, one already holding a message
   /// with the same header (and the same kind, fast packet or transport
   /// protocol), or the oldest busy one once it has timed out.
-  private mutating func freeBuffer(for header: CANIdentifier, transport: Bool, at time: UInt32)
+  private mutating func freeBuffer(for header: CANIdentifier, transport: Bool, at time: Duration)
     -> Int?
   {
-    var oldestTime = time
+    let now = time.wrappingMilliseconds
+    var oldestTime = now
     var oldestIndex: Int?
     for index in buffers.indices {
       let buffer = buffers[index]
@@ -294,12 +296,14 @@ public struct MessageAssembler: Sendable {
       {
         return index
       }
-      if isTime(buffer.message.timestamp, before: oldestTime) {
+      if isTime(buffer.message.timestamp.wrappingMilliseconds, before: oldestTime) {
         oldestIndex = index
-        oldestTime = buffer.message.timestamp
+        oldestTime = buffer.message.timestamp.wrappingMilliseconds
       }
     }
-    guard let oldestIndex, hasElapsed(Self.bufferTimeout, since: oldestTime, at: time) else {
+    guard let oldestIndex,
+      hasElapsed(Self.bufferTimeout.wrappingMilliseconds, since: oldestTime, at: now)
+    else {
       return nil
     }
     buffers[oldestIndex] = Buffer()
@@ -319,7 +323,8 @@ public struct MessageAssembler: Sendable {
     var maxPackets: UInt8 = 0
     var packetsPerClearToSend: UInt8 = 0
 
-    mutating func start(_ header: CANIdentifier, kind: PGNCatalog.Classification, at time: UInt32) {
+    mutating func start(_ header: CANIdentifier, kind: PGNCatalog.Classification, at time: Duration)
+    {
       isFree = false
       isSystem = kind.isSystem
       message = Message(
@@ -332,16 +337,4 @@ public struct MessageAssembler: Sendable {
       message.data += bytes.prefix(Message.maxDataCount - message.data.count)
     }
   }
-}
-
-/// Whether `first` is before `second` on a wrapping millisecond clock
-/// (upstream's `N2kIsTimeBefore`, which also counts equal times).
-func isTime(_ first: UInt32, before second: UInt32) -> Bool {
-  second &- first < UInt32(Int32.max)
-}
-
-/// Whether `interval` milliseconds have passed since `start` at time `now`
-/// on a wrapping millisecond clock (upstream's `N2kHasElapsed`).
-func hasElapsed(_ interval: UInt32, since start: UInt32, at now: UInt32) -> Bool {
-  now &- (start &+ interval) < UInt32(Int32.max)
 }

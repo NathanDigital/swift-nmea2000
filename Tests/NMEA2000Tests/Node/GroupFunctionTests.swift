@@ -4,11 +4,14 @@
 // Copyright (c) 2026 NathanDigital. Original work Copyright (c) 2015-2026
 // Timo Lappalainen, Kave Oy. Licensed under the MIT License; see LICENSE.
 
-import NMEA2000
 import Testing
 
-private func request(_ data: [UInt8], to destination: UInt8 = 0x17) -> GroupFunction.Request {
-  GroupFunction.Request(
+@testable import NMEA2000
+
+private func request(_ data: [UInt8], to destination: UInt8 = 0x17)
+  -> GroupFunction.ReceivedFunction
+{
+  GroupFunction.ReceivedFunction(
     Message(
       pgn: GroupFunction.pgn, priority: 3, source: 0x42, destination: destination, data: data),
     device: 1)
@@ -41,28 +44,41 @@ struct GroupFunctionTests {
     #expect(request.device == 1)
     #expect(request.requester == 0x42)
     #expect(!request.isBroadcast)
-    let unknown = GroupFunction.Request(Message(pgn: GroupFunction.pgn, data: [9]), device: 0)
-    #expect(unknown.code == GroupFunction.Code(rawValue: 9))
+    let unknown = GroupFunction.ReceivedFunction(
+      Message(pgn: GroupFunction.pgn, data: [9]), device: 0)
+    #expect(unknown.code == GroupFunction.FunctionCode(rawValue: 9))
     #expect(unknown.code.description == "unknown (9)")
   }
 
   @Test func readsRequestParameters() {
-    var request = request([0x00, 0x06, 0xfd, 0x01, 0xd0, 0x07, 0, 0, 0x64, 0x00, 0x01, 0x07, 0x2a])
-    let parameters = request.requestParameters
+    let function = request([0x00, 0x06, 0xfd, 0x01, 0xd0, 0x07, 0, 0, 0x64, 0x00, 0x01, 0x07, 0x2a])
+    let parameters = function.requestParameters
     #expect(parameters.interval == 2000)
     #expect(parameters.offset == 100)
     #expect(parameters.pairCount == 1)
+    #expect(parameters.transmissionError() == .intervalOrPriorityNotSupported)
+    #expect(
+      parameters.transmissionError(
+        intervalLimits: .seconds(1)...(.seconds(5)), maxOffset: .seconds(1)) == .acknowledge)
+    #expect(
+      parameters.transmissionError(
+        intervalLimits: .seconds(1)...(.seconds(5)), maxOffset: .milliseconds(990))
+        == .intervalOrPriorityNotSupported)
+    #expect(
+      parameters.transmissionError(
+        intervalLimits: .milliseconds(2001)...(.seconds(5)), maxOffset: .seconds(1))
+        == .intervalOrPriorityNotSupported)
     #expect(parameters.intervalChange == .interval(.seconds(2)))
     #expect(parameters.offsetChange == .seconds(1))
-    var pairs = request.pairs
+    var pairs = function.pairs
     #expect(pairs.readUInt8() == 0x07)
     #expect(pairs.readUInt8() == 0x2a)
-    request.message.data = [0x00, 0x06, 0xfd, 0x01]
+    let short = request([0x00, 0x06, 0xfd, 0x01])
     #expect(
-      request.requestParameters
+      short.requestParameters
         == .init(interval: 0xffff_ffff, offset: 0xffff, pairCount: 0xff))
-    #expect(request.requestParameters.intervalChange == .unchanged)
-    #expect(request.requestParameters.offsetChange == nil)
+    #expect(short.requestParameters.intervalChange == .unchanged)
+    #expect(short.requestParameters.offsetChange == nil)
   }
 
   @Test func readsCommandParameters() {

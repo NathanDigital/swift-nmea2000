@@ -7,11 +7,11 @@
 /// The proprietary header that starts every Maretron message: manufacturer
 /// code 137, reserved bits and the marine industry code
 /// (`MaretronProprietary`).
-let maretronHeader: UInt16 = 0x9889
+private let maretronHeader: UInt16 = 0x9889
 
 extension MessageReader {
   /// Reads and checks a Maretron header.
-  mutating func readMaretronHeader(pgn: UInt32) throws(MessageDecodingError) {
+  fileprivate mutating func readMaretronHeader(pgn: UInt32) throws(MessageDecodingError) {
     let header = readUInt16()
     guard header == maretronHeader else {
       throw .unexpectedProprietaryHeader(pgn: pgn, header: header, expected: maretronHeader)
@@ -47,8 +47,9 @@ public struct MaretronTemperatureHighRange: ParameterGroup {
 
   /// Creates a high-range temperature message.
   public init(
-    sequenceID: UInt8?, instance: UInt8, source: TemperatureSource, actualTemperature: Double?,
-    setTemperature: Double?
+    instance: UInt8, source: TemperatureSource, sequenceID: UInt8? = nil,
+    actualTemperature: Double? = nil,
+    setTemperature: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.instance = instance
@@ -101,7 +102,8 @@ public struct MaretronFluidFlowRate: ParameterGroup {
 
   /// Creates a fluid flow rate message.
   public init(
-    sequenceID: UInt8?, instance: UInt8, fluidType: FluidType, flowRateLitresPerHour: Double?
+    instance: UInt8, fluidType: FluidType, sequenceID: UInt8? = nil,
+    flowRateLitresPerHour: Double? = nil
   ) {
     self.sequenceID = sequenceID
     self.instance = instance
@@ -150,7 +152,9 @@ public struct MaretronTripVolume: ParameterGroup {
   public var volumeLitres: Double?
 
   /// Creates a trip volume message.
-  public init(sequenceID: UInt8?, instance: UInt8, fluidType: FluidType, volumeLitres: Double?) {
+  public init(
+    instance: UInt8, fluidType: FluidType, sequenceID: UInt8? = nil, volumeLitres: Double? = nil
+  ) {
     self.sequenceID = sequenceID
     self.instance = instance
     self.fluidType = fluidType
@@ -172,4 +176,11 @@ public struct MaretronTripVolume: ParameterGroup {
     writer.appendUInt8(fluidType.rawValue)
     writer.appendInt24(volumeLitres, resolution: 1)
   }
+}
+
+extension ParameterGroupCatalog {
+  /// The Maretron parameter groups.
+  public static let maretron = ParameterGroupCatalog([
+    MaretronTemperatureHighRange.self, MaretronFluidFlowRate.self, MaretronTripVolume.self,
+  ])
 }

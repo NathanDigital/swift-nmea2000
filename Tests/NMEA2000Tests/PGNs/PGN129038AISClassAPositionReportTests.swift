@@ -15,12 +15,13 @@ struct AISClassAPositionReportTests {
     // typical
     (
       AISClassAPositionReport(
-        messageID: 1, repeatIndicator: .initial, userID: 230_123_456, latitude: 60.1234567,
-        longitude: -24.9876543,
-        isPositionAccurate: true, isRAIMInUse: false, timestampSecond: 42, courseOverGround: 1.5,
-        speedOverGround: 6.25, transceiverInformation: .channelBTransmission, heading: 1.55,
-        rateOfTurn: -0.01,
-        navigationStatus: .underWayMotoring, sequenceID: 7),
+        messageID: 1, repeatIndicator: .initial, userID: 230_123_456, isPositionAccurate: true,
+        isRAIMInUse: false,
+        timestampSecond: 42, transceiverInformation: .channelBTransmission,
+        navigationStatus: .underWayMotoring, latitude: 60.1234567,
+        longitude: -24.9876543, courseOverGround: 1.5, speedOverGround: 6.25,
+        heading: 1.55,
+        rateOfTurn: -0.01, sequenceID: 7),
       [
         0x01, 0xc0, 0x67, 0xb7, 0x0d, 0xc1, 0x2f, 0x1b, 0xf1, 0x87, 0x1c, 0xd6, 0x23, 0xa9, 0x98,
         0x3a, 0x71, 0x02, 0xff, 0xff, 0x1f, 0x8c, 0x3c, 0xc0, 0xfe, 0xf0, 0xfc, 0x07,
@@ -29,12 +30,13 @@ struct AISClassAPositionReportTests {
     // high field values
     (
       AISClassAPositionReport(
-        messageID: 63, repeatIndicator: .final, userID: 0xffff_ffff, latitude: -33.8688,
-        longitude: 151.2093,
-        isPositionAccurate: false, isRAIMInUse: true, timestampSecond: 63, courseOverGround: 0,
-        speedOverGround: 0, transceiverInformation: AISTransceiverInformation(rawValue: 31),
-        heading: 0, rateOfTurn: 0.02,
-        navigationStatus: AISNavigationStatus(rawValue: 13), sequenceID: 0xfe),
+        messageID: 63, repeatIndicator: .final, userID: 0xffff_ffff, isPositionAccurate: false,
+        isRAIMInUse: true,
+        timestampSecond: 63, transceiverInformation: AISTransceiverInformation(rawValue: 31),
+        navigationStatus: AISNavigationStatus(rawValue: 13), latitude: -33.8688,
+        longitude: 151.2093, courseOverGround: 0,
+        speedOverGround: 0, heading: 0,
+        rateOfTurn: 0.02, sequenceID: 0xfe),
       [
         0xff, 0xff, 0xff, 0xff, 0xff, 0x48, 0xb5, 0x20, 0x5a, 0x00, 0x08, 0xd0, 0xeb, 0xfe, 0x00,
         0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x80, 0x02, 0xfd, 0xfc, 0xfe,
@@ -43,11 +45,13 @@ struct AISClassAPositionReportTests {
     // not available
     (
       AISClassAPositionReport(
-        messageID: 3, repeatIndicator: .first, userID: 0, latitude: nil, longitude: nil,
-        isPositionAccurate: false, isRAIMInUse: false, timestampSecond: 60, courseOverGround: nil,
-        speedOverGround: nil, transceiverInformation: .channelAReception, heading: nil,
-        rateOfTurn: nil,
-        navigationStatus: .aisSART, sequenceID: nil),
+        messageID: 3, repeatIndicator: .first, userID: 0, isPositionAccurate: false,
+        isRAIMInUse: false,
+        timestampSecond: 60, transceiverInformation: .channelAReception, navigationStatus: .aisSART,
+        latitude: nil,
+        longitude: nil, courseOverGround: nil, speedOverGround: nil,
+        heading: nil,
+        rateOfTurn: nil, sequenceID: nil),
       [
         0x43, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, 0x7f, 0xf0, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0x07, 0xff, 0xff, 0xff, 0x7f, 0xfe, 0xfc, 0xff,

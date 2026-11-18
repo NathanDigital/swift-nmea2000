@@ -30,3 +30,17 @@ public enum GatewayError: Error, Hashable, Sendable {
     }
   }
 }
+
+extension GatewayError: CustomStringConvertible {
+  public var description: String {
+    switch self {
+    case .missingPGN: "The message has no PGN"
+    case .emptyPayload: "The message has no payload"
+    case .payloadTooLong(let count):
+      "Payload of \(count) bytes is longer than \(Message.maxDataCount) bytes"
+    case .malformedSentence(let offset): "The sentence is malformed at offset \(offset)"
+    case .checksumMismatch(let expected, let actual):
+      "Checksum 0x\(String(actual, radix: 16)) isn't 0x\(String(expected, radix: 16))"
+    }
+  }
+}

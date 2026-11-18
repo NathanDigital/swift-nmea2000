@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Checks the layering rule in docs/CONTRIBUTING.md: the folders in Sources/NMEA2000
+# depend only downwards, so no file names a type declared in a folder above
+# its own. Comments are ignored, since doc comments may link upwards.
+#
+# Usage: scripts/check-layering
+set -euo pipefail
+cd "$(dirname "$0")/../Sources/NMEA2000"
+
+# Folders by layer, lowest first. Folders on one line may name each other.
+layers=(
+  "Support Types"
+  "Message"
+  "PGNs"
+  "CAN"
+  "Gateway Proprietary Node"
+)
+
+# The top-level types each folder declares.
+declared() {
+  find "$1" -name '*.swift' -print0 | xargs -0 cat \
+    | sed -nE 's/^(public |private |fileprivate )?(final )?(struct|enum|actor|class|protocol|typealias) ([A-Za-z0-9_]+).*/\4/p' \
+    | sort -u
+}
+
+status=0
+# The top layer has nothing above it.
+for ((lower = 0; lower < ${#layers[@]} - 1; lower++)); do
+  names=""
+  for ((upper = lower + 1; upper < ${#layers[@]}; upper++)); do
+    for folder in ${layers[upper]}; do names+="$(declared "$folder")"$'\n'; done
+  done
+  pattern="$(printf '%s' "$names" | sed '/^$/d' | paste -sd'|' -)"
+  [[ -n "$pattern" ]] || continue
+  for folder in ${layers[lower]}; do
+    while IFS= read -r -d '' file; do
+      # Drop comments before looking for names.
+      if hits="$(sed -E 's://.*$::' "$file" | grep -nwE "$pattern")"; then
+        while IFS= read -r hit; do echo "$file:$hit"; done <<<"$hits"
+        status=1
+      fi
+    done < <(find "$folder" -name '*.swift' -print0)
+  done
+done
+
+if ((status)); then
+  echo "error: the lines above name a type from a higher layer (see docs/CONTRIBUTING.md)" >&2
+fi
+exit "$status"

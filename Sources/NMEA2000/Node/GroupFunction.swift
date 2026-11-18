@@ -9,7 +9,7 @@
 ///
 /// ``Node`` answers group functions itself as upstream's default handlers
 /// do. To answer them for your own PGNs, set a handler with
-/// ``Node/setGroupFunctionHandler(_:for:)``; it gets a ``Request`` and
+/// ``Node/setGroupFunctionHandler(_:for:)``; it gets a ``ReceivedFunction`` and
 /// returns the messages to send, which it builds with ``Acknowledgement``
 /// and ``Reply``.
 ///
@@ -25,7 +25,7 @@ public enum GroupFunction {
   /// The function a group function message performs.
   ///
   /// Ports `tN2kGroupFunctionCode`. Values without a name here are kept in ``rawValue``.
-  public struct Code: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+  public struct FunctionCode: WireEnumeration {
     /// The value as it appears on the wire.
     public var rawValue: UInt8
 
@@ -71,7 +71,7 @@ public enum GroupFunction {
   /// How an acknowledgement answers the PGN.
   ///
   /// Ports `tN2kGroupFunctionPGNErrorCode`. Values without a name here are kept in ``rawValue``.
-  public struct PGNError: RawRepresentable, Codable, Hashable, Sendable, CustomStringConvertible {
+  public struct PGNError: WireEnumeration {
     /// The value as it appears on the wire.
     public var rawValue: UInt8
 
@@ -117,9 +117,7 @@ public enum GroupFunction {
   /// How an acknowledgement answers the transmission interval or priority.
   ///
   /// Ports `tN2kGroupFunctionTransmissionOrPriorityErrorCode`. Values without a name here are kept in ``rawValue``.
-  public struct TransmissionError: RawRepresentable, Codable, Hashable, Sendable,
-    CustomStringConvertible
-  {
+  public struct TransmissionError: WireEnumeration {
     /// The value as it appears on the wire.
     public var rawValue: UInt8
 
@@ -157,9 +155,7 @@ public enum GroupFunction {
   /// How an acknowledgement answers one parameter pair.
   ///
   /// Ports `tN2kGroupFunctionParameterErrorCode`. Values without a name here are kept in ``rawValue``.
-  public struct ParameterError: RawRepresentable, Codable, Hashable, Sendable,
-    CustomStringConvertible
-  {
+  public struct ParameterError: WireEnumeration {
     /// The value as it appears on the wire.
     public var rawValue: UInt8
 
@@ -236,26 +232,28 @@ public enum GroupFunction {
   static let commandPairsOffset = 6
 
   /// The transmission interval that leaves the interval unchanged.
-  public static let unchangedInterval: UInt32 = 0xffff_ffff
+  static let unchangedInterval: UInt32 = 0xffff_ffff
 
   /// The transmission interval that restores the default interval.
-  public static let defaultInterval: UInt32 = 0xffff_fffe
+  static let defaultInterval: UInt32 = 0xffff_fffe
 
   /// The interval offset that leaves the offset unchanged.
-  public static let unchangedOffset: UInt16 = 0xffff
+  static let unchangedOffset: UInt16 = 0xffff
 
   /// The answer to a request's transmission interval and offset: acceptable
   /// if each is a special value (unchanged, default or off) or, where
   /// limits are given, within them.
   ///
   /// Ports `GetRequestGroupFunctionTransmissionOrPriorityErrorCode`.
+  /// ``ReceivedFunction/RequestParameters/transmissionError(intervalLimits:maxOffset:)``
+  /// is the public form.
   ///
   /// - Parameters:
   ///   - interval: The requested interval, in milliseconds.
   ///   - offset: The requested offset, in units of 10 ms.
   ///   - intervalLimits: The intervals the device supports, if any.
   ///   - maxOffset: The largest offset the device supports, if any.
-  public static func transmissionError(
+  static func transmissionError(
     interval: UInt32, offset: UInt16, intervalLimits: ClosedRange<UInt32>? = nil,
     maxOffset: UInt16? = nil
   ) -> TransmissionError {
@@ -279,24 +277,24 @@ public enum GroupFunction {
   /// PGN, as upstream's `ParseRequestParams`, `ParseCommandParams`,
   /// `ParseAcknowledgeParams` and `ParseReadOrWriteParams` do. Fields past
   /// the end of the payload read as all ones.
-  public struct Request: Sendable, Hashable {
+  public struct ReceivedFunction: Sendable, Hashable {
     /// The group function message.
-    public var message: Message
+    public let message: Message
 
-    /// The function code.
-    public var code: Code
+    /// The function code, from the message.
+    public let code: FunctionCode
 
-    /// The PGN the function is aimed at.
-    public var pgn: UInt32
+    /// The PGN the function is aimed at, from the message.
+    public let pgn: UInt32
 
     /// The node's device the function is for.
-    public var device: Node.DeviceID
+    public let device: Node.DeviceID
 
     /// Creates a request from a group function message.
     public init(_ message: Message, device: Node.DeviceID) {
       self.message = message
       var reader = MessageReader(message)
-      code = Code(rawValue: reader.readUInt8())
+      code = FunctionCode(rawValue: reader.readUInt8())
       pgn = reader.readUInt24()
       self.device = device
     }
@@ -314,18 +312,16 @@ public enum GroupFunction {
 
     /// A request's parameters.
     public struct RequestParameters: Hashable, Sendable {
-      /// The transmission interval in milliseconds, or one of the special
-      /// values ``GroupFunction/unchangedInterval`` and
-      /// ``GroupFunction/defaultInterval``, or 0 to stop.
-      public var interval: UInt32
-      /// The interval offset in units of 10 ms, or
-      /// ``GroupFunction/unchangedOffset``.
-      public var offset: UInt16
+      /// The transmission interval as sent: milliseconds, 0 to stop, or
+      /// one of the special values `unchangedInterval` and
+      /// `defaultInterval`.
+      let interval: UInt32
+      /// The interval offset as sent: units of 10 ms, or `unchangedOffset`.
+      let offset: UInt16
       /// The number of parameter pairs.
-      public var pairCount: UInt8
+      public let pairCount: UInt8
 
-      /// Creates request parameters.
-      public init(interval: UInt32, offset: UInt16, pairCount: UInt8) {
+      init(interval: UInt32, offset: UInt16, pairCount: UInt8) {
         self.interval = interval
         self.offset = offset
         self.pairCount = pairCount
@@ -345,61 +341,65 @@ public enum GroupFunction {
       public var offsetChange: Duration? {
         offset == GroupFunction.unchangedOffset ? nil : .milliseconds(Int(offset) * 10)
       }
+
+      /// The answer to the request's transmission interval and offset:
+      /// acceptable if each asks for no change, the default or a stop, or
+      /// is within the limits given.
+      ///
+      /// Ports `GetRequestGroupFunctionTransmissionOrPriorityErrorCode`.
+      ///
+      /// - Parameters:
+      ///   - intervalLimits: The intervals the device supports, or `nil` if
+      ///     it can't change the interval.
+      ///   - maxOffset: The largest offset the device supports, or `nil` if
+      ///     it can't change the offset.
+      public func transmissionError(
+        intervalLimits: ClosedRange<Duration>? = nil, maxOffset: Duration? = nil
+      ) -> TransmissionError {
+        func milliseconds(_ duration: Duration) -> Int64 {
+          let (seconds, attoseconds) = duration.components
+          return seconds * 1000 + attoseconds / 1_000_000_000_000_000
+        }
+        let limits = intervalLimits.map {
+          UInt32(
+            clamping: milliseconds($0.lowerBound))...UInt32(
+              clamping: milliseconds($0.upperBound))
+        }
+        return GroupFunction.transmissionError(
+          interval: interval, offset: offset, intervalLimits: limits,
+          maxOffset: maxOffset.map { UInt16(clamping: milliseconds($0) / 10) })
+      }
     }
 
     /// A command's parameters.
     public struct CommandParameters: Hashable, Sendable {
       /// The priority setting: 0 to 7, 8 to leave it, or 9 to restore the
       /// default.
-      public var prioritySetting: UInt8
+      public let prioritySetting: UInt8
       /// The number of parameter pairs.
-      public var pairCount: UInt8
-
-      /// Creates command parameters.
-      public init(prioritySetting: UInt8, pairCount: UInt8) {
-        self.prioritySetting = prioritySetting
-        self.pairCount = pairCount
-      }
+      public let pairCount: UInt8
     }
 
     /// An acknowledgement's parameters.
     public struct AcknowledgementParameters: Hashable, Sendable {
       /// The answer to the PGN.
-      public var pgnError: PGNError
+      public let pgnError: PGNError
       /// The answer to the transmission interval or priority.
-      public var transmissionError: TransmissionError
+      public let transmissionError: TransmissionError
       /// The number of parameter pairs.
-      public var pairCount: UInt8
-
-      /// Creates acknowledgement parameters.
-      public init(pgnError: PGNError, transmissionError: TransmissionError, pairCount: UInt8) {
-        self.pgnError = pgnError
-        self.transmissionError = transmissionError
-        self.pairCount = pairCount
-      }
+      public let pairCount: UInt8
     }
 
     /// A read's or write's parameters.
     public struct ReadOrWriteParameters: Hashable, Sendable {
       /// For a proprietary PGN, its manufacturer.
-      public var manufacturer: Manufacturer?
+      public let manufacturer: Manufacturer?
       /// The unique ID, which the reply repeats.
-      public var uniqueID: UInt8
+      public let uniqueID: UInt8
       /// The number of selection pairs.
-      public var selectionPairCount: UInt8
+      public let selectionPairCount: UInt8
       /// The number of parameter pairs.
-      public var parameterPairCount: UInt8
-
-      /// Creates read or write parameters.
-      public init(
-        manufacturer: Manufacturer?, uniqueID: UInt8, selectionPairCount: UInt8,
-        parameterPairCount: UInt8
-      ) {
-        self.manufacturer = manufacturer
-        self.uniqueID = uniqueID
-        self.selectionPairCount = selectionPairCount
-        self.parameterPairCount = parameterPairCount
-      }
+      public let parameterPairCount: UInt8
     }
 
     /// A request's parameters (`ParseRequestParams`).
@@ -502,7 +502,7 @@ public enum GroupFunction {
     /// in the low bits, with an unused high half set to ones.
     public func makeMessage(destination: UInt8) -> Message {
       var data: [UInt8] = [
-        Code.acknowledge.rawValue, UInt8(truncatingIfNeeded: pgn),
+        FunctionCode.acknowledge.rawValue, UInt8(truncatingIfNeeded: pgn),
         UInt8(truncatingIfNeeded: pgn >> 8), UInt8(truncatingIfNeeded: pgn >> 16),
         pgnError.rawValue | transmissionError.rawValue << 4, pairCount,
       ]
@@ -538,14 +538,14 @@ public enum GroupFunction {
     /// Starts a reply.
     ///
     /// - Parameters:
-    ///   - code: ``Code/readReply`` or ``Code/writeReply``.
+    ///   - code: ``FunctionCode/readReply`` or ``FunctionCode/writeReply``.
     ///   - pgn: The PGN the reply is about.
     ///   - manufacturer: For a proprietary PGN, its manufacturer.
     ///   - uniqueID: The unique ID from the read or write.
     ///   - selectionPairCount: The number of selection pairs.
     ///   - parameterPairCount: The number of parameter pairs.
     public init(
-      _ code: Code, pgn: UInt32, manufacturer: Manufacturer? = nil, uniqueID: UInt8,
+      _ code: FunctionCode, pgn: UInt32, manufacturer: Manufacturer? = nil, uniqueID: UInt8,
       selectionPairCount: UInt8, parameterPairCount: UInt8
     ) {
       writer = MessageWriter()
@@ -563,7 +563,7 @@ public enum GroupFunction {
     /// Starts the reply to a read or write, with its PGN, manufacturer and
     /// unique ID.
     public init(
-      answering request: Request, selectionPairCount: UInt8, parameterPairCount: UInt8
+      answering request: ReceivedFunction, selectionPairCount: UInt8, parameterPairCount: UInt8
     ) {
       let parameters = request.readOrWriteParameters
       self.init(

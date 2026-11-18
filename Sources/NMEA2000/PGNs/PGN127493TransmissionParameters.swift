@@ -28,12 +28,12 @@ public struct TransmissionParameters: ParameterGroup {
 
   /// Creates a transmission parameters message.
   ///
-  /// The default matches upstream's `SetN2kTransmissionParameters`.
+  /// Defaults that aren't `nil` match upstream's `SetN2kTransmissionParameters`.
   public init(
     instance: UInt8,
     gear: TransmissionGear,
-    oilPressure: Double?,
-    oilTemperature: Double?,
+    oilPressure: Double? = nil,
+    oilTemperature: Double? = nil,
     discreteStatus: TransmissionDiscreteStatus = []
   ) {
     self.instance = instance

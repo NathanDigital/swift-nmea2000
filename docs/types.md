@@ -4,7 +4,7 @@ Upstream's `tN2k…` enums (`src/N2kTypes.h`) and data dictionary types (`tN2kDD
 
 ## Representation
 
-- **Enums** become `RawRepresentable` structs with a `UInt8` raw value and a `static let` for each upstream value, e.g. `HeadingReference.magnetic`. A struct is used instead of a Swift `enum` because decoding must never fail on a value we don't know. Newer devices send codes that upstream doesn't name, and those are kept in `rawValue` and re-encoded unchanged. Use `switch` with a `default:` case.
+- **Enums** become structs conforming to `WireEnumeration` (`RawRepresentable`, `Codable`, `Hashable`, `Sendable`, `CustomStringConvertible`), with a `UInt8` raw value and a `static let` for each upstream value, e.g. `HeadingReference.magnetic`. A struct is used instead of a Swift `enum` because decoding must never fail on a value we don't know. Newer devices send codes that upstream doesn't name, and those are kept in `rawValue` and re-encoded unchanged. Use `switch` with a `default:` case.
 - **Bit-field unions** (`tN2kDD206`, `tN2kDD471`, …) become `OptionSet`s with upstream's bit positions.
 - **Raw values** are identical to upstream's. Reserved values that upstream names (e.g. `N2kdir_reserved1`) aren't given names; they still round-trip through `rawValue`.
 - **Aliases:** upstream's alternative names for a single value (`N2kDD002_Off`, `N2kWind_Apprent`, …) are dropped, except `BinaryStatus.off` / `.on`.

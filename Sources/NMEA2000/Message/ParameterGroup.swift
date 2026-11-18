@@ -37,9 +37,10 @@ public protocol ParameterGroup: Sendable, Hashable, Codable {
   /// They ignore any bytes after the fields they know.
   ///
   /// - Parameter reader: A reader positioned at the start of the fields.
-  /// - Throws: ``MessageDecodingError`` if the payload is invalid in a way
-  ///   upstream also rejects.
-  init(decoding reader: inout MessageReader) throws(MessageDecodingError)
+  /// - Throws: An error if the payload is invalid. The types in this
+  ///   library throw ``MessageDecodingError``, for payloads upstream also
+  ///   rejects; a type of your own can throw any error.
+  init(decoding reader: inout MessageReader) throws
 
   /// Encodes the fields into a payload.
   ///
@@ -53,9 +54,9 @@ extension ParameterGroup {
   /// - Parameter message: The message to decode.
   /// - Throws: ``MessageDecodingError/unexpectedPGN(actual:expected:)`` if the
   ///   message has a different PGN, or any error from ``init(decoding:)``.
-  public init(_ message: Message) throws(MessageDecodingError) {
+  public init(_ message: Message) throws {
     guard message.pgn == Self.pgn else {
-      throw .unexpectedPGN(actual: message.pgn, expected: [Self.pgn])
+      throw MessageDecodingError.unexpectedPGN(actual: message.pgn, expected: [Self.pgn])
     }
     var reader = MessageReader(message)
     try self.init(decoding: &reader)
