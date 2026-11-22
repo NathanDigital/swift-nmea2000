@@ -8,7 +8,11 @@ let package = Package(
     .library(name: "NMEA2000", targets: ["NMEA2000"])
   ],
   targets: [
-    .target(name: "NMEA2000"),
+    .target(
+      name: "NMEA2000",
+      // The field codec rounds with `rounded(_:)`, which calls libm on x86-64. An executable
+      // that imports neither Foundation nor Glibc doesn't link libm by itself.
+      linkerSettings: [.linkedLibrary("m", .when(platforms: [.linux]))]),
     .testTarget(name: "NMEA2000Tests", dependencies: ["NMEA2000"]),
   ]
 )
