@@ -31,7 +31,7 @@ Add the package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/NathanDigital/swift-nmea2000.git", exact: "0.1.0"),
+    .package(url: "https://github.com/NathanDigital/swift-nmea2000.git", exact: "0.1.1"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -53,7 +53,7 @@ Releases follow [Semantic Versioning](https://semver.org). Until 1.0, the API is
 - A **minor** release (0.1 to 0.2) may change or remove public API. The release notes list what changed.
 - A **patch** release (0.1.0 to 0.1.1) only fixes bugs and adds to the API, and doesn't break source that compiled against the same minor version.
 
-So pin with `exact:` as above, or with `.upToNextMinor(from: "0.1.0")` to pick up patch releases, and expect to make changes when you move to the next minor version. A plain `from: "0.1.0"` would accept 0.2.0, which may not compile against your code.
+So pin with `exact:` as above, or with `.upToNextMinor(from: "0.1.1")` to pick up patch releases, and expect to make changes when you move to the next minor version. A plain `from: "0.1.1"` would accept 0.2.0, which may not compile against your code.
 
 The bytes sent on the bus are not part of this: they match upstream's library in every release, apart from the deliberate divergences listed in [`docs`](docs/README.md).
 
