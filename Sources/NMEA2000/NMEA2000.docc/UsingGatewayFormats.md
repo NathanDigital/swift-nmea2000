@@ -27,10 +27,18 @@ priority and is addressed to every device.
 
 ### Bridge a gateway and a node
 
-To forward a bus to a gateway, read ``Node/messages(includingSent:bufferingPolicy:)`` and
-encode each message. Pass `includingSent: true` to include the messages the node itself
-sends. To forward the other way, decode the gateway's bytes and pass each message to
-``Node/send(_:from:)``.
+A gateway node receives every message, and sends from an address it doesn't claim, so
+create it with ``Node/Configuration/listenAndSend(address:)``. Read
+``Node/messages(includingSent:bufferingPolicy:)`` with `includingSent: true` to include the
+messages the node itself sends.
+
+@Snippet(path: "GatewayBridge", slice: "node")
+
+To forward the bus to the gateway, encode each message and write its bytes. To forward the
+other way, decode the gateway's bytes and pass each message to ``Node/send(_:from:)``, which
+sends it from the node's address. Here `serialPort` stands for your serial port or socket.
+
+@Snippet(path: "GatewayBridge", slice: "bridge")
 
 ## See Also
 

@@ -17,6 +17,7 @@ names the upstream functions it ports, so searching for an upstream name such as
 | `N2kDoubleNA`, `N2kUInt8NA` and the other "not available" values | `nil` |
 | `tNMEA2000` | ``Node`` |
 | `SetMode`, `SetDeviceInformation`, `SetProductInformation` and the other settings made before `Open` | ``Node/Configuration`` and ``Node/Device`` |
+| `SetDeviceCount` and the `DeviceIndex` arguments | Several devices in a ``Node/Configuration``, and ``Node/DeviceID``; see <doc:HostingSeveralDevices> |
 | `ParseMessages` in the main loop | ``Node/run()`` in a task |
 | `SetMsgHandler`, `AttachMsgHandler` | ``Node/messages(includingSent:bufferingPolicy:)`` and ``Node/messages(of:includingSent:bufferingPolicy:)`` |
 | `SendMsg` | ``Node/send(_:from:)`` and ``Node/send(_:priority:to:from:framing:)`` |

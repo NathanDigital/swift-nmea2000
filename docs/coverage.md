@@ -40,11 +40,11 @@ Status: **done**, **to do**, or **by design** where the Swift API covers the nee
 | `tN2kMsg::SendInActisenseFormat`, `tActisenseReader` | `Actisense`, `Actisense.Decoder` | done; by design for `GetMessageFromStream(ReadOut: false)`, which leaves bytes in an Arduino stream for another reader: split shared input before decoding |
 | `N2kToSeasmart`, `SeasmartToN2k` | `Seasmart` | done |
 | `N2kMessages.h/.cpp` | `Sources/NMEA2000/PGNs/` | done |
-| `N2kTypes.h` | `Sources/NMEA2000/Types/` | done |
+| `N2kTypes.h`, `NMEA2000StdTypes.h` (`tN2kDD…` data dictionary types) | `Sources/NMEA2000/Types/` | done |
 | `N2kMessagesEnumToStr.h` | `CustomStringConvertible` on every type | by design: the port's descriptions cover every value, where upstream's tables have gaps and errors (see `docs/types.md`) |
 | `N2kGroupFunction.h`, `N2kGroupFunctionDefaultHandlers.h` | `GroupFunction` (codes, `ReceivedFunction` parsers, `Acknowledgement`, `Reply`), `NodeEngine+GroupFunctions.swift` (default handlers) | done; by design for `MatchRequestField`: compare values directly |
 | `N2kDeviceList.h` | `DeviceList` | done |
 | `N2kMaretron.h`, `N2kCZone.h` | `Sources/NMEA2000/Proprietary/` | done |
 | `N2kTimer.h`: `tN2kScheduler`, `tN2kSyncScheduler`, `N2kIsTimeBefore`, `N2kHasElapsed` | | by design: Swift's `Clock` and `Task.sleep` schedule work; the node keeps upstream's timing internally |
 | `N2kStream.h` | | by design: Swift has its own text and byte output; the gateway codecs return bytes |
-| `NMEA2000_CAN.h`, `NMEA2000_CompilerDefns.h`, `N2kDef.h`, `NMEA2000StdTypes.h`, `RingBuffer.h` | `CANTransport`, Swift collections | by design: compile-time driver selection and fixed buffers aren't needed |
+| `NMEA2000_CAN.h`, `NMEA2000_CompilerDefns.h`, `N2kDef.h`, `RingBuffer.h` | `CANTransport`, Swift collections | by design: compile-time driver selection and fixed buffers aren't needed |
