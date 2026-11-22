@@ -7,7 +7,7 @@ A pure-Swift port of **[Timo Lappalainen's NMEA2000 library](https://github.com/
 
 All of the protocol knowledge here comes from Timo Lappalainen's original C++ library: PGN definitions, field layouts, and address-claim and fast-packet behaviour. This project re-expresses that work as an idiomatic Swift package, written for Swift 6 with strict concurrency, value types and Swift Testing. Messages stay byte-for-byte compatible with the original on the NMEA 2000 bus.
 
-> **Status: in development.** The port covers upstream's library ([coverage](docs/coverage.md)), and every part of it is tested against upstream's own code. The API is not stable yet, and there are no tagged releases.
+> **Status: in development.** The port covers upstream's library ([coverage](docs/coverage.md)), and every part of it is tested against upstream's own code. Releases are tagged, but the API is not stable yet: see [API stability](#api-stability).
 
 ## What's included
 
@@ -31,7 +31,7 @@ Add the package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/NathanDigital/swift-nmea2000.git", branch: "main"),
+    .package(url: "https://github.com/NathanDigital/swift-nmea2000.git", exact: "0.1.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -44,7 +44,18 @@ targets: [
 import NMEA2000
 ```
 
-Tagged releases will follow once the API settles.
+The package has no dependencies of its own.
+
+### API stability
+
+Releases follow [Semantic Versioning](https://semver.org). Until 1.0, the API is still settling:
+
+- A **minor** release (0.1 to 0.2) may change or remove public API. The release notes list what changed.
+- A **patch** release (0.1.0 to 0.1.1) only fixes bugs and adds to the API, and doesn't break source that compiled against the same minor version.
+
+So pin with `exact:` as above, or with `.upToNextMinor(from: "0.1.0")` to pick up patch releases, and expect to make changes when you move to the next minor version. A plain `from: "0.1.0"` would accept 0.2.0, which may not compile against your code.
+
+The bytes sent on the bus are not part of this: they match upstream's library in every release, apart from the deliberate divergences listed in [`docs`](docs/README.md).
 
 ## Usage
 

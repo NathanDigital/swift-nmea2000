@@ -23,6 +23,14 @@ image="nmea2000-swift-linux"
 tty_flags=()
 [[ -t 0 && -t 1 ]] && tty_flags=(-it)
 
+# Package.swift only depends on the DocC plugin when NMEA2000_ENABLE_DOCC is
+# set, so set it for documentation commands (generate-documentation,
+# preview-documentation).
+env_flags=()
+for arg in "$@"; do
+  [[ "$arg" == *-documentation ]] && env_flags=(--env NMEA2000_ENABLE_DOCC=1)
+done
+
 case "${1:-}" in
   --start-session)
     docker build --quiet --tag "$image" "$repo/docker" >/dev/null
@@ -38,12 +46,12 @@ case "${1:-}" in
 esac
 
 if [[ -n "${LINUX_SWIFT_SESSION:-}" ]]; then
-  exec docker exec "${tty_flags[@]}" "$LINUX_SWIFT_SESSION" swift "$@"
+  exec docker exec "${tty_flags[@]}" "${env_flags[@]}" "$LINUX_SWIFT_SESSION" swift "$@"
 fi
 
 docker build --quiet --tag "$image" "$repo/docker" >/dev/null
 
-exec docker run --rm --init "${tty_flags[@]}" \
+exec docker run --rm --init "${tty_flags[@]}" "${env_flags[@]}" \
   --volume "$repo:/src" \
   --volume "$image-build:/src/.build" \
   --workdir /src \

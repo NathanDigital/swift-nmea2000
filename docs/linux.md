@@ -14,6 +14,8 @@ scripts/linux-swift package generate-documentation --target NMEA2000 --warnings-
 
 The script builds the image from `docker/` (cached after the first run), mounts the repo at `/src`, and runs `swift <args>`. Linux build products go in the Docker volume `nmea2000-swift-linux-build`, not in the host's `.build`, so nothing on the host affects a build. To start clean, run `docker volume rm nmea2000-swift-linux-build`.
 
+`Package.swift` depends on [swift-docc-plugin](https://github.com/swiftlang/swift-docc-plugin) only when the environment variable `NMEA2000_ENABLE_DOCC` is set, so that packages using this one don't fetch a plugin they never run. The script sets the variable for any command that ends in `-documentation`, so the documentation command above needs nothing extra. The Swift Package Index adds the plugin itself when it builds the hosted documentation (`.spi.yml`).
+
 ## What is pinned
 
 | Input | Pinned to | Where |
